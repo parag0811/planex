@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "ts-node-dev --respawn src/server.ts",
+    "dev": "nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js"
   },
@@ -25,8 +25,9 @@
     "@types/node": "^25.4.0",
     "@types/pg": "^8.18.0",
     "dotenv": "^17.3.1",
+    "nodemon": "^3.1.14",
     "prisma": "^7.4.2",
-    "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }
