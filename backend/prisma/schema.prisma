@@ -13,10 +13,52 @@ datasource db {
   provider = "postgresql"
 }
 
+enum PROVIDER {
+  GOOGLE
+  GITHUB
+}
+
 model User {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   name       String?
-  email      String   @unique
+  email      String    @unique
   password   String?
-  created_at DateTime @default(now())
+  provider   PROVIDER?
+  providerId Int?
+  created_at DateTime  @default(now())
+}
+
+model Project {
+  id        Int      @id @default(autoincrement())
+  name      String
+  ownerId   Int
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model ProjectMember {
+  id        Int  @id @default(autoincrement())
+  projectId Int
+  userId    Int
+  role      Role 
+}
+
+enum TYPES {
+  IDEA
+  API
+  DATABASE
+  FOLDER
+}
+
+model ProjectSection {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  type      TYPES
+  content   String
+  updatedAt DateTime @default(now())
 }
