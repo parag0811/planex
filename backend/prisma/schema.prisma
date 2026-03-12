@@ -23,6 +23,7 @@ model User {
   name       String?
   email      String    @unique
   password   String?
+  avatarUrl  String?
   provider   PROVIDER?
   providerId Int?
   created_at DateTime  @default(now())

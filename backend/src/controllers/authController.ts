@@ -3,6 +3,7 @@ import prisma from "../db/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../generated/prisma/client";
+import supabase from "../utils/supabase";
 
 interface AppError extends Error {
   status?: number;
@@ -129,10 +130,10 @@ export const getUser = async (
       throw error;
     }
 
-    const { id } = req.user;
+    const userId = req.user.id;
     const user = await prisma.user.findFirst({
       where: {
-        id: Number(id),
+        id: Number(userId),
       },
       select: {
         name: true,
@@ -148,6 +149,60 @@ export const getUser = async (
     }
 
     return res.json({ status: 200, user, message: "User fetched" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+interface UpdateUserRequest {
+  name?: string;
+}
+
+export const updateUser = async (
+  req: Request<{}, {}, UpdateUserRequest>,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user) {
+      const error = new Error("User is not authenticated.") as AppError;
+      error.status = 401;
+      throw error;
+    }
+
+    const userId = req.user.id;
+    const { name } = req.body;
+    const file = req.file;
+
+    const data: { name?: string; avatarUrl?: string } = {};
+    if (name !== undefined) data.name = name;
+
+    if (file) {
+      const ext = file.originalname.split(".").pop() || "png";
+      const filePath = `${userId}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatar")
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        const error = new Error("Supabase Storage Error.") as AppError;
+        error.status = 500;
+        throw error;
+      }
+
+      data.avatarUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/avatar/${filePath}`;
+    }
+
+    await prisma.user.update({
+      where: { id: Number(userId) },
+      data,
+    });
+
+    return res.json({ message: "Updated User details.", status: 200 });
   } catch (error) {
     next(error);
   }

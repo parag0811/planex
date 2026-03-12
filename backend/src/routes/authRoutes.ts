@@ -4,9 +4,11 @@ import {
   loginUser,
   registerUser,
   getUser,
+  updateUser,
 } from "../controllers/authController";
 import isAuth from "../middleware/authMiddleware";
 import { handleValidationErrors } from "../utils/validationErrors";
+import { uploadAvatar } from "../middleware/upload";
 
 const router = Router();
 
@@ -50,5 +52,7 @@ router.post(
 router.post("/login", loginValidation, handleValidationErrors, loginUser);
 
 router.get("/me", isAuth, getUser);
+
+router.put("/me", isAuth, uploadAvatar, updateUser);
 
 export default router;
