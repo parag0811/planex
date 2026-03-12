@@ -7,9 +7,8 @@ interface DecodedToken extends JwtPayload {
   userId: string;
 }
 
-interface ApiResponse {
+interface AppError extends Error {
   status: number;
-  message: string;
 }
 
 declare global {
@@ -22,23 +21,24 @@ declare global {
   }
 }
 
-const isAuth = (
-  req: Request,
-  res: Response<ApiResponse>,
-  next: NextFunction,
-) => {
+interface AppError extends Error {
+  status: number;
+}
+
+const isAuth = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    // const error = new Error("User is not authenticated.")
-    // error.statusCode = 401
-    // return next(error)
-    return res.json({ status: 401, message: "User is not authenticated." });
+    const error = new Error("User is not authenticated.") as AppError;
+    error.status = 401;
+    return next(error);
   }
 
   const token = authHeader.split(" ")[1];
   if (token == undefined) {
-    return res.json({ status: 401, message: "Token is not valid." });
+    const error = new Error("Token is not valid.") as AppError;
+    error.status = 401;
+    return next(error);
   }
 
   try {
@@ -48,8 +48,10 @@ const isAuth = (
     ) as DecodedToken;
     req.user = { id: decodedToken.userId };
     next();
-  } catch (error) {
-    return res.json({ status: 401, message: "Invalid token" });
+  } catch (err) {
+    const error = err as AppError;
+    error.status = 401;
+    next(error);
   }
 };
 

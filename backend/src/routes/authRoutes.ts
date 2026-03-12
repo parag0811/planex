@@ -1,16 +1,53 @@
 import { Router } from "express";
+import { body } from "express-validator";
 import {
   loginUser,
   registerUser,
   getUser,
 } from "../controllers/authController";
 import isAuth from "../middleware/authMiddleware";
+import { handleValidationErrors } from "../utils/validationErrors";
 
 const router = Router();
 
-router.post("/register", registerUser);
+const registerValidation = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required.")
+    .bail()
+    .isEmail()
+    .withMessage("Enter a valid email.")
+    .normalizeEmail(),
+  body("password")
+    .trim()
+    .notEmpty()
+    .withMessage("Password is required.")
+    .bail()
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters."),
+];
 
-router.post("/login", loginUser);
+const loginValidation = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required.")
+    .bail()
+    .isEmail()
+    .withMessage("Enter a valid email.")
+    .normalizeEmail(),
+  body("password").trim().notEmpty().withMessage("Password is required."),
+];
+
+router.post(
+  "/register",
+  registerValidation,
+  handleValidationErrors,
+  registerUser,
+);
+
+router.post("/login", loginValidation, handleValidationErrors, loginUser);
 
 router.get("/me", isAuth, getUser);
 
