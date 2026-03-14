@@ -27,12 +27,14 @@ model User {
   provider   PROVIDER?
   providerId Int?
   created_at DateTime  @default(now())
+  projects   Project[]
 }
 
 model Project {
   id        Int      @id @default(autoincrement())
   name      String
-  ownerId   Int
+  owner     User     @relation(fields: [owner_id], references: [id]) // relation
+  owner_id  Int // foreign key
   createdAt DateTime @default(now())
 }
 
@@ -43,10 +45,10 @@ enum Role {
 }
 
 model ProjectMember {
-  id        Int  @id @default(autoincrement())
-  projectId Int
-  userId    Int
-  role      Role 
+  id         Int  @id @default(autoincrement())
+  project_id Int
+  user_id    Int
+  role       Role
 }
 
 enum TYPES {
@@ -57,9 +59,9 @@ enum TYPES {
 }
 
 model ProjectSection {
-  id        Int      @id @default(autoincrement())
-  projectId Int
-  type      TYPES
-  content   String
-  updatedAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  project_id Int
+  type       TYPES
+  content    String
+  updatedAt  DateTime @default(now())
 }
