@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import passport from "./auth/passport"
+import passport from "./passport-auth/passport"
 import userRoutes from "./routes/userRoutes";
 import authRoutes from "./routes/authRoutes";
 import errorHandler from "./middleware/errorMiddleware";

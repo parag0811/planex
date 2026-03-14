@@ -237,3 +237,31 @@ export const githubAuthController = (
     next(error);
   }
 };
+
+export const googleAuthController = (
+  req: Request,
+  res: Response<UserResponse>,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user) {
+      const error = new Error("User is not authenticated.") as AppError;
+      error.status = 401;
+      throw error;
+    }
+
+    const userId = req.user.id;
+
+    const token = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
+      expiresIn: "1d",
+    });
+
+    return res.json({
+      token,
+      message: "Google login successfull.",
+      status: 200,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -17,7 +17,6 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
       callbackURL: "/auth/github/callback",
-      scope: ["user:email"],
     },
     async (
       _accessToken: string,
@@ -52,7 +51,7 @@ passport.use(
 
         return done(null, user);
       } catch (error) {
-        return done(error as Error);
+        return done(error instanceof Error ? error : new Error(String(error)));
       }
     },
   ),
