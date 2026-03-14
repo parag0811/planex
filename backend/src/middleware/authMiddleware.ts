@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 interface DecodedToken extends JwtPayload {
-  userId: string;
+  userId: number;
 }
 
 interface AppError extends Error {
@@ -13,16 +13,10 @@ interface AppError extends Error {
 
 declare global {
   namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-      };
+    interface User {
+      id: number;
     }
   }
-}
-
-interface AppError extends Error {
-  status: number;
 }
 
 const isAuth = (req: Request, res: Response, next: NextFunction) => {

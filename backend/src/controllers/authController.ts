@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { User } from "../generated/prisma/client";
+import { User as PrismaUser } from "../generated/prisma/client";
 import supabase from "../utils/supabase";
 
 interface AppError extends Error {
@@ -120,7 +120,9 @@ export const loginUser = async (
 
 export const getUser = async (
   req: Request<{}, {}, {}>,
-  res: Response<UserResponse<Pick<User, "name" | "email" | "created_at">>>,
+  res: Response<
+    UserResponse<Pick<PrismaUser, "name" | "email" | "created_at">>
+  >,
   next: NextFunction,
 ) => {
   try {
@@ -203,6 +205,34 @@ export const updateUser = async (
     });
 
     return res.json({ message: "Updated User details.", status: 200 });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const githubAuthController = (
+  req: Request,
+  res: Response<UserResponse>,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user) {
+      const error = new Error("User is not authenticated.") as AppError;
+      error.status = 401;
+      throw error;
+    }
+
+    const userId = req.user.id;
+
+    const token = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
+      expiresIn: "1d",
+    });
+
+    return res.json({
+      token,
+      message: "Github login successfull.",
+      status: 200,
+    });
   } catch (error) {
     next(error);
   }

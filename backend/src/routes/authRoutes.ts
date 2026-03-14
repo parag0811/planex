@@ -5,10 +5,12 @@ import {
   registerUser,
   getUser,
   updateUser,
+  githubAuthController,
 } from "../controllers/authController";
 import isAuth from "../middleware/authMiddleware";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { uploadAvatar } from "../middleware/upload";
+import passport from "passport";
 
 const router = Router();
 
@@ -54,5 +56,9 @@ router.post("/login", loginValidation, handleValidationErrors, loginUser);
 router.get("/me", isAuth, getUser);
 
 router.put("/me", isAuth, uploadAvatar, updateUser);
+
+router.get("/github", passport.authenticate("github", {session: false}))
+
+router.get("/github/callback", passport.authenticate("github", {session : false}), githubAuthController)
 
 export default router;
