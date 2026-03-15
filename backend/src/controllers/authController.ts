@@ -132,10 +132,10 @@ export const getUser = async (
       throw error;
     }
 
-    const userId = req.user.id;
+    const userId = String(req.user.id);
     const user = await prisma.user.findFirst({
       where: {
-        id: Number(userId),
+        id: userId,
       },
       select: {
         name: true,
@@ -172,7 +172,7 @@ export const updateUser = async (
       throw error;
     }
 
-    const userId = req.user.id;
+    const userId = String(req.user.id);
     const { name } = req.body;
     const file = req.file;
 
@@ -200,7 +200,7 @@ export const updateUser = async (
     }
 
     await prisma.user.update({
-      where: { id: Number(userId) },
+      where: { id: userId},
       data,
     });
 

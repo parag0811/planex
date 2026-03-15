@@ -4,7 +4,7 @@ interface ApiError extends Error {
   status?: number;
 }
 
-export const requireEditor = (
+export const editorAccess = (
   req: Request,
   res: Response,
   next: NextFunction,

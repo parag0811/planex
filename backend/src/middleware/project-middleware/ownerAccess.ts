@@ -4,7 +4,7 @@ interface ApiError extends Error {
   status?: number;
 }
 
-export const requireOwner = (
+export const ownerAccess = (
   req: Request,
   res: Response,
   next: NextFunction,

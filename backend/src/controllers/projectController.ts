@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
-import {  Project } from "../generated/prisma/client";
+import { Project } from "../generated/prisma/client";
 
 interface CreateProjectRequest {
   name: string;
 }
 
-interface CreateProjectResponse {
+interface ApiResponse<T = any> {
   message: string;
-  status: number;
+  data?: T;
 }
 
 interface ApiError extends Error {
@@ -17,20 +17,12 @@ interface ApiError extends Error {
 
 export const createProject = async (
   req: Request<{}, {}, CreateProjectRequest>,
-  res: Response<CreateProjectResponse>,
+  res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
     const { name } = req.body;
-    const userId = req.user?.id;
-
-    if (userId === undefined) {
-      const error = new Error(
-        "User id is not valid or user does not exist.",
-      ) as ApiError;
-      error.status = 404;
-      throw error;
-    }
+    const userId = String(req.user!.id);
 
     await prisma.project.create({
       data: {
@@ -41,43 +33,32 @@ export const createProject = async (
       },
     });
 
-    return res.json({ message: "Project created successfully.", status: 201 });
+    return res.status(201).json({ message: "Project created successfully." });
   } catch (error) {
     next(error);
   }
 };
 
-interface GetProjectsResponse {
-  message: string;
-  status: number;
-  projects: Project[];
-}
-
-export const fetchProjects = async (
+export const getProjects = async (
   req: Request,
-  res: Response<GetProjectsResponse>,
+  res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = String(req.user!.id);
 
-    if (userId === undefined) {
-      const error = new Error(
-        "User id is not valid or user does not exist.",
-      ) as ApiError;
-      error.status = 404;
-      throw error;
-    }
-    const allOwnedProjects = await prisma.project.findMany({
+    const projects = await prisma.project.findMany({
       where: {
-        owner_id: userId,
+        OR: [{ owner_id: userId }, { members: { some: { user_id: userId } } }],
+      },
+      include: {
+        owner: true,
       },
     });
 
-    return res.json({
+    return res.status(200).json({
       message: "Project fetched successfully.",
-      status: 200,
-      projects: allOwnedProjects,
+      data: projects,
     });
   } catch (error) {
     next(error);
@@ -86,35 +67,25 @@ export const fetchProjects = async (
 
 export const updateProject = async (
   req: Request<{ projectId: string }, {}, CreateProjectRequest>,
-  res: Response,
+  res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
-    const userId = req.user?.id;
     const { name } = req.body;
     const { projectId } = req.params;
-
-    if (userId === undefined) {
-      const error = new Error(
-        "User id is not valid or user does not exist.",
-      ) as ApiError;
-      error.status = 404;
-      throw error;
-    }
 
     const data: Record<string, string> = {};
     if (name !== undefined) data.name = name;
 
     await prisma.project.update({
       where: {
-        id: Number(projectId),
+        id: projectId,
       },
       data: data,
     });
 
-    return res.json({
+    return res.status(200).json({
       message: "Project updated successfully.",
-      status: 200,
     });
   } catch (error) {
     next(error);
@@ -123,41 +94,30 @@ export const updateProject = async (
 
 export const deleteProject = async (
   req: Request<{ projectId: string }, {}, {}>,
-  res: Response,
+  res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
-    const userId = req.user?.id;
     const { projectId } = req.params;
 
-    if (userId === undefined) {
-      const error = new Error(
-        "User id is not valid or user does not exist.",
-      ) as ApiError;
-      error.status = 404;
-      throw error;
-    }
-
-    const project = await prisma.project.findUnique({
-      where: { id: Number(projectId) },
-    });
-
-    if (!project || project.owner_id !== userId) {
-      const error = new Error(
-        "Only project owner can delete this project.",
-      ) as ApiError;
-      error.status = 403;
-      throw error;
-    }
-
     await prisma.project.delete({
-      where: {
-        id: Number(projectId),
-      },
+      where: { id: projectId },
     });
 
-    return res.json({ message: "Project deleted successfully.", status: 200 });
+    return res.status(200).json({ message: "Project deleted successfully." });
   } catch (error) {
     next(error);
   }
 };
+
+export const createProjectInviteLink = async (
+  req: Request<{ projectId: string }, {}, {}>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {};
+
+export const joinProjectByInvite = async (
+  req: Request<{ projectId: string }, {}, {}>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {};

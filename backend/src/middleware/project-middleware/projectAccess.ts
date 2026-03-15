@@ -5,23 +5,17 @@ interface ApiError extends Error {
   status?: number;
 }
 
-export const loadProject = async (
+export const projectAccess = async (
   req: Request<{ projectId: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const userId = req.user?.id;
-    const projectId = req.params;
-
-    if (!userId) {
-      const error = new Error("Unauthorized") as ApiError;
-      error.status = 401;
-      throw error;
-    }
+    const userId = String(req.user!.id);
+    const { projectId } = req.params;
 
     const project = await prisma.project.findUnique({
-      where: { id: Number(projectId) },
+      where: { id: projectId },
       include: {
         members: true,
       },

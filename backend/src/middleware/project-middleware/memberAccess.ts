@@ -4,7 +4,7 @@ interface ApiError extends Error {
   status?: number;
 }
 
-export const requireMember = (
+export const memberAccess = (
   req: Request,
   res: Response,
   next: NextFunction,

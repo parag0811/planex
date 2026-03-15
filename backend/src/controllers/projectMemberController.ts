@@ -7,7 +7,6 @@ interface ApiError extends Error {
 }
 
 interface ApiResponse<T = any> {
-  status: number;
   message?: string;
   data?: T;
 }
@@ -16,41 +15,6 @@ interface MemberRequest {
   email: string;
   role: Role;
 }
-
-export const inviteMember = async (
-  req: Request<{ projectId: string }, {}, MemberRequest>,
-  res: Response<ApiResponse>,
-  next: NextFunction,
-) => {
-  try {
-    const { projectId } = req.params;
-    const { email, role } = req.body;
-
-    const user = await prisma.user.findUnique({
-      where: {
-        email: email,
-      },
-    });
-
-    if (!user) {
-      const error = new Error("User doesnot exist.") as ApiError;
-      error.status = 404;
-      throw error;
-    }
-
-    await prisma.projectMember.create({
-      data: {
-        user_id: user?.id,
-        role,
-        project_id: Number(projectId),
-      },
-    });
-
-    return res.json({ status: 200, message: "Invited User successfully." });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const projectMembers = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -62,14 +26,14 @@ export const projectMembers = async (
 
     const projectMembers = await prisma.projectMember.findMany({
       where: {
-        project_id: Number(projectId),
+        project_id: projectId,
       },
       include: {
         user: true,
       },
     });
 
-    return res.json({ status: 200, data: projectMembers });
+    return res.status(200).json({ data: projectMembers });
   } catch (error) {
     next(error);
   }
@@ -85,11 +49,11 @@ export const removeMember = async (
   await prisma.projectMember.delete({
     where: {
       user_id_project_id: {
-        user_id: Number(memberId),
-        project_id: Number(projectId),
+        user_id: memberId,
+        project_id: projectId,
       },
     },
   });
 
-  return res.json({ status: 200, message: "User removed successfully." });
+  return res.status(200).json({ message: "User removed successfully." });
 };
