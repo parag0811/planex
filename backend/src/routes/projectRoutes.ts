@@ -40,3 +40,5 @@ router.put(
 );
 
 router.delete("/:projectId/delete-project", isAuth, deleteProject);
+
+export default router

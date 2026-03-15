@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
-import { User as PrismaUser, Project } from "../generated/prisma/client";
-import supabase from "../utils/supabase";
+import {  Project } from "../generated/prisma/client";
 
 interface CreateProjectRequest {
   name: string;

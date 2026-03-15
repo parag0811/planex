@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import passport from "./passport-auth/passport"
-import userRoutes from "./routes/userRoutes";
 import authRoutes from "./routes/authRoutes";
 import errorHandler from "./middleware/errorMiddleware";
 
@@ -13,7 +12,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 app.use(passport.initialize())
-app.use("/api/users", userRoutes);
 app.use("/auth", authRoutes);
 
 app.use(errorHandler);

@@ -19,36 +19,41 @@ enum PROVIDER {
 }
 
 model User {
-  id         Int       @id @default(autoincrement())
-  name       String?
-  email      String    @unique
-  password   String?
-  avatarUrl  String?
-  provider   PROVIDER?
-  providerId Int?
-  created_at DateTime  @default(now())
-  projects   Project[]
+  id             Int             @id @default(autoincrement())
+  name           String?
+  email          String          @unique
+  password       String?
+  avatarUrl      String?
+  provider       PROVIDER?
+  providerId     Int?
+  created_at     DateTime        @default(now())
+  projects_owned Project[]
+  memberships    ProjectMember[]
 }
 
 model Project {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   name      String
-  owner     User     @relation(fields: [owner_id], references: [id]) // relation
+  owner     User            @relation(fields: [owner_id], references: [id]) // relation
   owner_id  Int // foreign key
-  createdAt DateTime @default(now())
+  members   ProjectMember[]
+  createdAt DateTime        @default(now())
 }
 
 enum Role {
-  OWNER
   EDITOR
   VIEWER
 }
 
 model ProjectMember {
-  id         Int  @id @default(autoincrement())
-  project_id Int
+  id         Int     @id @default(autoincrement())
+  user       User    @relation(fields: [user_id], references: [id])
   user_id    Int
+  project    Project @relation(fields: [project_id], references: [id])
+  project_id Int
   role       Role
+  
+  @@unique([user_id, project_id])
 }
 
 enum TYPES {
