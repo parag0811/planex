@@ -108,7 +108,6 @@ export const updateProject = async (
     await prisma.project.update({
       where: {
         id: Number(projectId),
-        owner_id: userId,
       },
       data: data,
     });

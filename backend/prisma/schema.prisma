@@ -19,25 +19,32 @@ enum PROVIDER {
 }
 
 model User {
-  id             Int             @id @default(autoincrement())
-  name           String?
-  email          String          @unique
-  password       String?
-  avatarUrl      String?
-  provider       PROVIDER?
-  providerId     Int?
-  created_at     DateTime        @default(now())
+  id         Int       @id @default(autoincrement())
+  name       String?
+  email      String    @unique
+  password   String?
+  avatarUrl  String?
+  provider   PROVIDER?
+  providerId Int?
+  created_at DateTime  @default(now())
+
   projects_owned Project[]
   memberships    ProjectMember[]
 }
 
 model Project {
-  id        Int             @id @default(autoincrement())
-  name      String
-  owner     User            @relation(fields: [owner_id], references: [id]) // relation
-  owner_id  Int // foreign key
-  members   ProjectMember[]
-  createdAt DateTime        @default(now())
+  id   Int    @id @default(autoincrement())
+  name String
+
+  owner    User @relation(fields: [owner_id], references: [id]) // relation
+  owner_id Int // foreign key
+
+  members ProjectMember[]
+
+  inviteToken       String?   @unique
+  inviteTokenExpiry DateTime?
+
+  createdAt DateTime @default(now())
 }
 
 enum Role {
@@ -46,14 +53,20 @@ enum Role {
 }
 
 model ProjectMember {
-  id         Int     @id @default(autoincrement())
-  user       User    @relation(fields: [user_id], references: [id])
-  user_id    Int
+  id Int @id @default(autoincrement())
+
+  user    User? @relation(fields: [user_id], references: [id])
+  user_id Int?
+
   project    Project @relation(fields: [project_id], references: [id])
   project_id Int
-  role       Role
-  
+
+  role Role @default(VIEWER)
+
+  joinedAt DateTime @default(now())
+
   @@unique([user_id, project_id])
+  @@index([project_id])
 }
 
 enum TYPES {

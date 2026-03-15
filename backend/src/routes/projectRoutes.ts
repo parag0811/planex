@@ -8,6 +8,9 @@ import {
   updateProject,
 } from "../controllers/projectController";
 import { handleValidationErrors } from "../utils/validationErrors";
+import { loadProject } from "../middleware/project-middleware/projectAccess";
+import { requireEditor } from "../middleware/project-middleware/editorAccess";
+import { requireOwner } from "../middleware/project-middleware/ownerCheck";
 
 const projectValidation = [
   body("name")
@@ -34,11 +37,19 @@ router.get("/:projectId", isAuth, fetchProjects);
 router.put(
   "/:projectId/update-project",
   isAuth,
+  loadProject,
+  requireEditor,
   projectValidation,
   handleValidationErrors,
   updateProject,
 );
 
-router.delete("/:projectId/delete-project", isAuth, deleteProject);
+router.delete(
+  "/:projectId/delete-project",
+  isAuth,
+  loadProject,
+  requireOwner,
+  deleteProject,
+);
 
-export default router
+export default router;
