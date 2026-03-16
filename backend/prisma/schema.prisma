@@ -44,7 +44,8 @@ model Project {
   inviteToken       String?   @unique
   inviteTokenExpiry DateTime?
 
-  createdAt DateTime @default(now())
+  createdAt       DateTime         @default(now())
+  projectSections ProjectSection[]
 }
 
 enum Role {
@@ -74,12 +75,20 @@ enum TYPES {
   API
   DATABASE
   FOLDER
-}
+} 
 
 model ProjectSection {
-  id         String   @id @default(uuid())
-  project_id Int
-  type       TYPES
-  content    String
-  updatedAt  DateTime @default(now())
+  id String @id @default(uuid())
+
+  project    Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project_id String
+
+  type      TYPES
+  content   Json
+
+  version Int @default(1)
+  
+  updatedAt DateTime @updatedAt
+  
+  @@unique([project_id, type])
 }
