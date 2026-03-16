@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
-import { Role } from "../generated/prisma/client";
 
 interface ApiError extends Error {
   status: number;
@@ -11,49 +10,56 @@ interface ApiResponse<T = any> {
   data?: T;
 }
 
-interface MemberRequest {
-  email: string;
-  role: Role;
-}
-
-export const projectMembers = async (
-  req: Request<{ projectId: string }, {}, {}>,
+export const removProjectMember = async (
+  req: Request<{ projectId: string; memberId: string }, {}, {}>,
   res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
-    const { projectId } = req.params;
+    const { projectId, memberId } = req.params;
 
-    const projectMembers = await prisma.projectMember.findMany({
+    await prisma.projectMember.delete({
       where: {
-        project_id: projectId,
-      },
-      include: {
-        user: true,
+        user_id_project_id: {
+          user_id: memberId,
+          project_id: projectId,
+        },
       },
     });
 
-    return res.status(200).json({ data: projectMembers });
+    return res.status(200).json({ message: "User removed successfully." });
   } catch (error) {
     next(error);
   }
 };
 
-export const removeMember = async (
-  req: Request<{ projectId: string; memberId: string }, {}, {}>,
-  res: Response<ApiResponse>,
+export const updateProjectMemberRole = async (
+  req: Request<
+    { projectId: string; memberId: string },
+    {},
+    { role: "EDITOR" | "VIEWER" }
+  >,
+  res: Response,
   next: NextFunction,
 ) => {
-  const { projectId, memberId } = req.params;
+  try {
+    const { memberId } = req.params;
+    const { role } = req.body;
 
-  await prisma.projectMember.delete({
-    where: {
-      user_id_project_id: {
-        user_id: memberId,
-        project_id: projectId,
+    const updatedMember = await prisma.projectMember.update({
+      where: {
+        id: memberId,
       },
-    },
-  });
+      data: {
+        role,
+      },
+    });
 
-  return res.status(200).json({ message: "User removed successfully." });
+    return res.status(200).json({
+      message: "Member role updated successfully.",
+      data: updatedMember,
+    });
+  } catch (error) {
+    next(error);
+  }
 };

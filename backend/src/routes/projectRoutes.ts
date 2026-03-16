@@ -8,6 +8,8 @@ import {
   getProjects,
   joinProjectByInvite,
   updateProject,
+  getProjectById,
+  regenerateInviteLink,
 } from "../controllers/projectController";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { projectAccess } from "../middleware/project-middleware/projectAccess";
@@ -26,6 +28,10 @@ const projectValidation = [
 
 const router = Router();
 
+router.get("/", isAuth, getProjects);
+
+router.get("/:projectId", isAuth, projectAccess, getProjectById);
+
 router.post(
   "/create-project",
   isAuth,
@@ -34,15 +40,13 @@ router.post(
   createProject,
 );
 
-router.get("/:projectId", isAuth, getProjects);
-
 router.put(
   "/:projectId/update-project",
   isAuth,
-  projectAccess,
-  ownerAccess,
   projectValidation,
   handleValidationErrors,
+  projectAccess,
+  editorAccess,
   updateProject,
 );
 
@@ -56,11 +60,20 @@ router.delete(
 
 router.post(
   "/:projectId/invite-link",
+  isAuth,
   projectAccess,
   ownerAccess,
-  createProjectInviteLink
+  createProjectInviteLink,
 );
 
-router.post("/join/:token", joinProjectByInvite);
+router.post(
+  "/:projectId/regenerate-invite-link",
+  isAuth,
+  projectAccess,
+  ownerAccess,
+  regenerateInviteLink,
+);
+
+router.post("/join/:token", isAuth, joinProjectByInvite);
 
 export default router;

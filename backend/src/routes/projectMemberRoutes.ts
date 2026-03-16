@@ -3,19 +3,13 @@ import { body } from "express-validator";
 import isAuth from "../middleware/authMiddleware";
 import { handleValidationErrors } from "../utils/validationErrors";
 import {
-  inviteMember,
-  projectMembers,
-  removeMember,
+  updateProjectMemberRole,
+  removProjectMember,
 } from "../controllers/projectMemberController";
+import { projectAccess } from "../middleware/project-middleware/projectAccess";
+import { ownerAccess } from "../middleware/project-middleware/ownerAccess";
 
-const memberValidation = [
-  body("email")
-    .notEmpty()
-    .withMessage("Email address is required")
-    .isEmail()
-    .withMessage("Please enter a valid email address")
-    .normalizeEmail(),
-
+const memberRoleValidation = [
   body("role")
     .trim()
     .isIn(["EDITOR", "VIEWER"])
@@ -24,19 +18,24 @@ const memberValidation = [
 
 const router = Router();
 
-// invite member
-router.post(
-  "/projects/:projectId/members",
+// remove member
+router.delete(
+  "/projects/:projectId/members/:memberId",
   isAuth,
-  memberValidation,
-  handleValidationErrors,
-  inviteMember,
+  projectAccess,
+  ownerAccess,
+  removProjectMember,
 );
 
-// fetch members list
-router.get("/projects/:projectId/members", isAuth, projectMembers);
-
-// remove member
-router.delete("/projects/:projectId/members/:memberId", isAuth, removeMember)
+// update role
+router.patch(
+  "/projects/:projectId/members/:memberId/role",
+  isAuth,
+  memberRoleValidation,
+  handleValidationErrors,
+  projectAccess,
+  ownerAccess,
+  updateProjectMemberRole,
+);
 
 export default router;
