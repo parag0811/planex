@@ -1,6 +1,7 @@
 import { Router } from "express";
 import isAuth from "../../middleware/authMiddleware";
 import {
+  generateDatabaseSuggestion,
   getProjectSections,
   getSectionByType,
   upsertSection,
@@ -55,6 +56,23 @@ router.post(
   editorAccess,
   ideaValidation,
   handleValidationErrors
+);
+
+router.post(
+  "/:projectId/ai/generate-database",
+  isAuth,
+  projectAccess,
+  editorAccess,
+  ideaValidation,
+  handleValidationErrors
+);
+
+router.post(
+  "/:projectId/ai/generate-database",
+  isAuth,
+  projectAccess,
+  editorAccess,
+  generateDatabaseSuggestion,
 );
 
 export default router;

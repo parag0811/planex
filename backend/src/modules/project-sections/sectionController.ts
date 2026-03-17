@@ -6,8 +6,10 @@ import {
   upsertSectionService,
 } from "./sectionService";
 import { TYPES } from "../../generated/prisma/enums";
-import { runPlannerPipeline } from "../../services/ai/plannerPipeline";
-import { ApiResponse } from "../../controllers/projectController";
+import { runPlannerPipeline } from "../../services/ai/idea-section/ideaPlannerPipeline";
+import { ApiError, ApiResponse } from "../../controllers/projectController";
+import { runDatabasePipeline } from "../../services/ai/db-section/dbPlannerPipeline";
+import { IdeaSectionContent } from "../../services/ai/idea-section/ideaPromptBuilder";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -67,12 +69,11 @@ export const upsertSection = async (
 };
 
 export const generateIdeaSection = async (
-  req: Request<{ projectId: string }, {}, { idea: string }>,
+  req: Request<{}, {}, { idea: string }>,
   res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {
-    const { projectId } = req.params;
     const { idea } = req.body;
 
     const result = await runPlannerPipeline(idea);
@@ -83,3 +84,31 @@ export const generateIdeaSection = async (
   }
 };
 
+export const generateDatabaseSuggestion = async (
+  req: Request<{ projectId: string }>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+
+    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+
+    if (!ideaSection) {
+      const error = new Error("Idea section must be created first") as ApiError;
+      error.status = 404;
+      throw error;
+    }
+
+    const databaseSuggestion = await runDatabasePipeline(
+      ideaSection.content as unknown as IdeaSectionContent,
+    );
+
+    return res.status(200).json({
+      data: databaseSuggestion,
+      message: "Here is your DB suggestion.",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
