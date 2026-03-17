@@ -1,17 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
-import { Project } from "../generated/prisma/client";
 
 interface CreateProjectRequest {
   name: string;
 }
 
-interface ApiResponse<T = any> {
+export interface ApiResponse<T = any> {
   message: string;
   data?: T;
 }
 
-interface ApiError extends Error {
+export interface ApiError extends Error {
   status: number;
 }
 
@@ -284,3 +283,4 @@ export const joinProjectByInvite = async (
     next(error);
   }
 };
+

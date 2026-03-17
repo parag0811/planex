@@ -6,6 +6,8 @@ import {
   upsertSectionService,
 } from "./sectionService";
 import { TYPES } from "../../generated/prisma/enums";
+import { runPlannerPipeline } from "../../services/ai/plannerPipeline";
+import { ApiResponse } from "../../controllers/projectController";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -63,3 +65,21 @@ export const upsertSection = async (
     next(err);
   }
 };
+
+export const generateIdeaSection = async (
+  req: Request<{ projectId: string }, {}, { idea: string }>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+    const { idea } = req.body;
+
+    const result = await runPlannerPipeline(idea);
+
+    return res.status(200).json({ message: "Loaded data", data: result });
+  } catch (error) {
+    next(error);
+  }
+};
+
