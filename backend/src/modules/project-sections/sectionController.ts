@@ -10,6 +10,8 @@ import { runPlannerPipeline } from "../../services/ai/idea-section/ideaPlannerPi
 import { ApiError, ApiResponse } from "../../controllers/projectController";
 import { runDatabasePipeline } from "../../services/ai/db-section/dbPlannerPipeline";
 import { IdeaSectionContent } from "../../services/ai/idea-section/ideaPromptBuilder";
+import { runApiPipeline } from "../../services/ai/api-section/apiPlannerPipeline";
+import { DatabaseSectionContent } from "../../services/ai/db-section/dbPromptBuilder";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -112,3 +114,34 @@ export const generateDatabaseSuggestion = async (
     next(err);
   }
 };
+
+export const generateApiSuggestion = async (
+  req: Request<{ projectId: string }>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+
+    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+    const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
+
+    if (!ideaSection || !dbSection) {
+      const error = new Error("Idea and Database must exist first") as ApiError;
+      error.status = 404;
+      throw error;
+    }
+
+    const apiSuggestion = await runApiPipeline(
+      ideaSection.content as unknown as IdeaSectionContent,
+      dbSection.content as unknown as DatabaseSectionContent,
+    );
+
+    return res
+      .status(200)
+      .json({ message: "API generated successfully", data: apiSuggestion });
+  } catch (error) {
+    next(error);
+  }
+};
+
