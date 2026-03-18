@@ -12,6 +12,8 @@ import { runDatabasePipeline } from "../../services/ai/db-section/dbPlannerPipel
 import { IdeaSectionContent } from "../../services/ai/idea-section/ideaPromptBuilder";
 import { runApiPipeline } from "../../services/ai/api-section/apiPlannerPipeline";
 import { DatabaseSectionContent } from "../../services/ai/db-section/dbPromptBuilder";
+import { runFolderPipeline } from "../../services/ai/folder-section/folderPlannerPipeline";
+import { ApiSectionContent } from "../../services/ai/api-section/apiPromptBuilder";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -145,3 +147,34 @@ export const generateApiSuggestion = async (
   }
 };
 
+export const generateFolderSuggestion = async (
+  req: Request<{ projectId: string }>,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+
+    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+    const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
+    const apiSection = await getSectionByTypeService(projectId, TYPES.API);
+
+    if (!ideaSection || !dbSection || !apiSection) {
+      const error = new Error(
+        "Idea, Database, and API must exist first",
+      ) as ApiError;
+      error.status = 404;
+      throw error;
+    }
+
+    const folderSuggestion = await runFolderPipeline(
+      ideaSection.content as unknown as IdeaSectionContent,
+      dbSection.content as unknown as DatabaseSectionContent,
+      apiSection.content as unknown as ApiSectionContent,
+    );
+
+    return res.status(200).json({message : "Generated folder structure", data: folderSuggestion})
+  } catch (error) {
+    next(error);
+  }
+};
