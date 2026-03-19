@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import prisma from "../../db/prisma";
 import {
   getProjectSectionsService,
   getSectionByTypeService,
