@@ -86,4 +86,12 @@ router.post(
   generateFolderSuggestion,
 );
 
+router.post(
+  " /:projectId/ai/regenerate/:section",
+  isAuth,
+  projectAccess,
+  editorAccess,
+  
+)
+
 export default router;

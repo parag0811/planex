@@ -13,6 +13,7 @@ import { runApiPipeline } from "../../services/ai/api-section/apiPlannerPipeline
 import { DatabaseSectionContent } from "../../services/ai/db-section/dbPromptBuilder";
 import { runFolderPipeline } from "../../services/ai/folder-section/folderPlannerPipeline";
 import { ApiSectionContent } from "../../services/ai/api-section/apiPromptBuilder";
+import { regenerateService } from "../../services/ai/regenerate-section/regenerateService";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -172,7 +173,63 @@ export const generateFolderSuggestion = async (
       apiSection.content as unknown as ApiSectionContent,
     );
 
-    return res.status(200).json({message : "Generated folder structure", data: folderSuggestion})
+    return res
+      .status(200)
+      .json({ message: "Generated folder structure", data: folderSuggestion });
+  } catch (error) {
+    next(error);
+  }
+};
+const sectionMap: Record<string, TYPES> = {
+  idea: TYPES.IDEA,
+  api: TYPES.API,
+  database: TYPES.DATABASE,
+  folder: TYPES.FOLDER,
+};
+
+export const regenerateSection = async (
+  req: Request<
+    { projectId: string },
+    {},
+    { instruction?: string; section: string }
+  >,
+  res: Response<ApiResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+    const { instruction, section } = req.body;
+
+    // Validate section
+    if (!section || !sectionMap[section.toLowerCase()]) {
+      const error = new Error("Invalid section") as ApiError;
+      error.status = 422;
+      throw error;
+    }
+
+    const mappedSection =
+      sectionMap[section.toLowerCase()];
+
+    if (!mappedSection) {
+      const error = new Error("Invalid section") as ApiError;
+      error.status = 422;
+      throw error;
+    }
+
+    const finalInstruction =
+      instruction?.trim() ||
+      "Improve quality, scalability, and production readiness";
+
+    const regenerateSuggestion = await regenerateService({
+      projectId,
+      section: mappedSection,
+      instruction: finalInstruction,
+    });
+
+    return res.status(200).json({
+      message: "Regenerated successfully",
+      data: regenerateSuggestion,
+    });
   } catch (error) {
     next(error);
   }

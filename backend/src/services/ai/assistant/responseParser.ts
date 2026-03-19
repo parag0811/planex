@@ -6,11 +6,11 @@ export const parseAiResponse = (raw: string) => {
   try {
     const json = JSON.parse(raw);
 
-    if (!json.type) {
-      const error = new Error("Invalid AI response.") as ApiError;
-      error.status = 422;
-      throw error;
-    }
+    // if (!json.type) {
+    //   const error = new Error("Invalid AI response.") as ApiError;
+    //   error.status = 422;
+    //   throw error;
+    // }
 
     if (json.type === "update") {
       if (!validSections.includes(json.section)) {
