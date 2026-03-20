@@ -3,9 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
 import {
-  Bell,
-  Settings,
-  Search,
   Users,
   Copy,
   RefreshCw,
@@ -14,14 +11,14 @@ import {
   Edit3,
   ArrowRight,
   Boxes,
-  Clock,
   Zap,
-  AlertCircle,
   PackageOpen,
   Lightbulb,
   Database,
   Code2,
   FolderTree,
+  AlertCircle,
+  Clock,
   LayoutDashboard,
 } from "lucide-react";
 
@@ -105,11 +102,10 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType }[] =
   ];
 
 // Animation helpers
-// ease cast to tuple so TS narrows it correctly
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 18 },
+  initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.45, delay, ease: EASE } as Transition,
 });
@@ -117,7 +113,7 @@ const fadeUp = (delay = 0) => ({
 const fadeIn = (delay = 0) => ({
   initial: { opacity: 0 },
   animate: { opacity: 1 },
-  transition: { duration: 0.35, delay } as Transition,
+  transition: { duration: 0.3, delay } as Transition,
 });
 
 // Stat Card
@@ -139,25 +135,38 @@ function StatCard({
   return (
     <motion.div
       {...fadeUp(delay)}
-      className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-5 flex flex-col gap-1.5 hover:border-white/[0.12] transition-colors duration-300"
+      className="relative bg-white/[0.03] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-2 group hover:border-white/[0.13] hover:bg-white/[0.045] transition-all duration-300 overflow-hidden"
     >
+      {/* Subtle glow on hover */}
       <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center mb-1 shrink-0"
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
         style={{
-          background: `${color}18`,
-          border: `1px solid ${color}28`,
+          background: `radial-gradient(ellipse at 0% 0%, ${color}08 0%, transparent 70%)`,
+        }}
+      />
+      <div
+        className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+        style={{
+          background: `${color}15`,
+          border: `1px solid ${color}25`,
           color,
         }}
       >
         <Icon size={15} />
       </div>
-      <p className="text-[9px] text-white/30 tracking-[0.14em] font-mono uppercase">
-        {label}
-      </p>
-      <p className="text-[28px] font-bold text-[#f0ebe3] leading-none">
-        {value}
-      </p>
-      {sub && <p className="text-[11px] text-white/28">{sub}</p>}
+      <div>
+        <p className="text-[9px] text-white/28 tracking-[0.16em] font-mono uppercase mb-1">
+          {label}
+        </p>
+        <p className="text-[30px] font-bold text-[#f0ebe3] leading-none tracking-tight">
+          {value}
+        </p>
+        {sub && (
+          <p className="text-[11px] text-white/25 mt-1 font-mono tracking-[0.04em]">
+            {sub}
+          </p>
+        )}
+      </div>
     </motion.div>
   );
 }
@@ -184,14 +193,14 @@ function InvitePanel({
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <Link2 size={12} className="text-orange-500" />
-          <span className="text-[10px] tracking-[0.15em] text-white/40 font-mono">
+          <span className="text-[10px] tracking-[0.15em] text-white/38 font-mono">
             INVITE LINK
           </span>
         </div>
         <motion.button
-          whileTap={{ scale: 0.95 }}
+          whileTap={{ scale: 0.94 }}
           onClick={onRegenerate}
-          className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] rounded-md px-2.5 py-1 text-[11px] font-semibold text-white/35 cursor-pointer transition-all duration-200 hover:text-orange-500 hover:bg-orange-500/[0.08] hover:border-orange-500/20"
+          className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.07] rounded-lg px-2.5 py-1 text-[11px] font-semibold text-white/32 cursor-pointer transition-all duration-200 hover:text-orange-500 hover:bg-orange-500/[0.07] hover:border-orange-500/18"
         >
           <RefreshCw size={11} />
           <span>Regenerate</span>
@@ -202,7 +211,7 @@ function InvitePanel({
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowLink(!showLink)}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 px-3 text-[12.5px] font-semibold tracking-[0.04em] bg-white/[0.04] border border-white/[0.08] text-white/45 cursor-pointer transition-all duration-200 hover:text-white/75 hover:bg-white/[0.07]"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-[12px] font-semibold tracking-[0.04em] bg-white/[0.04] border border-white/[0.07] text-white/40 cursor-pointer transition-all duration-200 hover:text-white/72 hover:bg-white/[0.065]"
         >
           <Link2 size={12} />
           <span>{showLink ? "Hide Link" : "Show Link"}</span>
@@ -210,7 +219,7 @@ function InvitePanel({
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={handleCopy}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2.5 px-3 text-[12.5px] font-semibold tracking-[0.04em] bg-orange-500/10 border border-orange-500/22 text-orange-500 cursor-pointer transition-all duration-200 hover:bg-orange-500/18"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-[12px] font-semibold tracking-[0.04em] bg-orange-500/[0.09] border border-orange-500/20 text-orange-500 cursor-pointer transition-all duration-200 hover:bg-orange-500/[0.16] hover:border-orange-500/30"
         >
           <AnimatePresence mode="wait">
             {copied ? (
@@ -242,11 +251,11 @@ function InvitePanel({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="bg-black/35 border border-white/[0.06] rounded-lg px-3.5 py-2.5 mt-1">
-              <span className="text-[11px] text-orange-400/65 font-mono break-all leading-relaxed">
+            <div className="bg-black/30 border border-white/[0.06] rounded-xl px-3.5 py-2.5 mt-0.5">
+              <span className="text-[11px] text-orange-400/60 font-mono break-all leading-relaxed">
                 {link}
               </span>
             </div>
@@ -262,20 +271,22 @@ function EmptyState({ onConfigure }: { onConfigure: () => void }) {
   return (
     <motion.div
       {...fadeUp(0.1)}
-      className="flex flex-col items-center text-center py-16 px-6 bg-white/[0.015] border border-dashed border-white/[0.09] rounded-2xl gap-4"
+      className="flex flex-col items-center text-center py-20 px-6 bg-white/[0.012] border border-dashed border-white/[0.08] rounded-2xl gap-5"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 20 }}
-        className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center"
+        transition={{ delay: 0.2, type: "spring", stiffness: 280, damping: 22 }}
+        className="w-[60px] h-[60px] rounded-2xl bg-orange-500/[0.09] border border-orange-500/18 flex items-center justify-center"
       >
-        <PackageOpen size={30} className="text-orange-500" />
+        <PackageOpen size={28} className="text-orange-500/80" />
       </motion.div>
 
       <motion.div {...fadeUp(0.25)} className="flex flex-col gap-2">
-        <h3 className="text-xl font-bold text-white/65">No Project Data Yet</h3>
-        <p className="text-[13px] text-white/28 max-w-[360px] leading-relaxed">
+        <h3 className="text-[18px] font-bold text-white/60">
+          No Project Data Yet
+        </h3>
+        <p className="text-[13px] text-white/25 max-w-[340px] leading-[1.7]">
           This workspace is freshly initialized. Add a description and configure
           your project to get started.
         </p>
@@ -284,9 +295,9 @@ function EmptyState({ onConfigure }: { onConfigure: () => void }) {
       <motion.button
         {...fadeUp(0.35)}
         whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileTap={{ scale: 0.97 }}
         onClick={onConfigure}
-        className="flex items-center gap-2 mt-1 px-6 py-3 rounded-[9px] bg-gradient-to-br from-orange-500 to-orange-600 text-[#0f0800] text-[13px] font-bold tracking-[0.08em] border-none cursor-pointer"
+        className="flex items-center gap-2 mt-1 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-600 to-orange-400 text-[#0f0800] text-[13px] font-bold tracking-[0.08em] border-none cursor-pointer shadow-[0_0_24px_rgba(249,115,22,0.18)]"
       >
         <Edit3 size={13} />
         <span>Configure Project</span>
@@ -320,83 +331,64 @@ export default function ProjectOverviewPage() {
       className="flex-1 flex flex-col min-w-0 min-h-screen"
       style={{ fontFamily: "'Rajdhani', sans-serif", color: "#e0d5c5" }}
     >
-      {/* Topbar */}
-      <motion.header
-        {...fadeIn(0)}
-        className="flex justify-between items-center px-7 py-3.5 border-b border-white/[0.05] gap-4 flex-wrap pl-14 md:pl-7"
-      >
-        <div className="flex items-center gap-1.5 text-[13px]">
-          <span className="text-white/28">Workspace</span>
-          <span className="text-white/15 mx-0.5">/</span>
-          <span className="text-white/65 font-semibold">{project.name}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:flex items-center gap-2 bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5">
-            <Search size={12} className="text-white/22 shrink-0" />
-            <input
-              placeholder="Search parameters..."
-              className="bg-transparent border-none outline-none text-[12.5px] text-white/55 w-36 placeholder:text-white/20"
-              style={{ fontFamily: "'Rajdhani', sans-serif" }}
-            />
-          </div>
-          {[Bell, Settings].map((Icon, i) => (
-            <button
-              key={i}
-              className="bg-white/[0.04] border border-white/[0.07] rounded-[7px] p-[7px] text-white/38 flex cursor-pointer transition-all duration-200 hover:text-orange-500 hover:bg-orange-500/10 hover:border-orange-500/20"
-            >
-              <Icon size={14} />
-            </button>
-          ))}
-          <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[10px] font-bold text-[#0f0800] tracking-[0.05em] cursor-pointer shrink-0">
-            FO
-          </div>
-        </div>
-      </motion.header>
-
       {/* Sub-nav */}
       <motion.div
-        {...fadeIn(0.05)}
+        {...fadeIn(0)}
         className="flex items-center justify-between px-7 py-2 border-b border-white/[0.04] flex-wrap gap-2 pl-14 md:pl-7"
       >
         <div className="flex gap-1">
           {[Boxes, LayoutDashboard, AlertCircle, Clock].map((Icon, i) => (
             <button
               key={i}
-              className="bg-white/[0.03] border border-white/[0.06] rounded-md px-2.5 py-1.5 text-white/30 flex cursor-pointer transition-all duration-200 hover:text-orange-500 hover:bg-orange-500/[0.07]"
+              className="bg-white/[0.03] border border-white/[0.06] rounded-lg px-2.5 py-1.5 text-white/28 flex cursor-pointer transition-all duration-200 hover:text-orange-500 hover:bg-orange-500/[0.07] hover:border-orange-500/15"
             >
               <Icon size={13} />
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1.5 bg-orange-500/[0.09] border border-orange-500/22 rounded-full px-3 py-1 font-mono text-[10px] text-orange-500 tracking-[0.08em]">
+        <div className="flex items-center gap-1.5 bg-orange-500/[0.08] border border-orange-500/18 rounded-full px-3 py-1 font-mono text-[10px] text-orange-500 tracking-[0.08em]">
           <Zap size={10} />
           <span>ML Risk Score: 85%</span>
         </div>
       </motion.div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col gap-6 px-7 py-8">
+      <main className="flex-1 flex flex-col gap-7 px-7 py-9">
         {/* Page heading */}
         <motion.div
-          {...fadeUp(0.08)}
+          {...fadeUp(0.06)}
           className="flex justify-between items-start gap-5 flex-wrap"
         >
           <div className="flex-1 min-w-[240px]">
-            <p
-              className="text-[10px] tracking-[0.2em] font-mono mb-2 uppercase"
-              style={{ color: statusColor }}
-            >
-              PROJECT STATUS: {project.status}
-            </p>
+            <div className="flex items-center gap-2 mb-3">
+              <span
+                className="text-[9px] tracking-[0.22em] font-mono uppercase px-2.5 py-1 rounded-full border"
+                style={{
+                  color: statusColor,
+                  borderColor: `${statusColor}28`,
+                  background: `${statusColor}0e`,
+                }}
+              >
+                {project.status}
+              </span>
+            </div>
+
             <h1
-              className="font-bold text-orange-500 leading-[1.02] mb-3"
-              style={{ fontSize: "clamp(30px, 4vw, 50px)" }}
+              className="font-bold leading-[1.0] mb-4"
+              style={{
+                fontSize: "clamp(30px, 4vw, 52px)",
+                background:
+                  "linear-gradient(90deg, #c2410c 0%, #f97316 45%, #fdba74 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+              }}
             >
               Project Overview
             </h1>
+
             {project.description ? (
-              <p className="text-[13.5px] leading-[1.75] text-white/42 max-w-[520px]">
+              <p className="text-[13.5px] leading-[1.78] text-white/38 max-w-[500px]">
                 {project.description}
               </p>
             ) : (
@@ -406,12 +398,12 @@ export default function ProjectOverviewPage() {
             )}
           </div>
 
-          <div className="flex flex-col gap-2 items-end">
+          <div className="flex flex-col gap-2 items-end shrink-0">
             {project.description && (
               <motion.button
                 whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-[9px] bg-gradient-to-br from-orange-500 to-orange-600 text-[#0f0800] text-[13px] font-bold tracking-[0.1em] border-none cursor-pointer"
+                whileTap={{ scale: 0.97 }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-orange-400 text-[#0f0800] text-[13px] font-bold tracking-[0.08em] border-none cursor-pointer shadow-[0_0_20px_rgba(249,115,22,0.15)]"
               >
                 <Edit3 size={13} />
                 <span>Edit Project</span>
@@ -419,7 +411,7 @@ export default function ProjectOverviewPage() {
             )}
             <button
               onClick={() => setIsEmpty(!isEmpty)}
-              className="text-[10px] font-mono text-white/22 tracking-[0.06em] bg-white/[0.04] border border-white/[0.07] rounded-lg px-3 py-1.5 cursor-pointer hover:text-white/45 transition-colors"
+              className="text-[10px] font-mono text-white/20 tracking-[0.06em] bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-1.5 cursor-pointer hover:text-white/42 transition-colors"
             >
               {isEmpty ? "Show Filled" : "Show Empty"}
             </button>
@@ -434,12 +426,11 @@ export default function ProjectOverviewPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.22 }}
               className="flex flex-col gap-5"
             >
               <EmptyState onConfigure={() => setIsEmpty(false)} />
-
-              <motion.div {...fadeUp(0.4)} className="max-w-md">
+              <motion.div {...fadeUp(0.4)} className="max-w-sm">
                 <div className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5">
                   <InvitePanel
                     link={inviteLink}
@@ -454,18 +445,18 @@ export default function ProjectOverviewPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.22 }}
               className="flex flex-col gap-5"
             >
-              {/* Stat cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* Stat cards - only Team Members and Workspace Nodes */}
+              <div className="grid grid-cols-2 gap-3 max-w-md">
                 <StatCard
                   icon={Users}
                   label="Team Members"
                   value={String(project.teamMembers.length)}
                   sub="Active collaborators"
                   color="#f97316"
-                  delay={0.12}
+                  delay={0.1}
                 />
                 <StatCard
                   icon={Boxes}
@@ -473,23 +464,7 @@ export default function ProjectOverviewPage() {
                   value="14"
                   sub="Geo-distributed"
                   color="#60a5fa"
-                  delay={0.17}
-                />
-                <StatCard
-                  icon={Zap}
-                  label="System Latency"
-                  value="12ms"
-                  sub="Node ALPHA-7"
-                  color="#a78bfa"
-                  delay={0.22}
-                />
-                <StatCard
-                  icon={AlertCircle}
-                  label="Open Tasks"
-                  value="7"
-                  sub="Across all modules"
-                  color="#f59e0b"
-                  delay={0.27}
+                  delay={0.15}
                 />
               </div>
 
@@ -497,56 +472,60 @@ export default function ProjectOverviewPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Team Activity */}
                 <motion.div
-                  {...fadeUp(0.3)}
-                  className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-4 hover:border-white/[0.11] transition-colors duration-300"
+                  {...fadeUp(0.22)}
+                  className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-4 hover:border-white/[0.11] transition-all duration-300 group"
                 >
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-1.5">
-                      <Users size={12} className="text-orange-500" />
-                      <span className="text-[10px] tracking-[0.15em] text-white/38 font-mono">
+                    <div className="flex items-center gap-2">
+                      <div className="w-[26px] h-[26px] rounded-lg bg-orange-500/10 border border-orange-500/18 flex items-center justify-center">
+                        <Users size={12} className="text-orange-500" />
+                      </div>
+                      <span className="text-[10px] tracking-[0.15em] text-white/35 font-mono">
                         TEAM ACTIVITY
                       </span>
                     </div>
-                    <button className="text-[10px] text-orange-500 font-mono tracking-[0.06em] bg-transparent border-none cursor-pointer hover:underline">
+                    <button className="text-[10px] text-orange-500/70 font-mono tracking-[0.06em] bg-transparent border-none cursor-pointer hover:text-orange-500 transition-colors">
                       View Log
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-2.5">
                     {project.teamMembers.map((m, i) => (
                       <motion.div
                         key={m.id}
-                        initial={{ opacity: 0, x: -10 }}
+                        initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.35 + i * 0.07 }}
-                        className="flex items-center gap-3"
+                        transition={{ delay: 0.28 + i * 0.07 }}
+                        className="flex items-center gap-3 py-1.5 px-2 rounded-xl hover:bg-white/[0.03] transition-colors duration-200"
                       >
                         <div
-                          className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          className="w-[32px] h-[32px] rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                           style={{
-                            background: `${m.avatarColor}1e`,
-                            border: `1px solid ${m.avatarColor}38`,
+                            background: `${m.avatarColor}18`,
+                            border: `1px solid ${m.avatarColor}30`,
                             color: m.avatarColor,
                           }}
                         >
                           {m.initials}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] truncate leading-snug">
-                            <span className="font-bold text-white/78">
+                          <p className="text-[12.5px] truncate leading-snug">
+                            <span className="font-bold text-white/75">
                               {m.name}
                             </span>
-                            <span className="text-white/38">
+                            <span className="text-white/32">
                               {" "}
                               {m.lastAction}
                             </span>
                           </p>
-                          <p className="text-[9px] text-white/22 font-mono tracking-[0.06em] mt-0.5">
+                          <p className="text-[9px] text-white/20 font-mono tracking-[0.06em] mt-0.5">
                             {m.timeAgo}
                           </p>
                         </div>
-                        {m.online && (
-                          <div className="w-[7px] h-[7px] rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.55)] shrink-0" />
+                        {m.online ? (
+                          <div className="w-[6px] h-[6px] rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.6)] shrink-0" />
+                        ) : (
+                          <div className="w-[6px] h-[6px] rounded-full bg-white/15 shrink-0" />
                         )}
                       </motion.div>
                     ))}
@@ -555,36 +534,36 @@ export default function ProjectOverviewPage() {
 
                 {/* Invite + Continue Setup */}
                 <motion.div
-                  {...fadeUp(0.35)}
-                  className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-4 hover:border-white/[0.11] transition-colors duration-300"
+                  {...fadeUp(0.27)}
+                  className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-4 hover:border-white/[0.11] transition-all duration-300"
                 >
                   <InvitePanel
                     link={inviteLink}
                     onRegenerate={handleRegenerate}
                   />
 
-                  <div className="flex flex-col gap-0.5 border-t border-white/[0.06] pt-4">
-                    <p className="text-[9px] text-white/22 tracking-[0.16em] font-mono mb-2">
-                      CONTINUE SETUP
+                  <div className="flex flex-col gap-0.5 border-t border-white/[0.05] pt-4">
+                    <p className="text-[9px] text-white/20 tracking-[0.18em] font-mono mb-2 uppercase">
+                      Continue Setup
                     </p>
                     {NAV_ITEMS.map((item, i) => {
                       const Icon = item.icon;
                       return (
                         <motion.button
                           key={item.id}
-                          initial={{ opacity: 0, x: 8 }}
+                          initial={{ opacity: 0, x: 6 }}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.4 + i * 0.06 }}
-                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-transparent border-none cursor-pointer text-[13px] font-semibold text-white/35 w-full text-left transition-all duration-200 hover:text-white/68 hover:bg-white/[0.04] group"
+                          transition={{ delay: 0.32 + i * 0.06 }}
+                          className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-transparent border-none cursor-pointer text-[13px] font-semibold text-white/32 w-full text-left transition-all duration-200 hover:text-white/65 hover:bg-white/[0.035] group"
                         >
                           <Icon
                             size={13}
-                            className="text-orange-500/45 group-hover:text-orange-500 transition-colors"
+                            className="text-orange-500/38 group-hover:text-orange-500 transition-colors duration-200"
                           />
                           <span>{item.label}</span>
                           <ArrowRight
                             size={11}
-                            className="ml-auto text-white/18 group-hover:text-orange-500 transition-colors duration-200"
+                            className="ml-auto text-white/15 group-hover:text-orange-400 transition-all duration-200 group-hover:translate-x-0.5"
                           />
                         </motion.button>
                       );
@@ -600,7 +579,7 @@ export default function ProjectOverviewPage() {
       {/* Footer */}
       <motion.footer
         {...fadeIn(0.5)}
-        className="px-7 py-3 border-t border-white/[0.04] flex justify-between flex-wrap gap-2 text-[9px] text-white/16 font-mono tracking-[0.06em]"
+        className="px-7 py-3 border-t border-white/[0.04] flex justify-between flex-wrap gap-2 text-[9px] text-white/14 font-mono tracking-[0.06em]"
       >
         <span>FORGE NEURAL CORE — REAL-TIME PREDICTIVE ANALYSIS ENABLED</span>
         <span>MD5_HASH: F8A3B92...C2D</span>

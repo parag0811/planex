@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Sidebar, { SidebarPage } from "@/src/components/layout/SidebarLeft";
-
+import Sidebar, { type SidebarPage } from "@/src/components/layout/project-section/SidebarLeft";
+import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
 
 export default function ProjectIdLayout({
   children,
@@ -14,11 +14,14 @@ export default function ProjectIdLayout({
   const [activePage, setActivePage] = useState<SidebarPage>("overview");
 
   return (
-    <div className="flex min-h-screen relative" style={{
-      background: "radial-gradient(ellipse at 15% 40%, #1e0e00 0%, #0c0702 45%, #080500 100%)",
-      fontFamily: "'Rajdhani', sans-serif",
-      color: "#e0d5c5",
-    }}>
+    <div
+      className="flex min-h-screen relative"
+      style={{
+        background: "radial-gradient(ellipse at 15% 40%, #1e0e00 0%, #0c0702 45%, #080500 100%)",
+        fontFamily: "'Rajdhani', sans-serif",
+        color: "#e0d5c5",
+      }}
+    >
       {/* Noise overlay */}
       <div
         className="fixed inset-0 pointer-events-none z-0 opacity-30"
@@ -27,9 +30,17 @@ export default function ProjectIdLayout({
         }}
       />
 
-      <Sidebar activePage={activePage} onNavigate={setActivePage} projectName={projectName} />
+      {/* Sidebar */}
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
+        projectName={projectName}
+        projectStatus="Active"
+      />
 
+      {/* Right side: header + page content */}
       <div className="flex-1 min-w-0 flex flex-col relative z-10">
+        <ProjectHeader projectName={projectName} />
         {children}
       </div>
     </div>

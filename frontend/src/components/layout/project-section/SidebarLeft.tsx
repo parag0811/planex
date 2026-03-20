@@ -41,7 +41,7 @@ export default function Sidebar({
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-[18px] pt-5 pb-[18px] border-b border-white/[0.06] shrink-0">
+      <div className="flex items-center gap-3 px-[18px] pt-5 pb-[18px]  shrink-0">
         <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[#0f0800] shrink-0">
           <Flame size={16} />
         </div>
