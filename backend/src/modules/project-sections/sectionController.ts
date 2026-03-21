@@ -5,16 +5,13 @@ import {
   upsertSectionService,
 } from "./sectionService";
 import { TYPES } from "../../generated/prisma/enums";
-import { runPlannerPipeline } from "../../services/ai/idea-section/ideaPlannerPipeline";
 import { ApiError, ApiResponse } from "../../controllers/projectController";
-import { runDatabasePipeline } from "../../services/ai/db-section/dbPlannerPipeline";
-import { IdeaSectionContent } from "../../services/ai/idea-section/ideaPromptBuilder";
-import { runApiPipeline } from "../../services/ai/api-section/apiPlannerPipeline";
-import { DatabaseSectionContent } from "../../services/ai/db-section/dbPromptBuilder";
-import { runFolderPipeline } from "../../services/ai/folder-section/folderPlannerPipeline";
-import { ApiSectionContent } from "../../services/ai/api-section/apiPromptBuilder";
-import { regenerateService } from "../../services/ai/regenerate-section/regenerateService";
 import { aiQueue } from "../../queues/aiQueue";
+
+interface QueueResponse {
+  status: string;
+  jobId: string;
+}
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -74,16 +71,23 @@ export const upsertSection = async (
 };
 
 export const generateIdeaSection = async (
-  req: Request<{}, {}, { idea: string }>,
-  res: Response<ApiResponse>,
+  req: Request<{projectId : string}, {}, { idea: string }>,
+  res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
+    const { projectId } = req.params
     const { idea } = req.body;
 
-    const result = await runPlannerPipeline(idea);
+    const ideaJob = await aiQueue.add("idea", {
+      projectId,
+      idea,
+    });
 
-    return res.status(200).json({ message: "Loaded data", data: result });
+    return res.status(200).json({
+      status: "queued",
+      jobId: ideaJob.id!,
+    });
   } catch (error) {
     next(error);
   }
@@ -91,7 +95,7 @@ export const generateIdeaSection = async (
 
 export const generateDatabaseSuggestion = async (
   req: Request<{ projectId: string }>,
-  res: Response<ApiResponse>,
+  res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
@@ -105,13 +109,13 @@ export const generateDatabaseSuggestion = async (
       throw error;
     }
 
-    const databaseSuggestion = await runDatabasePipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-    );
+    const databaseJob = await aiQueue.add("database", {
+      projectId,
+    });
 
     return res.status(200).json({
-      data: databaseSuggestion,
-      message: "Here is your DB suggestion.",
+      status: "queued",
+      jobId: databaseJob.id!,
     });
   } catch (err) {
     next(err);
@@ -120,7 +124,7 @@ export const generateDatabaseSuggestion = async (
 
 export const generateApiSuggestion = async (
   req: Request<{ projectId: string }>,
-  res: Response<ApiResponse>,
+  res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
@@ -135,14 +139,11 @@ export const generateApiSuggestion = async (
       throw error;
     }
 
-    const apiSuggestion = await runApiPipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-      dbSection.content as unknown as DatabaseSectionContent,
-    );
+    const apiJob = await aiQueue.add("api", {
+      projectId,
+    });
 
-    return res
-      .status(200)
-      .json({ message: "API generated successfully", data: apiSuggestion });
+    return res.status(200).json({ status: "queued", jobId: apiJob.id! });
   } catch (error) {
     next(error);
   }
@@ -150,7 +151,7 @@ export const generateApiSuggestion = async (
 
 export const generateFolderSuggestion = async (
   req: Request<{ projectId: string }>,
-  res: Response<ApiResponse>,
+  res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
@@ -168,15 +169,11 @@ export const generateFolderSuggestion = async (
       throw error;
     }
 
-    const folderSuggestion = await runFolderPipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-      dbSection.content as unknown as DatabaseSectionContent,
-      apiSection.content as unknown as ApiSectionContent,
-    );
+    const folderJob = await aiQueue.add("folder", {
+      projectId,
+    });
 
-    return res
-      .status(200)
-      .json({ message: "Generated folder structure", data: folderSuggestion });
+    return res.status(200).json({ status: "queued", jobId: folderJob.id! });
   } catch (error) {
     next(error);
   }
@@ -195,7 +192,7 @@ export const regenerateSection = async (
     {},
     { instruction?: string; section: string }
   >,
-  res: Response,
+  res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
@@ -229,7 +226,7 @@ export const regenerateSection = async (
 
     return res.status(200).json({
       status: "queued",
-      jobId: regenerateJob.id,
+      jobId: regenerateJob.id!,
     });
   } catch (error) {
     next(error);
