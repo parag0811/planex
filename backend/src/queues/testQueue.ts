@@ -1,11 +1,11 @@
 import { aiQueue } from "./aiQueue"; 
 
 async function addJob() {
-  await aiQueue.add("test-job", {
-    message: "Hello from BullMQ",
+  const job = await aiQueue.add("test-job", {
+    message: "Hello AI",
   });
 
-  console.log("Job added");
+  console.log("Job ID:", job.id);
 }
 
 addJob();

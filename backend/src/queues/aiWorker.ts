@@ -1,11 +1,21 @@
 import { Worker } from "bullmq";
+import { chatService } from "../modules/ai-assistant/chatService";
 
 export const aiWorker = new Worker(
   "ai-queue",
   async (job) => {
-    console.log("Processing Job ->", job.name, job.data);
+    if (job.name == "chat") {
+      const { projectId, message, context } = job.data;
 
-    return { success: true };
+      const result = await chatService({
+        projectId,
+        message,
+        context,
+      });
+
+      return result;
+    }
+    return null
   },
   {
     connection: {
