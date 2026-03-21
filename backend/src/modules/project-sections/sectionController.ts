@@ -14,6 +14,7 @@ import { DatabaseSectionContent } from "../../services/ai/db-section/dbPromptBui
 import { runFolderPipeline } from "../../services/ai/folder-section/folderPlannerPipeline";
 import { ApiSectionContent } from "../../services/ai/api-section/apiPromptBuilder";
 import { regenerateService } from "../../services/ai/regenerate-section/regenerateService";
+import { aiQueue } from "../../queues/aiQueue";
 
 export const getProjectSections = async (
   req: Request<{ projectId: string }, {}, {}>,
@@ -180,6 +181,7 @@ export const generateFolderSuggestion = async (
     next(error);
   }
 };
+
 const sectionMap: Record<string, TYPES> = {
   idea: TYPES.IDEA,
   api: TYPES.API,
@@ -193,7 +195,7 @@ export const regenerateSection = async (
     {},
     { instruction?: string; section: string }
   >,
-  res: Response<ApiResponse>,
+  res: Response,
   next: NextFunction,
 ) => {
   try {
@@ -207,8 +209,7 @@ export const regenerateSection = async (
       throw error;
     }
 
-    const mappedSection =
-      sectionMap[section.toLowerCase()];
+    const mappedSection = sectionMap[section.toLowerCase()];
 
     if (!mappedSection) {
       const error = new Error("Invalid section") as ApiError;
@@ -220,15 +221,15 @@ export const regenerateSection = async (
       instruction?.trim() ||
       "Improve quality, scalability, and production readiness";
 
-    const regenerateSuggestion = await regenerateService({
+    const regenerateJob = await aiQueue.add("regen", {
       projectId,
       section: mappedSection,
       instruction: finalInstruction,
     });
 
     return res.status(200).json({
-      message: "Regenerated successfully",
-      data: regenerateSuggestion,
+      status: "queued",
+      jobId: regenerateJob.id,
     });
   } catch (error) {
     next(error);

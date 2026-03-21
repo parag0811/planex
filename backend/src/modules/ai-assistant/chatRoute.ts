@@ -19,3 +19,5 @@ router.get(
   "/ai/job/:jobId",
   getJobStatus
 )
+
+export default router

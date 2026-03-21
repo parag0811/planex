@@ -7,6 +7,7 @@ import {
   generateIdeaSection,
   getProjectSections,
   getSectionByType,
+  regenerateSection,
   upsertSection,
 } from "./sectionController";
 import { projectAccess } from "../../middleware/project-middleware/projectAccess";
@@ -91,7 +92,7 @@ router.post(
   isAuth,
   projectAccess,
   editorAccess,
-  
+  regenerateSection
 )
 
 export default router;

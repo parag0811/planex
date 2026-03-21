@@ -1,10 +1,11 @@
 import { Worker } from "bullmq";
 import { chatService } from "../modules/ai-assistant/chatService";
+import { regenerateService } from "../services/ai/regenerate-section/regenerateService";
 
 export const aiWorker = new Worker(
   "ai-queue",
   async (job) => {
-    if (job.name == "chat") {
+    if (job.name === "chat") {
       const { projectId, message, context } = job.data;
 
       const result = await chatService({
@@ -15,7 +16,21 @@ export const aiWorker = new Worker(
 
       return result;
     }
-    return null
+
+    if (job.name === "regen") {
+      const { projectId, section, instruction } = job.data;
+
+      const result = await regenerateService({
+        projectId,
+        section,
+        instruction,
+      });
+
+      return result;
+    }
+
+    
+    return null;
   },
   {
     connection: {
