@@ -1,5 +1,6 @@
 import { Queue } from "bullmq";
 import { Request, Response, NextFunction } from "express";
+import { ApiError } from "../controllers/projectController";
 
 export const aiQueue = new Queue("ai-queue", {
   connection: {
@@ -11,19 +12,64 @@ export const aiQueue = new Queue("ai-queue", {
 export const getJobStatus = async (
   req: Request<{ jobId: string }>,
   res: Response,
+  next: NextFunction,
 ) => {
-  const { jobId } = req.params;
+  try {
+    const { jobId } = req.params;
 
-  const job = await aiQueue.getJob(jobId);
+    const job = await aiQueue.getJob(jobId);
 
-  if (!job) {
-    return res.status(404).json({ message: "not_found" });
+    if (!job) {
+      const error = new Error("No job found.") as ApiError;
+      error.status = 404;
+      throw error;
+    }
+
+    const state = await job.getState();
+
+    const attemptsMade = job.attemptsMade;
+    const maxAttempts = job.opts.attempts || 1;
+
+    let status: string;
+
+    if (state === "completed") {
+      status = "done";
+    } else if (state === "failed") {
+      if (attemptsMade < maxAttempts) {
+        status = "processing"; // still retrying
+      } else {
+        status = "error"; // final failure
+      }
+    } else if (state === "active") {
+      status = "processing";
+    } else if (state === "waiting" || state === "delayed") {
+      status = "queued";
+    } else {
+      status = "processing"; 
+    }
+
+    const result = state === "completed" ? job.returnvalue : null;
+
+    // Error only on FINAL failure
+    // failedReason comes from the error we THROW in worker
+    const jobError =
+      state === "failed" && attemptsMade >= maxAttempts
+        ? job.failedReason
+        : null;
+
+    res.status(200).json({
+      status,
+      result: result,
+      error: jobError,
+      attemptsMade,
+      maxAttempts,
+      timestamps: {
+        createdAt: job.timestamp,
+        startedAt: job.processedOn || null,
+        finishedAt: job.finishedOn || null,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const state = await job.getState();
-
-  res.status(200).json({
-    status: state,
-    result: job.returnvalue || null,
-  });
 };

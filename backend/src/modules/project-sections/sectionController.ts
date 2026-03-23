@@ -5,7 +5,7 @@ import {
   upsertSectionService,
 } from "./sectionService";
 import { TYPES } from "../../generated/prisma/enums";
-import { ApiError, ApiResponse } from "../../controllers/projectController";
+import { ApiError } from "../../controllers/projectController";
 import { aiQueue } from "../../queues/aiQueue";
 
 interface QueueResponse {
@@ -71,18 +71,28 @@ export const upsertSection = async (
 };
 
 export const generateIdeaSection = async (
-  req: Request<{projectId : string}, {}, { idea: string }>,
+  req: Request<{ projectId: string }, {}, { idea: string }>,
   res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
-    const { projectId } = req.params
+    const { projectId } = req.params;
     const { idea } = req.body;
 
-    const ideaJob = await aiQueue.add("idea", {
-      projectId,
-      idea,
-    });
+    const ideaJob = await aiQueue.add(
+      "idea",
+      {
+        projectId,
+        idea,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({
       status: "queued",
@@ -109,9 +119,19 @@ export const generateDatabaseSuggestion = async (
       throw error;
     }
 
-    const databaseJob = await aiQueue.add("database", {
-      projectId,
-    });
+    const databaseJob = await aiQueue.add(
+      "database",
+      {
+        projectId,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({
       status: "queued",
@@ -139,9 +159,19 @@ export const generateApiSuggestion = async (
       throw error;
     }
 
-    const apiJob = await aiQueue.add("api", {
-      projectId,
-    });
+    const apiJob = await aiQueue.add(
+      "api",
+      {
+        projectId,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({ status: "queued", jobId: apiJob.id! });
   } catch (error) {
@@ -169,9 +199,19 @@ export const generateFolderSuggestion = async (
       throw error;
     }
 
-    const folderJob = await aiQueue.add("folder", {
-      projectId,
-    });
+    const folderJob = await aiQueue.add(
+      "folder",
+      {
+        projectId,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({ status: "queued", jobId: folderJob.id! });
   } catch (error) {
@@ -218,11 +258,21 @@ export const regenerateSection = async (
       instruction?.trim() ||
       "Improve quality, scalability, and production readiness";
 
-    const regenerateJob = await aiQueue.add("regen", {
-      projectId,
-      section: mappedSection,
-      instruction: finalInstruction,
-    });
+    const regenerateJob = await aiQueue.add(
+      "regen",
+      {
+        projectId,
+        section: mappedSection,
+        instruction: finalInstruction,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({
       status: "queued",

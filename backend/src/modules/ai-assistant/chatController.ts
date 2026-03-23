@@ -24,12 +24,22 @@ export const chatController = async (
       throw error;
     }
 
-    const job = await aiQueue.add("chat", {
-      projectId,
-      message,
-      context,
-      userId: req.user?.id,
-    });
+    const job = await aiQueue.add(
+      "chat",
+      {
+        projectId,
+        message,
+        context,
+        userId: req.user?.id,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 1000,
+        },
+      },
+    );
 
     return res.status(200).json({ status: "queued", jobId: job.id });
   } catch (error) {
