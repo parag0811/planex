@@ -91,6 +91,8 @@ export const generateIdeaSection = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 
@@ -130,6 +132,8 @@ export const generateDatabaseSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 
@@ -170,6 +174,8 @@ export const generateApiSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 
@@ -210,6 +216,8 @@ export const generateFolderSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 
@@ -271,6 +279,8 @@ export const regenerateSection = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 

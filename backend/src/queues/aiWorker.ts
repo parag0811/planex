@@ -4,15 +4,12 @@ import { aiHandlers } from "./aiHandler";
 export const aiWorker = new Worker(
   "ai-queue",
   async (job) => {
-    console.log("Job has been started.");
     const handler = aiHandlers[job.name as keyof typeof aiHandlers];
 
     if (!handler) {
-      console.log("Job failed");
       throw new Error(`No handler found for job: ${job.name}`);
     }
 
-    console.log("Job is completed and data is : ", job.data);
     return await handler(job.data);
   },
   {
@@ -22,3 +19,23 @@ export const aiWorker = new Worker(
     },
   },
 );
+
+aiWorker.on("active", (job) => {
+  console.log(`🚀 Job started: ${job.id} | Type: ${job.name}`);
+});
+
+aiWorker.on("completed", (job, result) => {
+  const duration =
+    job.finishedOn && job.processedOn ? job.finishedOn - job.processedOn : null;
+
+  console.log(
+    ` ✅ Job ${job.id} completed. Type : ${job.name}. Result : ${result}. Duration: ${duration}ms`,
+  );
+});
+
+aiWorker.on("failed", (job, error) => {
+  console.error(
+    ` ❌ Job failed: ${job?.id} | Type: ${job?.name} | Attempt: ${job?.attemptsMade}`,
+  );
+  console.error(`Error: ${error.message}`);
+});

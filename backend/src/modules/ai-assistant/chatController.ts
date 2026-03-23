@@ -38,6 +38,8 @@ export const chatController = async (
           type: "exponential",
           delay: 1000,
         },
+        removeOnComplete : true,
+        removeOnFail : false
       },
     );
 
