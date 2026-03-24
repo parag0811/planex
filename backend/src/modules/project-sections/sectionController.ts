@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import {
   getProjectSectionsService,
   getSectionByTypeService,
@@ -7,10 +8,12 @@ import {
 import { TYPES } from "../../generated/prisma/enums";
 import { ApiError } from "../../controllers/projectController";
 import { aiQueue } from "../../queues/aiQueue";
+import redis from "../../db/redis";
 
 interface QueueResponse {
   status: string;
-  jobId: string;
+  jobId?: string;
+  data?: any;
 }
 
 export const getProjectSections = async (
@@ -79,6 +82,20 @@ export const generateIdeaSection = async (
     const { projectId } = req.params;
     const { idea } = req.body;
 
+    const hash = crypto.createHash("sha256").update(idea).digest("hex");
+
+    const cacheKey = `idea:${hash}`;
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      const ideaSection = JSON.parse(cachedData);
+
+      return res.status(200).json({
+        status: "cached",
+        data: ideaSection,
+      });
+    }
+
     const ideaJob = await aiQueue.add(
       "idea",
       {
@@ -91,8 +108,8 @@ export const generateIdeaSection = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
@@ -132,8 +149,8 @@ export const generateDatabaseSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
@@ -174,8 +191,8 @@ export const generateApiSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
@@ -216,8 +233,8 @@ export const generateFolderSuggestion = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
@@ -279,8 +296,8 @@ export const regenerateSection = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
