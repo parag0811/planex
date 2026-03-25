@@ -196,6 +196,25 @@ export const generateApiSuggestion = async (
       throw error;
     }
 
+    const ideaContent = JSON.stringify(ideaSection.content);
+    const dbContent = JSON.stringify(dbSection.content);
+
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${ideaContent}::${dbContent}`)
+      .digest("hex");
+    const cacheKey = `api:${hash}`;
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      const apiSection = JSON.parse(cachedData);
+
+      return res.status(200).json({
+        status: "cached",
+        data: apiSection,
+      });
+    }
+
     const apiJob = await aiQueue.add(
       "api",
       {
