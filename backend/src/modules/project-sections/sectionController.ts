@@ -257,6 +257,26 @@ export const generateFolderSuggestion = async (
       throw error;
     }
 
+    const ideaContent = JSON.stringify(ideaSection.content);
+    const dbContent = JSON.stringify(dbSection.content);
+    const apiContent = JSON.stringify(apiSection.content);
+
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${ideaContent}::${dbContent}::${apiContent}`)
+      .digest("hex");
+    const cacheKey = `folder:${hash}`;
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      const folderSection = JSON.parse(cachedData);
+
+      return res.status(200).json({
+        status: "cached",
+        data: folderSection,
+      });
+    }
+
     const folderJob = await aiQueue.add(
       "folder",
       {
