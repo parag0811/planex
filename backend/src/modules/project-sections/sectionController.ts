@@ -138,6 +138,22 @@ export const generateDatabaseSuggestion = async (
       throw error;
     }
 
+    const content = JSON.stringify(ideaSection.content);
+
+    const hash = crypto.createHash("sha256").update(content).digest("hex");
+
+    const cacheKey = `db:${hash}`;
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      const dbSection = JSON.parse(cachedData);
+
+      return res.status(200).json({
+        status: "cached",
+        data: dbSection,
+      });
+    }
+
     const databaseJob = await aiQueue.add(
       "database",
       {
