@@ -31,10 +31,6 @@ passport.use(
           return done(new Error("No email from github."));
         }
 
-        if (Number.isNaN(providerId)) {
-          return done(new Error("Invalid GitHub profile id."));
-        }
-
         let user = await prisma.user.findUnique({
           where: {
             email: email,

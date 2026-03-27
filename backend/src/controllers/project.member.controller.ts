@@ -1,16 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../db/prisma";
 
-interface ApiError extends Error {
-  status: number;
-}
-
-interface ApiResponse<T = any> {
-  message?: string;
-  data?: T;
-}
-
-export const removProjectMember = async (
+export const removeProjectMember = async (
   req: Request<{ projectId: string; memberId: string }, {}, {}>,
   res: Response<ApiResponse>,
   next: NextFunction,
@@ -39,7 +30,7 @@ export const updateProjectMemberRole = async (
     {},
     { role: "EDITOR" | "VIEWER" }
   >,
-  res: Response,
+  res: Response<ApiResponse>,
   next: NextFunction,
 ) => {
   try {

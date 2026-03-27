@@ -5,15 +5,6 @@ interface CreateProjectRequest {
   name: string;
 }
 
-export interface ApiResponse<T = any> {
-  message: string;
-  data?: T;
-}
-
-export interface ApiError extends Error {
-  status: number;
-}
-
 export const createProject = async (
   req: Request<{}, {}, CreateProjectRequest>,
   res: Response<ApiResponse>,
@@ -149,7 +140,7 @@ export const createProjectInviteLink = async (
     });
 
     if (!project) {
-      const error = new Error("Project not found") as ApiError;
+      const error = new Error("Project not found") as AppError;
       error.status = 404;
       throw error;
     }
@@ -245,7 +236,7 @@ export const joinProjectByInvite = async (
     });
 
     if (!project) {
-      const error = new Error("Invalid or expired invite link.") as ApiError;
+      const error = new Error("Invalid or expired invite link.") as AppError;
       error.status = 400;
       throw error;
     }
@@ -283,4 +274,3 @@ export const joinProjectByInvite = async (
     next(error);
   }
 };
-

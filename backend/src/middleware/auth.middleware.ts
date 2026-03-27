@@ -7,10 +7,6 @@ interface DecodedToken extends JwtPayload {
   userId: number;
 }
 
-interface AppError extends Error {
-  status: number;
-}
-
 const isAuth = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 

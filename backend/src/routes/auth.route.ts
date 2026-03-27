@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Request, Response, NextFunction } from "express";
 import { body } from "express-validator";
 import {
   loginUser,
@@ -8,7 +9,7 @@ import {
   githubAuthController,
   googleAuthController,
 } from "../controllers/auth.controller";
-import isAuth from "../middleware/authMiddleware";
+import isAuth from "../middleware/auth.middleware";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { uploadAvatar } from "../middleware/upload";
 import passport from "passport";
@@ -70,6 +71,9 @@ router.get(
   "/github/callback",
   passport.authenticate("github", { session: false }),
   githubAuthController,
+  (err: AppError, req: Request, res: Response, next: NextFunction) => {
+    next(err);
+  },
 );
 
 router.get(
@@ -84,6 +88,9 @@ router.get(
   "/google/callback",
   passport.authenticate("google", { session: false }),
   googleAuthController,
+   (err: AppError, req: Request, res: Response, next: NextFunction) => {
+    next(err);
+  },
 );
 
 export default router;

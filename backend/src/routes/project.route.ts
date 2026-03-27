@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import isAuth from "../middleware/authMiddleware";
+import isAuth from "../middleware/auth.middleware";
 import {
   createProject,
   createProjectInviteLink,
@@ -13,7 +13,6 @@ import {
 } from "../controllers/project.controller";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { projectAccess } from "../middleware/project-middleware/projectAccess";
-import { editorAccess } from "../middleware/project-middleware/editorAccess";
 import { ownerAccess } from "../middleware/project-middleware/ownerAccess";
 
 const projectValidation = [
@@ -46,7 +45,6 @@ router.put(
   projectValidation,
   handleValidationErrors,
   projectAccess,
-  editorAccess,
   updateProject,
 );
 

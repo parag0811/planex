@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { body } from "express-validator";
-import isAuth from "../middleware/authMiddleware";
+import isAuth from "../middleware/auth.middleware";
 import { handleValidationErrors } from "../utils/validationErrors";
 import {
   updateProjectMemberRole,

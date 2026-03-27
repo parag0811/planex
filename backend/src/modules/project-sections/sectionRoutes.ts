@@ -1,5 +1,5 @@
 import { Router } from "express";
-import isAuth from "../../middleware/authMiddleware";
+import isAuth from "../../middleware/auth.middleware";
 import {
   generateApiSuggestion,
   generateDatabaseSuggestion,
