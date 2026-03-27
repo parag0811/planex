@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
-import passport from "./passport-auth/passport";
-import authRoutes from "./routes/auth.route";
-import projectRoutes from "./routes/project.route";
+import passport from "./modules/auth/passport-auth/passport";
+import authRoutes from "./modules/auth/auth.route";
+import projectRoutes from "./modules/project/project.route";
 import errorHandler from "./middleware/error.middleware";
 
 const app = express();

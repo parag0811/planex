@@ -1,10 +1,6 @@
 import prisma from "../../db/prisma";
 import { Request, Response, NextFunction } from "express";
 
-interface ApiError extends Error {
-  status?: number;
-}
-
 export const projectAccess = async (
   req: Request<{ projectId: string }>,
   res: Response,
@@ -22,7 +18,7 @@ export const projectAccess = async (
     });
 
     if (!project) {
-      const error = new Error("Project not found") as ApiError;
+      const error = new Error("Project not found") as AppError;
       error.status = 404;
       throw error;
     }

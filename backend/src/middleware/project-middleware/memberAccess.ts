@@ -1,9 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 
-interface ApiError extends Error {
-  status?: number;
-}
-
 export const memberAccess = (
   req: Request,
   res: Response,
@@ -16,7 +12,7 @@ export const memberAccess = (
   if (project.owner_id === userId) return next();
   if (membership) return next();
 
-  const error = new Error("Project access denied") as ApiError;
+  const error = new Error("Project access denied") as AppError;
   error.status = 403;
   next(error);
 };

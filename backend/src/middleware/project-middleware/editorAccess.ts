@@ -1,9 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 
-interface ApiError extends Error {
-  status?: number;
-}
-
 export const editorAccess = (
   req: Request,
   res: Response,
@@ -16,7 +12,7 @@ export const editorAccess = (
   if (project.owner_id === userId) return next();
 
   if (!membership || membership.role !== "EDITOR") {
-    const error = new Error("Editor permission required") as ApiError;
+    const error = new Error("Editor permission required") as AppError;
     error.status = 403;
     return next(error);
   }
