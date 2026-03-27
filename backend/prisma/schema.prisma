@@ -25,7 +25,7 @@ model User {
   password   String?
   avatarUrl  String?
   provider   PROVIDER?
-  providerId Int?
+  providerId String?
   created_at DateTime  @default(now())
 
   projects_owned Project[]
@@ -75,7 +75,7 @@ enum TYPES {
   API
   DATABASE
   FOLDER
-} 
+}
 
 model ProjectSection {
   id String @id @default(uuid())
@@ -83,12 +83,12 @@ model ProjectSection {
   project    Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
   project_id String
 
-  type      TYPES
-  content   Json
+  type    TYPES
+  content Json
 
   version Int @default(1)
-  
+
   updatedAt DateTime @updatedAt
-  
+
   @@unique([project_id, type])
 }

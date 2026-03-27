@@ -5,7 +5,7 @@ import { handleValidationErrors } from "../utils/validationErrors";
 import {
   updateProjectMemberRole,
   removProjectMember,
-} from "../controllers/projectMemberController";
+} from "../controllers/project.member.controller";
 import { projectAccess } from "../middleware/project-middleware/projectAccess";
 import { ownerAccess } from "../middleware/project-middleware/ownerAccess";
 

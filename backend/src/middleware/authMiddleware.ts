@@ -11,14 +11,6 @@ interface AppError extends Error {
   status: number;
 }
 
-declare global {
-  namespace Express {
-    interface User {
-      id: number;
-    }
-  }
-}
-
 const isAuth = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
 

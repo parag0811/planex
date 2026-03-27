@@ -21,14 +21,10 @@ passport.use(
     ) => {
       try {
         const email = profile.emails?.[0]?.value;
-        const providerId = Number(profile.id);
+        const providerId = profile.id;
 
         if (!email) {
           return done(new Error("No email found from Google"));
-        }
-
-        if (Number.isNaN(providerId)) {
-          return done(new Error("Invalid Google profile id."));
         }
 
         let user = await prisma.user.findUnique({
@@ -59,7 +55,7 @@ passport.use(
           );
         }
 
-        return done(null, user);
+        return done(null, user as unknown as Express.User);
       } catch (error) {
         return done(error instanceof Error ? error : new Error(String(error)));
       }

@@ -6,7 +6,7 @@ import {
   upsertSectionService,
 } from "./sectionService";
 import { TYPES } from "../../generated/prisma/enums";
-import { ApiError } from "../../controllers/projectController";
+import { ApiError } from "../../controllers/project.controller";
 import { aiQueue } from "../../queues/aiQueue";
 import redis from "../../db/redis";
 

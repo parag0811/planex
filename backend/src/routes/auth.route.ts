@@ -7,7 +7,7 @@ import {
   updateUser,
   githubAuthController,
   googleAuthController,
-} from "../controllers/authController";
+} from "../controllers/auth.controller";
 import isAuth from "../middleware/authMiddleware";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { uploadAvatar } from "../middleware/upload";

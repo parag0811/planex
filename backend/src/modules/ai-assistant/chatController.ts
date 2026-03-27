@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../../controllers/projectController";
+import { ApiError } from "../../controllers/project.controller";
 import { chatService } from "./chatService";
 import { aiQueue } from "../../queues/aiQueue";
 

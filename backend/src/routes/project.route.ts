@@ -10,7 +10,7 @@ import {
   updateProject,
   getProjectById,
   regenerateInviteLink,
-} from "../controllers/projectController";
+} from "../controllers/project.controller";
 import { handleValidationErrors } from "../utils/validationErrors";
 import { projectAccess } from "../middleware/project-middleware/projectAccess";
 import { editorAccess } from "../middleware/project-middleware/editorAccess";

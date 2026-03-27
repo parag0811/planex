@@ -5,11 +5,8 @@ import jwt from "jsonwebtoken";
 import { User as PrismaUser } from "../generated/prisma/client";
 import supabase from "../utils/supabase";
 
-interface AppError extends Error {
-  status?: number;
-}
-
 interface UserRequest {
+  name?:string;
   email: string;
   password: string;
 }
@@ -17,7 +14,6 @@ interface UserRequest {
 interface UserResponse<T = undefined> {
   token?: string;
   message: string;
-  status: number;
   user?: T;
 }
 
@@ -57,10 +53,9 @@ export const registerUser = async (
       { expiresIn: "1d" },
     );
 
-    return res.json({
+    return res.status(201).json({
       token: token,
       message: "User created successfully.",
-      status: 201,
     });
   } catch (error) {
     next(error);
@@ -108,10 +103,9 @@ export const loginUser = async (
       { expiresIn: "1d" },
     );
 
-    return res.json({
+    return res.status(200).json({
       token: token,
       message: "Login successful.",
-      status: 200,
     });
   } catch (error) {
     next(error);
@@ -150,18 +144,15 @@ export const getUser = async (
       throw error;
     }
 
-    return res.json({ status: 200, user, message: "User fetched" });
+    return res.status(201).json({ user, message: "User fetched" });
   } catch (error) {
     next(error);
   }
 };
 
-interface UpdateUserRequest {
-  name?: string;
-}
 
 export const updateUser = async (
-  req: Request<{}, {}, UpdateUserRequest>,
+  req: Request<{}, {}, UserRequest>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -200,7 +191,7 @@ export const updateUser = async (
     }
 
     await prisma.user.update({
-      where: { id: userId},
+      where: { id: userId },
       data,
     });
 
@@ -228,10 +219,9 @@ export const githubAuthController = (
       expiresIn: "1d",
     });
 
-    return res.json({
+    return res.status(201).json({
       token,
       message: "Github login successfull.",
-      status: 200,
     });
   } catch (error) {
     next(error);
@@ -256,10 +246,9 @@ export const googleAuthController = (
       expiresIn: "1d",
     });
 
-    return res.json({
+    return res.status(201).json({
       token,
       message: "Google login successfull.",
-      status: 200,
     });
   } catch (error) {
     next(error);

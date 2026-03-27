@@ -10,7 +10,6 @@ interface GithubProfile {
   photos?: Array<{ value?: string }>;
 }
 
-
 passport.use(
   new githubStrategy(
     {
@@ -26,7 +25,7 @@ passport.use(
     ) => {
       try {
         const email = profile.emails?.[0]?.value;
-        const providerId = Number(profile.id);
+        const providerId = profile.id;
 
         if (!email) {
           return done(new Error("No email from github."));

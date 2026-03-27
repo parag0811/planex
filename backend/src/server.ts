@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import passport from "./passport-auth/passport"
-import authRoutes from "./routes/authRoutes";
+import authRoutes from "./routes/auth.route";
 import errorHandler from "./middleware/errorMiddleware";
 
 const app = express();

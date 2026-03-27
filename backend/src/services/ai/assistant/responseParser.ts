@@ -1,4 +1,4 @@
-import { ApiError } from "../../../controllers/projectController";
+import { ApiError } from "../../../controllers/project.controller";
 
 const validSections = ["idea", "database", "api", "folder"];
 
