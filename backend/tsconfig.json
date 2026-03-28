@@ -4,12 +4,13 @@
     // File Layout
     "rootDir": "./src",
     "outDir": "./dist",
+    "typeRoots": ["./types", "./node_modules/@types"],
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "module": "commonjs",
     "target": "es2020",
-    "types": ["node"],
+    // "types": ["node"],
     // For nodejs:
     // "lib": ["esnext"],
     // "types": ["node"],
@@ -42,7 +43,12 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
   },
+
   
-  "include": ["src"],
+  "ts-node": {
+    "files": true    // 👈 this tells ts-node to respect typeRoots and .d.ts files
+  },
+  
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "prisma.config.ts"]
 }
