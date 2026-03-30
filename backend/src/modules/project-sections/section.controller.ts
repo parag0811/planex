@@ -39,7 +39,26 @@ export const getSectionByType = async (
   try {
     const { projectId, type } = req.params;
 
+    const cacheKey = `section:${projectId}:${type}`;
+    const cachedData = await redis.get(cacheKey);
+
+    if (cachedData) {
+      const section = JSON.parse(cachedData);
+
+      return res.status(200).json({
+        data: section,
+      });
+    }
+
     const section = await getSectionByTypeService(projectId, type as TYPES);
+
+    if (!section) {
+      const error = new Error("Section is empty") as AppError;
+      error.status = 404;
+      throw error;
+    }
+
+    await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
 
     return res.status(200).json({
       data: section,
@@ -63,6 +82,10 @@ export const upsertSection = async (
       type as TYPES,
       content,
     );
+
+    const cacheKey = `section:${projectId}:${type}`;
+
+    await redis.del(cacheKey);
 
     return res.status(200).json({
       data: section,

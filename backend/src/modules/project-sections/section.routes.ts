@@ -88,7 +88,7 @@ router.post(
 );
 
 router.post(
-  " /:projectId/ai/regenerate/:section",
+  "/:projectId/ai/regenerate/:section",
   isAuth,
   projectAccess,
   editorAccess,
