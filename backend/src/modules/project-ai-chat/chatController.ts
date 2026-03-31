@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { aiQueue } from "../queues/aiQueue";
+import redis from "../../db/redis";
 
 export type Section = "idea" | "database" | "api" | "folder" | "none";
 
@@ -22,7 +23,7 @@ export const chatController = async (
       throw error;
     }
 
-    const job = await aiQueue.add(
+    const chatJob = await aiQueue.add(
       "chat",
       {
         projectId,
@@ -36,12 +37,25 @@ export const chatController = async (
           type: "exponential",
           delay: 1000,
         },
-        removeOnComplete : true,
-        removeOnFail : false
+        removeOnComplete: true,
+        removeOnFail: false,
       },
     );
 
-    return res.status(200).json({ status: "queued", jobId: job.id });
+    const jobId = String(chatJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
+    return res.status(200).json({ status: "queued", jobId });
   } catch (error) {
     next(error);
   }
