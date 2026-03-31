@@ -95,6 +95,8 @@ export const upsertSection = async (
   }
 };
 
+// Controller → Queue → Redis (pending) → Worker → Redis (updates)
+
 export const generateIdeaSection = async (
   req: Request<{ projectId: string }, {}, { idea: string }>,
   res: Response<QueueResponse>,
@@ -135,9 +137,22 @@ export const generateIdeaSection = async (
       },
     );
 
+    const jobId = String(ideaJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
     return res.status(200).json({
       status: "queued",
-      jobId: ideaJob.id!,
+      jobId,
     });
   } catch (error) {
     next(error);
@@ -192,9 +207,22 @@ export const generateDatabaseSuggestion = async (
       },
     );
 
+    const jobId = String(databaseJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
     return res.status(200).json({
       status: "queued",
-      jobId: databaseJob.id!,
+      jobId,
     });
   } catch (err) {
     next(err);
@@ -253,7 +281,20 @@ export const generateApiSuggestion = async (
       },
     );
 
-    return res.status(200).json({ status: "queued", jobId: apiJob.id! });
+    const jobId = String(apiJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
+    return res.status(200).json({ status: "queued", jobId });
   } catch (error) {
     next(error);
   }
@@ -315,7 +356,20 @@ export const generateFolderSuggestion = async (
       },
     );
 
-    return res.status(200).json({ status: "queued", jobId: folderJob.id! });
+    const jobId = String(folderJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
+    return res.status(200).json({ status: "queued", jobId });
   } catch (error) {
     next(error);
   }
@@ -378,9 +432,22 @@ export const regenerateSection = async (
       },
     );
 
+    const jobId = String(regenerateJob.id);
+    const jobKey = `job:${jobId}`;
+
+    const jobState: JobStatus = {
+      status: "pending",
+    };
+
+    try {
+      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
+    } catch (error) {
+      console.error("Redis set failed (non-blocking):", error);
+    }
+
     return res.status(200).json({
       status: "queued",
-      jobId: regenerateJob.id!,
+      jobId,
     });
   } catch (error) {
     next(error);
