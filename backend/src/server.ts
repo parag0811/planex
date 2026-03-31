@@ -3,6 +3,7 @@ import cors from "cors";
 import passport from "./modules/auth/passport-auth/passport";
 import authRoutes from "./modules/auth/auth.route";
 import projectRoutes from "./modules/project/project.route";
+import jobsRoutes from "./modules/jobs/jobs.route";
 import errorHandler from "./middleware/error.middleware";
 
 const app = express();
@@ -15,6 +16,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(passport.initialize());
 app.use("/auth", authRoutes);
 app.use("/projects", projectRoutes);
+app.use("/jobs", jobsRoutes);
 
 app.use(errorHandler);
 
