@@ -8,6 +8,8 @@ declare global {
   interface JobStatus extends BaseJobStatus {
     result?: unknown;
     error?: string;
+    jobName?: string;
+    jobData?: any;
   }
 }
 

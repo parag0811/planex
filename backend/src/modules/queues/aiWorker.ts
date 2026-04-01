@@ -29,6 +29,8 @@ aiWorker.on("active", async (job) => {
 
   const jobState: JobStatus = {
     status: "processing",
+    jobName: job.name,
+    jobData: job.data,
   };
 
   try {
@@ -52,6 +54,8 @@ aiWorker.on("completed", async (job, result) => {
   const jobState: JobStatus = {
     status: "completed",
     result,
+    jobName: job.name,
+    jobData: job.data,
   };
 
   try {
@@ -78,6 +82,8 @@ aiWorker.on("failed", async (job, error) => {
   const jobState: JobStatus = {
     status: "failed",
     error: error.message,
+    jobName: job.name,
+    jobData: job.data,
   };
 
   try {
