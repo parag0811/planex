@@ -142,6 +142,8 @@ export const generateIdeaSection = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      jobName : ideaJob.name,
+      jobData : ideaJob.data
     };
 
     try {
@@ -212,6 +214,8 @@ export const generateDatabaseSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      jobName : databaseJob.name,
+      jobData : databaseJob.data
     };
 
     try {
@@ -286,6 +290,8 @@ export const generateApiSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      jobName : apiJob.name,
+      jobData : apiJob.data
     };
 
     try {
@@ -361,6 +367,8 @@ export const generateFolderSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      jobName : folderJob.name,
+      jobData : folderJob.data
     };
 
     try {
@@ -437,6 +445,8 @@ export const regenerateSection = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      jobName : regenerateJob.name,
+      jobData : regenerateJob.data
     };
 
     try {

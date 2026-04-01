@@ -101,7 +101,7 @@ export const retryJob = async (
 
     return res.status(200).json({
       status: "queued",
-      newJobId,
+      jobId : newJobId,
     });
   } catch (error) {
     next(error);
