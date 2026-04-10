@@ -17,6 +17,13 @@ import passport from "passport";
 const router = Router();
 
 const registerValidation = [
+  body("name")
+    .trim()
+    .notEmpty()
+    .withMessage("Name is required.")
+    .bail()
+    .isLength({ min: 2 })
+    .withMessage("Name must be at least 2 characters."),
   body("email")
     .trim()
     .notEmpty()

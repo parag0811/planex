@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion, Variants } from "framer-motion";
 import { AtSign, Lock, User, Github, Chrome, Eye, EyeOff, Zap, Shield, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { register } from "@/src/services/auth.service";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -29,8 +31,11 @@ const perks = [
 ];
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -42,6 +47,33 @@ export default function RegisterPage() {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const passwordMatch = form.password && form.confirm && form.password === form.confirm;
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (isSubmitting) return;
+
+    if (!passwordMatch) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      });
+      router.push("/login");
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Registration failed");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#1a1200] flex items-center justify-center px-4 py-12 relative overflow-hidden">
@@ -162,7 +194,7 @@ export default function RegisterPage() {
             </div>
 
             {/* Fields */}
-            <div className="flex flex-col gap-4 mb-5">
+            <form onSubmit={handleRegister} className="flex flex-col gap-4 mb-5">
 
               {/* Name */}
               <div>
@@ -253,24 +285,27 @@ export default function RegisterPage() {
                   <p className="text-red-400/70 text-[10px] mt-1.5 ml-1">Keyphrases do not match</p>
                 )}
               </div>
-            </div>
+              {error && <p className="text-red-400/80 text-xs">{error}</p>}
 
-            {/* Terms */}
-            <p className="text-[#4a3a2a] text-[11px] mb-5 leading-relaxed">
-              By registering you agree to our{" "}
-              <Link href="#" className="text-[#f97316] hover:underline">Terms of Service</Link>{" "}
-              and{" "}
-              <Link href="#" className="text-[#f97316] hover:underline">Privacy Policy</Link>.
-            </p>
+              {/* Terms */}
+              <p className="text-[#4a3a2a] text-[11px] leading-relaxed">
+                By registering you agree to our{" "}
+                <Link href="#" className="text-[#f97316] hover:underline">Terms of Service</Link>{" "}
+                and{" "}
+                <Link href="#" className="text-[#f97316] hover:underline">Privacy Policy</Link>.
+              </p>
 
-            {/* Submit */}
-            <motion.button
-              whileTap={{ scale: 0.98 }}
-              whileHover={{ scale: 1.01 }}
-              className="cursor-pointer w-full bg-[#f97316] hover:bg-[#ea6c0a] text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
-            >
-              Register 
-            </motion.button>
+              {/* Submit */}
+              <motion.button
+                type="submit"
+                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.01 }}
+                disabled={isSubmitting}
+                className="cursor-pointer w-full bg-[#f97316] hover:bg-[#ea6c0a] disabled:opacity-60 disabled:cursor-not-allowed text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
+              >
+                {isSubmitting ? "Registering..." : "Register"}
+              </motion.button>
+            </form>
 
             {/* Login link */}
             <p className="text-center text-[#4a3a2a] text-xs mt-5">

@@ -6,7 +6,7 @@ import { User as PrismaUser } from "../../generated/prisma/client";
 import supabase from "../../utils/supabase";
 
 interface UserRequest {
-  name?: string;
+  name: string;
   email: string;
   password: string;
 }
@@ -23,7 +23,7 @@ export const registerUser = async (
   next: NextFunction,
 ) => {
   try {
-    const { email, password } = req.body;
+    const { name, email, password } = req.body;
 
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -38,23 +38,15 @@ export const registerUser = async (
     }
 
     const encryptedPassword = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
+        name: name,
         email: email,
         password: encryptedPassword,
       },
     });
 
-    const token = jwt.sign(
-      {
-        userId: user.id,
-      },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "1d" },
-    );
-
     return res.status(201).json({
-      token: token,
       message: "User created successfully.",
     });
   } catch (error) {
