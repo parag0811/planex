@@ -19,10 +19,13 @@ const errorHandler = (
 ) => {
   console.error(`[Error] ${req.method} ${req.originalUrl}:`, error);
 
-  const status = error.status || 500;
+  const prismaError = error as AppError & { code?: string };
+  const status = prismaError.code === "P1001" ? 503 : error.status || 500;
   let message: string;
 
-  if (status >= 500) {
+  if (prismaError.code === "P1001") {
+    message = "Database unavailable. Please try again shortly.";
+  } else if (status >= 500) {
     message = "Internal Server Error";
   } else if ((status === 401 || status === 403) && !error.message) {
     message = "Authentication failed! Login Again.";

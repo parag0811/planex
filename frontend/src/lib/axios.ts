@@ -24,7 +24,7 @@ axiosInstance.interceptors.request.use(
 );
 
 // res inter -> handle 401
-axiosInstance.interceptors.request.use(
+axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {

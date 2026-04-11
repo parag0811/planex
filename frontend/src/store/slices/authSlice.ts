@@ -15,12 +15,16 @@ export const loginUser = createAsyncThunk(
 
       localStorage.setItem("token", token);
 
-      // fetch user after login
-      dispatch(fetchUser());
+      await dispatch(fetchUser()).unwrap();
 
       return token;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Login Failed");
+      localStorage.removeItem("token");
+      return rejectWithValue(
+        typeof error === "string"
+          ? error
+          : error.response?.data?.message || "Login Failed",
+      );
     }
   },
 );
@@ -98,6 +102,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = null;
         state.isAuth = false;
+        state.token = null;
       });
   },
 });

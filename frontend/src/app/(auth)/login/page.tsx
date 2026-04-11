@@ -4,14 +4,36 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { AtSign, Lock, Github, Chrome, Eye, EyeOff, Zap, Shield, Cpu, Globe } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { loginUser } from "@/src/store/slices/authSlice";
+import type { AppDispatch, RootState } from "@/src/store/store";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 export default function LoginPage() {
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const { loading } = useSelector((state: RootState) => state.auth);
+
   const [showPassword, setShowPassword] = useState(false);
   const [persist, setPersist] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    setError(null);
+
+    try {
+      await dispatch(loginUser({ email, password })).unwrap();
+      router.push("/projects");
+    } catch (err: any) {
+      setError(err || "Login failed");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#1a1200] flex items-center justify-center px-4 relative overflow-hidden">
@@ -113,7 +135,7 @@ export default function LoginPage() {
           transition={{ duration: 0.7, ease: EASE }}
           className="w-full max-w-md mx-auto"
         >
-          <div className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative">
+          <form onSubmit={handleSubmit} className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative">
 
             {/* Grid icon top-right */}
             <div className="absolute top-5 right-5 grid grid-cols-2 gap-1">
@@ -128,9 +150,16 @@ export default function LoginPage() {
               <p className="text-[#6b5c4c] text-sm mt-1">Choose your authentication protocol.</p>
             </div>
 
+            {error && (
+              <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {error}
+              </div>
+            )}
+
             {/* OAuth buttons */}
             <div className="flex flex-col gap-3 mb-6">
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.98 }}
                 className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#2a2a2a] hover:bg-[#333] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
@@ -138,6 +167,7 @@ export default function LoginPage() {
                 Continue with GitHub
               </motion.button>
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.98 }}
                 className="cursor-pointer w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/8 border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
@@ -198,6 +228,9 @@ export default function LoginPage() {
             <div className="flex items-center justify-between mb-6">
               <label className="flex items-center gap-2 cursor-pointer group">
                 <div
+                  role="checkbox"
+                  aria-checked={persist}
+                  tabIndex={0}
                   onClick={() => setPersist(!persist)}
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
                     persist ? "bg-[#f97316] border-[#f97316]" : "border-white/20 bg-transparent"
@@ -216,11 +249,13 @@ export default function LoginPage() {
 
             {/* Submit */}
             <motion.button
+              type="submit"
               whileTap={{ scale: 0.98 }}
               whileHover={{ scale: 1.01 }}
-              className="w-full bg-[#f97316] hover:bg-[#ea6c0a] text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
+              disabled={loading}
+              className="w-full bg-[#f97316] hover:bg-[#ea6c0a] disabled:opacity-70 disabled:cursor-not-allowed text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
             >
-              Engage System
+              {loading ? "Authenticating..." : "Engage System"}
             </motion.button>
 
             {/* Register link */}
@@ -230,7 +265,7 @@ export default function LoginPage() {
                 Register new identity
               </Link>
             </p>
-          </div>
+          </form>
         </motion.div>
       </div>
 
