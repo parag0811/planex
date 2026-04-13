@@ -4,7 +4,6 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { AtSign, Lock, Github, Chrome, Eye, EyeOff, Zap, Shield, Cpu, Globe } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
@@ -12,7 +11,6 @@ import type { AppDispatch, RootState } from "@/src/store/store";
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 export default function LoginPage() {
-  const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { loading } = useSelector((state: RootState) => state.auth);
 
@@ -29,7 +27,6 @@ export default function LoginPage() {
 
     try {
       await dispatch(loginUser({ email, password })).unwrap();
-      router.push("/projects");
     } catch (err: any) {
       setError(err || "Login failed");
     }

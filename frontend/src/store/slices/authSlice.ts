@@ -51,11 +51,14 @@ interface AuthState {
   error: string | null;
 }
 
+const initialToken =
+  typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
 const initialState: AuthState = {
   user: null,
-  token: typeof window !== "undefined" ? localStorage.getItem("token") : null,
+  token: initialToken,
   isAuth: false,
-  loading: false,
+  loading: Boolean(initialToken),
   error: null,
 };
 
