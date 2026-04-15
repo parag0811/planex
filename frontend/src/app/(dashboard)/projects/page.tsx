@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { MoreVertical, Plus, Zap } from "lucide-react";
+import { useDispatch, useSelector } from "react-redux";
 import Sidebar, {
   type SidebarPage,
 } from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
+import { fetchProjects } from "@/src/store/slices/projectSlice";
+import type { AppDispatch, RootState } from "@/src/store/store";
 
 type ProjectRisk = "Low" | "Medium" | "High";
 
@@ -19,49 +22,45 @@ interface ProjectCard {
   status: "active" | "draft";
 }
 
-const PROJECTS: ProjectCard[] = [
-  {
-    id: "proj-1",
-    name: "E-commerce Backend",
-    description:
-      "Scalable Node.js infrastructure with integrated fraud detection and modular billing.",
-    risk: "Low",
-    architecture: "v3.2",
-    status: "active",
-  },
-  {
-    id: "proj-2",
-    name: "Mobile Finance App",
-    description:
-      "Cross-platform React Native application focused on secure daily money workflows.",
-    risk: "Medium",
-    architecture: "v0.9",
-    status: "draft",
-  },
-  {
-    id: "proj-3",
-    name: "Ops Command Center",
-    description:
-      "Internal platform for incident reporting, role-based approvals, and live audit views.",
-    risk: "High",
-    architecture: "v1.4",
-    status: "active",
-  },
-];
-
 const riskColorMap: Record<ProjectRisk, string> = {
   Low: "text-emerald-400",
   Medium: "text-amber-400",
   High: "text-rose-400",
 };
 
+const riskOrder: ProjectRisk[] = ["Low", "Medium", "High"];
+
+const buildProjectCard = (
+  project: { id: string; name: string },
+  index: number,
+): ProjectCard => {
+  const risk = riskOrder[index % riskOrder.length];
+
+  return {
+    id: project.id,
+    name: project.name,
+    description: "Loaded from your project list.",
+    risk,
+    architecture: `v1.${index + 1}`,
+    status: index % 3 === 1 ? "draft" : "active",
+  };
+};
+
 export default function Projects() {
   const [activePage, setActivePage] = useState<SidebarPage>("overview");
+  const dispatch = useDispatch<AppDispatch>();
+  const { projects, fetch } = useSelector((state: RootState) => state.project);
 
-  const activeCount = useMemo(
-    () => PROJECTS.filter((project) => project.status === "active").length,
-    [],
+  useEffect(() => {
+    void dispatch(fetchProjects());
+  }, [dispatch]);
+
+  const projectCards = useMemo(
+    () => projects.map((project, index) => buildProjectCard(project, index)),
+    [projects],
   );
+
+  const activeCount = projectCards.length;
 
   return (
     <div
@@ -113,19 +112,31 @@ export default function Projects() {
           </section>
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {PROJECTS.map((project, index) => (
+            {fetch.loading && projectCards.length === 0 && (
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5 text-sm text-white/45 md:col-span-2 xl:col-span-3">
+                Loading projects...
+              </div>
+            )}
+
+            {!fetch.loading && projectCards.length === 0 && (
+              <div className="rounded-2xl border border-white/8 bg-white/2 p-5 text-sm text-white/45 md:col-span-2 xl:col-span-3">
+                No projects found.
+              </div>
+            )}
+
+            {projectCards.map((project, index) => (
               <motion.article
                 key={project.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 * index, duration: 0.35 }}
-                className="group rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3 backdrop-blur-md"
+                className="group rounded-2xl border border-white/8 bg-white/2 p-3 backdrop-blur-md"
               >
-                <div className="relative mb-3 h-34 overflow-hidden rounded-xl border border-white/[0.09] bg-gradient-to-br from-[#3b2f1f] via-[#15110b] to-[#080603]">
+                <div className="relative mb-3 h-34 overflow-hidden rounded-xl border border-white/9 bg-linear-to-br from-[#3b2f1f] via-[#15110b] to-[#080603]">
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(255,145,0,0.35),transparent_35%)]" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_88%_90%,rgba(66,32,0,0.4),transparent_48%)]" />
                   <span
-                    className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] ${
+                    className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
                       project.status === "active"
                         ? "bg-orange-500/20 text-orange-300"
                         : "bg-sky-500/18 text-sky-300"
@@ -152,8 +163,8 @@ export default function Projects() {
                 </p>
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.1em] text-white/30">
+                  <div className="rounded-lg border border-white/[0.07] bg-white/2 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-widest text-white/30">
                       ML Risk
                     </p>
                     <p
@@ -162,8 +173,8 @@ export default function Projects() {
                       {project.risk}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
-                    <p className="text-[10px] uppercase tracking-[0.1em] text-white/30">
+                  <div className="rounded-lg border border-white/[0.07] bg-white/2 px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-widest text-white/30">
                       Architecture
                     </p>
                     <p className="text-sm font-bold text-white/75">
@@ -177,8 +188,8 @@ export default function Projects() {
             <motion.article
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.08 * PROJECTS.length, duration: 0.35 }}
-              className="flex min-h-[320px] flex-col justify-between rounded-2xl border border-dashed border-orange-500/35 bg-orange-500/[0.04] p-5"
+              transition={{ delay: 0.08 * projectCards.length, duration: 0.35 }}
+              className="flex min-h-80 flex-col justify-between rounded-2xl border border-dashed border-orange-500/35 bg-orange-500/4 p-5"
             >
               <div>
                 <div className="mb-4 inline-flex rounded-full border border-orange-500/35 bg-orange-500/15 p-2.5 text-orange-400">
@@ -207,7 +218,7 @@ export default function Projects() {
             </motion.article>
           </section>
 
-          <section className="mt-10 rounded-3xl border border-white/[0.08] bg-[linear-gradient(120deg,rgba(255,138,0,0.1),rgba(0,0,0,0.15))] px-6 py-10 text-center md:mt-14">
+          <section className="mt-10 rounded-3xl border border-white/8 bg-[linear-gradient(120deg,rgba(255,138,0,0.1),rgba(0,0,0,0.15))] px-6 py-10 text-center md:mt-14">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-500/30 bg-orange-500/12 text-orange-400">
               <Zap size={22} />
             </div>

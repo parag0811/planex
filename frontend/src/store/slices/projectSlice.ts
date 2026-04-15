@@ -1,7 +1,7 @@
 import axiosInstance from "@/src/lib/axios";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
-interface Project {
+export interface Project {
   id: string;
   name: string;
   owner_id?: string;
@@ -18,6 +18,28 @@ interface OperationState {
   error: string | null;
 }
 
+const getErrorMessage = (error: any, fallback: string) => {
+  const responseData = error?.response?.data;
+
+  if (Array.isArray(responseData?.data) && responseData.data.length > 0) {
+    const firstValidationError = responseData.data[0];
+
+    if (typeof firstValidationError?.msg === "string") {
+      return firstValidationError.msg;
+    }
+  }
+
+  if (typeof responseData?.message === "string") {
+    return responseData.message;
+  }
+
+  if (typeof error?.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 export const fetchProjects = createAsyncThunk(
   "project/fetchProjects",
   async (_, { rejectWithValue }) => {
@@ -26,7 +48,7 @@ export const fetchProjects = createAsyncThunk(
 
       return (res.data.data ?? res.data.projects ?? []) as Project[];
     } catch (error: any) {
-      return rejectWithValue("Failed to fetch projects");
+      return rejectWithValue(getErrorMessage(error, "Failed to fetch projects"));
     }
   },
 );
@@ -39,7 +61,7 @@ export const createProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return true;
     } catch (error: any) {
-      return rejectWithValue("Failed to create project");
+      return rejectWithValue(getErrorMessage(error, "Failed to create project"));
     }
   },
 );
@@ -57,7 +79,7 @@ export const updateProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return true;
     } catch (error: any) {
-      return rejectWithValue("Failed to update project");
+      return rejectWithValue(getErrorMessage(error, "Failed to update project"));
     }
   },
 );
@@ -70,7 +92,7 @@ export const deleteProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return projectId;
     } catch (error: any) {
-      return rejectWithValue("Failed to delete project");
+      return rejectWithValue(getErrorMessage(error, "Failed to delete project"));
     }
   },
 );
