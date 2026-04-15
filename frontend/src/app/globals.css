@@ -24,3 +24,42 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Keep auth form inputs dark in all states, including browser autofill/focus overrides. */
+input.auth-input,
+textarea.auth-input {
+  background-color: transparent !important;
+  color: #ffffff !important;
+  caret-color: #ffffff;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+input.auth-input:focus,
+input.auth-input:active,
+textarea.auth-input:focus,
+textarea.auth-input:active {
+  background-color: transparent !important;
+  color: #ffffff !important;
+}
+
+input.auth-input:-webkit-autofill,
+input.auth-input:-webkit-autofill:hover,
+input.auth-input:-webkit-autofill:focus,
+input.auth-input:-webkit-autofill:active,
+textarea.auth-input:-webkit-autofill,
+textarea.auth-input:-webkit-autofill:hover,
+textarea.auth-input:-webkit-autofill:focus,
+textarea.auth-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-box-shadow: 0 0 0 1000px #110d00 inset !important;
+  box-shadow: 0 0 0 1000px #110d00 inset !important;
+  caret-color: #ffffff;
+  transition: background-color 9999s ease-out 0s;
+}
+
+input.auth-input:-moz-autofill,
+textarea.auth-input:-moz-autofill {
+  box-shadow: 0 0 0 1000px #110d00 inset !important;
+  color: #ffffff !important;
+}

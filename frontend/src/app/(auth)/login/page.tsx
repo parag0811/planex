@@ -2,7 +2,18 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { AtSign, Lock, Github, Chrome, Eye, EyeOff, Zap, Shield, Cpu, Globe } from "lucide-react";
+import {
+  AtSign,
+  Lock,
+  Github,
+  Chrome,
+  Eye,
+  EyeOff,
+  Zap,
+  Shield,
+  Cpu,
+  Globe,
+} from "lucide-react";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "@/src/store/slices/authSlice";
@@ -34,9 +45,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#1a1200] flex items-center justify-center px-4 relative overflow-hidden">
-
       {/* Background noise texture */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }}
@@ -47,7 +58,6 @@ export default function LoginPage() {
       <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-[#f97316]/4 blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-
         {/* ── LEFT — Branding ─────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, x: -30 }}
@@ -85,7 +95,8 @@ export default function LoginPage() {
               transition={{ delay: 0.35, duration: 0.6, ease: EASE }}
               className="text-[#a89880] text-sm leading-relaxed mt-6 max-w-xs"
             >
-              Enter the forge. Secure your project room. The kinetic architect's environment for high-performance neural engineering.
+              Enter the forge. Secure your project room. The kinetic architect's
+              environment for high-performance neural engineering.
             </motion.p>
           </div>
 
@@ -97,31 +108,35 @@ export default function LoginPage() {
             className="flex items-center gap-10 border-t border-white/5 pt-6"
           >
             {[
-              { label: "STATUS", value: "SYSTEM ONLINE", icon: <Shield size={12} />, color: "text-[#4ade80]" },
-              { label: "ENCRYPTED", value: "AES-256-GCM", icon: <Lock size={12} />, color: "text-[#f97316]" },
-              { label: "LATENCY", value: "12MS GLOBAL", icon: <Globe size={12} />, color: "text-[#60a5fa]" },
+              {
+                label: "STATUS",
+                value: "SYSTEM ONLINE",
+                icon: <Shield size={12} />,
+                color: "text-[#4ade80]",
+              },
+              {
+                label: "ENCRYPTED",
+                value: "AES-256-GCM",
+                icon: <Lock size={12} />,
+                color: "text-[#f97316]",
+              },
+              {
+                label: "LATENCY",
+                value: "12MS GLOBAL",
+                icon: <Globe size={12} />,
+                color: "text-[#60a5fa]",
+              },
             ].map((s) => (
               <div key={s.label}>
-                <p className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mb-1 ${s.color}`}>
-                  {s.icon}{s.label}
+                <p
+                  className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mb-1 ${s.color}`}
+                >
+                  {s.icon}
+                  {s.label}
                 </p>
                 <p className="text-white text-xs font-bold">{s.value}</p>
               </div>
             ))}
-          </motion.div>
-
-          {/* Bottom meta */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="mt-8"
-          >
-            <p className="text-[#3a2a1a] text-[10px] font-mono leading-relaxed">
-              PLANEX_AI_AUTH_GUARD_v2.4.0<br />
-              SECURE_HOSTNAME: [✓]<br />
-              ENCRYPTION_MODULE: [ACTIVE]
-            </p>
           </motion.div>
         </motion.div>
 
@@ -132,19 +147,28 @@ export default function LoginPage() {
           transition={{ duration: 0.7, ease: EASE }}
           className="w-full max-w-md mx-auto"
         >
-          <form onSubmit={handleSubmit} className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative">
-
+          <form
+            onSubmit={handleSubmit}
+            className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative"
+          >
             {/* Grid icon top-right */}
             <div className="absolute top-5 right-5 grid grid-cols-2 gap-1">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-1.5 h-1.5 rounded-sm bg-[#f97316]/40" />
+                <div
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-sm bg-[#f97316]/40"
+                />
               ))}
             </div>
 
             {/* Header */}
             <div className="mb-7">
-              <h2 className="text-white text-xl font-bold tracking-tight">Initialize Session</h2>
-              <p className="text-[#6b5c4c] text-sm mt-1">Choose your authentication protocol.</p>
+              <h2 className="text-white text-xl font-bold tracking-tight">
+                Initialize Session
+              </h2>
+              <p className="text-[#6b5c4c] text-sm mt-1">
+                Choose your authentication protocol.
+              </p>
             </div>
 
             {error && (
@@ -176,7 +200,9 @@ export default function LoginPage() {
             {/* Divider */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-white/8" />
-              <span className="text-[#4a3a2a] text-[10px] font-bold uppercase tracking-widest">Secondary Link</span>
+              <span className="text-[#4a3a2a] text-[10px] font-bold uppercase tracking-widest">
+                Secondary Link
+              </span>
               <div className="flex-1 h-px bg-white/8" />
             </div>
 
@@ -192,7 +218,7 @@ export default function LoginPage() {
                   placeholder="architect@planex.ai"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                  className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                 />
               </div>
             </div>
@@ -209,7 +235,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                  className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                 />
                 <button
                   type="button"
@@ -230,7 +256,9 @@ export default function LoginPage() {
                   tabIndex={0}
                   onClick={() => setPersist(!persist)}
                   className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
-                    persist ? "bg-[#f97316] border-[#f97316]" : "border-white/20 bg-transparent"
+                    persist
+                      ? "bg-[#f97316] border-[#f97316]"
+                      : "border-white/20 bg-transparent"
                   }`}
                 >
                   {persist && <div className="w-2 h-2 rounded-sm bg-black" />}
@@ -258,7 +286,10 @@ export default function LoginPage() {
             {/* Register link */}
             <p className="text-center text-[#4a3a2a] text-xs mt-5">
               New architect?{" "}
-              <Link href="/register" className="text-white font-semibold hover:text-[#f97316] transition-colors">
+              <Link
+                href="/register"
+                className="text-white font-semibold hover:text-[#f97316] transition-colors"
+              >
                 Register new identity
               </Link>
             </p>
@@ -268,7 +299,8 @@ export default function LoginPage() {
 
       {/* Bottom-right binary decoration */}
       <div className="absolute bottom-4 right-6 text-[#2a1a00] text-[10px] font-mono hidden lg:block select-none">
-        01001110 01000101 11010101 01001110<br />
+        01001110 01000101 11010101 01001110
+        <br />
         100 01 71267 0. 132-4201
       </div>
     </div>

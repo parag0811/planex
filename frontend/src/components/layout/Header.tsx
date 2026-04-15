@@ -4,6 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Menu, X, Zap } from "lucide-react";
 import Link from "next/link";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/src/store/store";
 
 const navLinks = [
   { label: "Workspace", href: "/workspace" },
@@ -15,6 +17,10 @@ const navLinks = [
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const { isAuth, user } = useSelector((state: RootState) => state.auth);
+
+  const ctaLabel = isAuth ? "Go to Dashboard" : "Get Started";
+  const ctaHref = isAuth ? "/projects" : "/register";
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#1a1200]/80 backdrop-blur-md border-b border-white/5">
@@ -63,13 +69,13 @@ export default function Header() {
         {/* CTA + Avatar */}
         <div className="hidden md:flex items-center gap-3">
           <Link
-            href="/register"
+            href={ctaHref}
             className="bg-[#f97316] hover:bg-[#ea6c0a] text-black text-sm font-bold px-5 py-2 rounded-full transition-all duration-200 hover:scale-[1.03]"
           >
-            Get Started
+            {ctaLabel}
           </Link>
-          <div className="w-8 h-8 rounded-full bg-[#3a2a1a] border border-white/10 overflow-hidden cursor-pointer hover:border-[#f97316]/50 transition-colors">
-            <div className="w-full h-full bg-gradient-to-br from-[#f97316]/40 to-[#7c3a00]/40" />
+          <div className="w-8 h-8 rounded-full bg-[#3a2a1a] border border-white/10 overflow-hidden cursor-pointer hover:border-[#f97316]/50 transition-colors flex items-center justify-center text-[10px] font-bold text-[#f97316]">
+            {isAuth ? (user?.name ? String(user.name).slice(0, 2).toUpperCase() : "IN") : "GO"}
           </div>
         </div>
 
@@ -102,11 +108,11 @@ export default function Header() {
               </Link>
             ))}
             <Link
-              href="/register"
+              href={ctaHref}
               className="bg-[#f97316] text-black text-sm font-bold px-5 py-2 rounded-full text-center"
               onClick={() => setMenuOpen(false)}
             >
-              Get Started
+              {ctaLabel}
             </Link>
           </motion.div>
         )}

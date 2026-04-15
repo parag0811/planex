@@ -208,7 +208,7 @@ export default function RegisterPage() {
                     placeholder="Your architect name"
                     value={form.name}
                     onChange={handleChange("name")}
-                    className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                   />
                 </div>
               </div>
@@ -225,7 +225,7 @@ export default function RegisterPage() {
                     placeholder="architect@planex.ai"
                     value={form.email}
                     onChange={handleChange("email")}
-                    className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                   />
                 </div>
               </div>
@@ -242,7 +242,7 @@ export default function RegisterPage() {
                     placeholder="••••••••"
                     value={form.password}
                     onChange={handleChange("password")}
-                    className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                   />
                   <button
                     type="button"
@@ -268,7 +268,7 @@ export default function RegisterPage() {
                     placeholder="••••••••"
                     value={form.confirm}
                     onChange={handleChange("confirm")}
-                    className="bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
                   />
                   <button
                     type="button"
