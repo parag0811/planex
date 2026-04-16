@@ -352,7 +352,7 @@ function LoggedInLanding({
                 className="flex items-center gap-2 rounded-full bg-[#f97316] px-6 py-3 text-sm font-bold text-black transition-all hover:scale-[1.03] hover:bg-[#ea6c0a]"
               >
                 <ArrowRight size={16} />
-                Go to dashboard
+                Go to projects
               </Link>
               <Link
                 href="/projects/create-project"
@@ -417,7 +417,7 @@ function LoggedInLanding({
               href="/projects"
               className="text-sm text-[#f97316] hover:underline"
             >
-              Open dashboard
+              Open projects
             </Link>
           </div>
 
@@ -511,7 +511,7 @@ function LoggedInLanding({
             href="/projects"
             className="rounded-full bg-[#f97316] px-5 py-2 text-sm font-bold text-black transition-all hover:scale-[1.03] hover:bg-[#ea6c0a]"
           >
-            Open dashboard
+            Open projects
           </Link>
         </div>
       </footer>

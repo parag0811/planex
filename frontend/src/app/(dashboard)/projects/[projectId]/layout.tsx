@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import Sidebar, { type SidebarPage } from "@/src/components/layout/project-section/SidebarLeft";
+import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
 
 export default function ProjectIdLayout({
   children,
+  params,
   projectName = "Project Obsidian",
 }: {
   children: React.ReactNode;
+  params: { projectId: string };
   projectName?: string;
 }) {
-  const [activePage, setActivePage] = useState<SidebarPage>("overview");
+  const { projectId } = params;
 
   return (
     <div
@@ -32,8 +33,7 @@ export default function ProjectIdLayout({
 
       {/* Sidebar */}
       <Sidebar
-        activePage={activePage}
-        onNavigate={setActivePage}
+        projectId={projectId}
         projectName={projectName}
         projectStatus="Active"
       />

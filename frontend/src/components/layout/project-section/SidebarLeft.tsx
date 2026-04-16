@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Lightbulb, Database,
   Code2, FolderTree, ChevronRight,
@@ -13,36 +14,38 @@ export type SidebarPage =
   | "idea"
   | "db-schema"
   | "api-design"
-  | "folder-structure";
+  | "folder";
 
 interface SidebarProps {
-  activePage: SidebarPage;
-  onNavigate: (page: SidebarPage) => void;
+  projectId: string;
   projectName?: string;
   projectStatus?: string;
 }
 
-const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType }[] = [
-  { id: "overview",         label: "Overview",         icon: LayoutDashboard },
-  { id: "idea",             label: "Idea",             icon: Lightbulb       },
-  { id: "db-schema",        label: "DB Schema",        icon: Database        },
-  { id: "api-design",       label: "API Design",       icon: Code2           },
-  { id: "folder-structure", label: "Folder Structure", icon: FolderTree      },
+const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType; href: (projectId: string) => string }[] = [
+  { id: "overview", label: "Overview", icon: LayoutDashboard, href: (projectId) => `/projects/${projectId}` },
+  { id: "idea", label: "Idea", icon: Lightbulb, href: (projectId) => `/projects/${projectId}/idea` },
+  { id: "db-schema", label: "DB Schema", icon: Database, href: (projectId) => `/projects/${projectId}/database` },
+  { id: "api-design", label: "API Design", icon: Code2, href: (projectId) => `/projects/${projectId}/api` },
+  { id: "folder", label: "Folder", icon: FolderTree, href: (projectId) => `/projects/${projectId}/folder` },
 ];
 
 export default function Sidebar({
-  activePage,
-  onNavigate,
+  projectId,
   projectName = "Project Forge",
   projectStatus = "Active",
 }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const isActiveRoute = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-[18px] pt-5 pb-[18px]  shrink-0">
-        <div className="w-9 h-9 rounded-[10px] bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[#0f0800] shrink-0">
+      <div className="flex items-center gap-3 px-4.5 pt-5 pb-4.5 shrink-0">
+        <div className="w-9 h-9 rounded-[10px] bg-linear-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[#0f0800] shrink-0">
           <Flame size={16} />
         </div>
         <div className="flex flex-col">
@@ -59,20 +62,24 @@ export default function Sidebar({
       <nav className="flex-1 flex flex-col px-2.5 py-3.5 gap-0.5 overflow-y-auto">
         {NAV_ITEMS.map((item, i) => {
           const Icon = item.icon;
-          const isActive = activePage === item.id;
+          const href = item.href(projectId);
+          const isActive = isActiveRoute(href);
           return (
             <motion.button
               key={item.id}
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.05 * i + 0.1 }}
-              onClick={() => { onNavigate(item.id); setMobileOpen(false); }}
+              onClick={() => {
+                router.push(href);
+                setMobileOpen(false);
+              }}
               className={`
                 relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left
                 text-[13.5px] font-semibold tracking-[0.04em] transition-colors duration-200
                 ${isActive
                   ? "text-orange-500"
-                  : "text-white/40 hover:text-white/65 hover:bg-white/[0.04]"
+                  : "text-white/40 hover:text-white/65 hover:bg-white/4"
                 }
               `}
             >
@@ -95,11 +102,11 @@ export default function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="flex items-center gap-2.5 px-[18px] py-4 border-t border-white/[0.06] shrink-0">
+      <div className="flex items-center gap-2.5 px-4.5 py-4 border-t border-white/6 shrink-0">
         <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] shrink-0 animate-pulse" />
         <div className="min-w-0">
           <p className="text-[13px] font-semibold text-white/65 truncate">{projectName}</p>
-          <p className="text-[9px] text-green-500 tracking-[0.1em] uppercase font-mono">{projectStatus}</p>
+          <p className="text-[9px] text-green-500 tracking-widest uppercase font-mono">{projectStatus}</p>
         </div>
       </div>
     </div>
@@ -108,7 +115,7 @@ export default function Sidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden md:block w-[220px] shrink-0 h-screen sticky top-0 bg-[rgba(12,7,2,0.97)] border-r border-white/[0.06] backdrop-blur-xl z-20">
+      <aside className="hidden md:block w-55 shrink-0 h-screen sticky top-0 bg-[rgba(12,7,2,0.97)] border-r border-white/6 backdrop-blur-xl z-20">
         <SidebarContent />
       </aside>
 
@@ -135,7 +142,7 @@ export default function Sidebar({
               key="drawer"
               initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }}
               transition={{ type: "spring", stiffness: 350, damping: 35 }}
-              className="fixed top-0 left-0 bottom-0 w-60 z-50 bg-[#0c0702] border-r border-white/[0.08]"
+              className="fixed top-0 left-0 bottom-0 w-60 z-50 bg-[#0c0702] border-r border-white/8"
             >
               <button
                 className="absolute top-3.5 right-3.5 bg-white/[0.07] border-none rounded-md p-1.5 text-white/50 z-10 flex"
