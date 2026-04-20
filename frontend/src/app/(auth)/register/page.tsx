@@ -26,7 +26,7 @@ const stagger: Variants = {
 const perks = [
   "AI-suggested API & DB schemas",
   "ML-powered risk prediction",
-  "Real-time team collaboration",
+  "Shared project room controls",
   "Folder scaffolding engine",
 ];
 
@@ -76,10 +76,9 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1200] flex items-center justify-center px-4 py-12 relative overflow-hidden">
-
-      <div className="absolute top-[-15%] right-[-5%] w-[500px] h-[500px] rounded-full bg-[#f97316]/5 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full bg-[#f97316]/4 blur-[100px] pointer-events-none" />
+    <div className="min-h-screen bg-[#11151f] flex items-center justify-center px-4 py-12 relative overflow-hidden text-white">
+      <div className="absolute top-[-15%] right-[-5%] w-125 h-125 rounded-full bg-[#f97316]/6 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-100 h-100 rounded-full bg-[#f97316]/5 blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
 
@@ -112,7 +111,7 @@ export default function RegisterPage() {
               <br />
               <span className="text-white">FUTURE.</span>
             </h1>
-            <p className="text-[#a89880] text-sm leading-relaxed mt-6 max-w-xs">
+            <p className="text-[#aab1bf] text-sm leading-relaxed mt-6 max-w-xs">
               Join thousands of architects building the next generation of systems. Your workspace awaits.
             </p>
           </div>
@@ -142,7 +141,6 @@ export default function RegisterPage() {
             <span className="text-[#4ade80] text-[10px] font-bold uppercase tracking-widest">
               End-to-end encrypted
             </span>
-            <span className="text-[#2a1a00] text-[10px] font-mono ml-auto">AES-256-GCM · TLS 1.3</span>
           </div>
         </motion.div>
 
@@ -153,7 +151,7 @@ export default function RegisterPage() {
           transition={{ duration: 0.7, ease: EASE }}
           className="w-full max-w-md mx-auto"
         >
-          <div className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative">
+          <div className="relative rounded-3xl border border-white/10 bg-[#10141d]/90 p-8 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-sm">
 
             {/* Grid icon */}
             <div className="absolute top-5 right-5 grid grid-cols-2 gap-1">
@@ -165,14 +163,14 @@ export default function RegisterPage() {
             {/* Header */}
             <div className="mb-7">
               <h2 className="text-white text-xl font-bold tracking-tight">Register Identity</h2>
-              <p className="text-[#6b5c4c] text-sm mt-1">Create your architect profile.</p>
+              <p className="text-[#aab1bf] text-sm mt-1">Create your architect profile.</p>
             </div>
 
             {/* OAuth */}
             <div className="flex flex-col gap-3 mb-6">
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#2a2a2a] hover:bg-[#333] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
+                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#141a25] hover:bg-[#1a2231] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
                 <Github size={17} />
                 Continue with GitHub
@@ -189,7 +187,7 @@ export default function RegisterPage() {
             {/* Divider */}
             <div className="flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-white/8" />
-              <span className="text-[#4a3a2a] text-[10px] font-bold uppercase tracking-widest">Or register manually</span>
+              <span className="text-[#8b93a6] text-[10px] font-bold uppercase tracking-widest">Or register manually</span>
               <div className="flex-1 h-px bg-white/8" />
             </div>
 
@@ -201,14 +199,14 @@ export default function RegisterPage() {
                 <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                   Display Name
                 </label>
-                <div className="flex items-center gap-3 bg-[#110d00] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                  <User size={14} className="text-[#4a3a2a] shrink-0" />
+                <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
+                  <User size={14} className="text-[#8b93a6] shrink-0" />
                   <input
                     type="text"
                     placeholder="Your architect name"
                     value={form.name}
                     onChange={handleChange("name")}
-                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                   />
                 </div>
               </div>
@@ -218,14 +216,14 @@ export default function RegisterPage() {
                 <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                   Email Address
                 </label>
-                <div className="flex items-center gap-3 bg-[#110d00] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                  <AtSign size={14} className="text-[#4a3a2a] shrink-0" />
+                <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
+                  <AtSign size={14} className="text-[#8b93a6] shrink-0" />
                   <input
                     type="email"
                     placeholder="architect@planex.ai"
                     value={form.email}
                     onChange={handleChange("email")}
-                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                   />
                 </div>
               </div>
@@ -235,19 +233,19 @@ export default function RegisterPage() {
                 <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                   Password
                 </label>
-                <div className="flex items-center gap-3 bg-[#110d00] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                  <Lock size={14} className="text-[#4a3a2a] shrink-0" />
+                <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
+                  <Lock size={14} className="text-[#8b93a6] shrink-0" />
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={form.password}
                     onChange={handleChange("password")}
-                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-[#4a3a2a] hover:text-[#f97316] transition-colors shrink-0"
+                    className="text-[#8b93a6] hover:text-[#f97316] transition-colors shrink-0"
                   >
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -259,21 +257,21 @@ export default function RegisterPage() {
                 <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                   Confirm Password
                 </label>
-                <div className={`flex items-center gap-3 bg-[#110d00] border rounded-xl px-4 py-3 transition-colors focus-within:border-[#f97316]/50 ${
+                <div className={`flex items-center gap-3 bg-[#0b0f16] border rounded-xl px-4 py-3 transition-colors focus-within:border-[#f97316]/50 ${
                   form.confirm && !passwordMatch ? "border-red-500/40" : "border-white/8"
                 }`}>
-                  <Lock size={14} className="text-[#4a3a2a] shrink-0" />
+                  <Lock size={14} className="text-[#8b93a6] shrink-0" />
                   <input
                     type={showConfirm ? "text" : "password"}
                     placeholder="••••••••"
                     value={form.confirm}
                     onChange={handleChange("confirm")}
-                    className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                    className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirm(!showConfirm)}
-                    className="text-[#4a3a2a] hover:text-[#f97316] transition-colors shrink-0"
+                    className="text-[#8b93a6] hover:text-[#f97316] transition-colors shrink-0"
                   >
                     {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -288,7 +286,7 @@ export default function RegisterPage() {
               {error && <p className="text-red-400/80 text-xs">{error}</p>}
 
               {/* Terms */}
-              <p className="text-[#4a3a2a] text-[11px] leading-relaxed">
+              <p className="text-[#8b93a6] text-[11px] leading-relaxed">
                 By registering you agree to our{" "}
                 <Link href="#" className="text-[#f97316] hover:underline">Terms of Service</Link>{" "}
                 and{" "}
@@ -308,7 +306,7 @@ export default function RegisterPage() {
             </form>
 
             {/* Login link */}
-            <p className="text-center text-[#4a3a2a] text-xs mt-5">
+            <p className="text-center text-[#8b93a6] text-xs mt-5">
               Already an architect?{" "}
               <Link href="/login" className="text-white font-semibold hover:text-[#f97316] transition-colors">
                 Login Here

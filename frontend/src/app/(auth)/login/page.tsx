@@ -26,7 +26,6 @@ export default function LoginPage() {
   const { loading } = useSelector((state: RootState) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [persist, setPersist] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +43,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1a1200] flex items-center justify-center px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#11151f] flex items-center justify-center px-4 relative overflow-hidden text-white">
       {/* Background noise texture */}
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }}
       />
 
       {/* Ambient glow blobs */}
-      <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] rounded-full bg-[#f97316]/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-[#f97316]/4 blur-[100px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-5%] w-125 h-125 rounded-full bg-[#f97316]/6 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-100 h-100 rounded-full bg-[#f97316]/5 blur-[100px] pointer-events-none" />
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
         {/* ── LEFT — Branding ─────────────────────────────────── */}
@@ -93,7 +92,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35, duration: 0.6, ease: EASE }}
-              className="text-[#a89880] text-sm leading-relaxed mt-6 max-w-xs"
+              className="text-[#aab1bf] text-sm leading-relaxed mt-6 max-w-xs"
             >
               Enter the forge. Secure your project room. The kinetic architect's
               environment for high-performance neural engineering.
@@ -149,7 +148,7 @@ export default function LoginPage() {
         >
           <form
             onSubmit={handleSubmit}
-            className="bg-[#1e1600]/80 border border-white/8 rounded-2xl p-8 backdrop-blur-sm shadow-2xl shadow-black/40 relative"
+            className="relative rounded-3xl border border-white/10 bg-[#10141d]/90 p-8 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-sm"
           >
             {/* Grid icon top-right */}
             <div className="absolute top-5 right-5 grid grid-cols-2 gap-1">
@@ -166,7 +165,7 @@ export default function LoginPage() {
               <h2 className="text-white text-xl font-bold tracking-tight">
                 Initialize Session
               </h2>
-              <p className="text-[#6b5c4c] text-sm mt-1">
+              <p className="text-[#aab1bf] text-sm mt-1">
                 Choose your authentication protocol.
               </p>
             </div>
@@ -182,7 +181,7 @@ export default function LoginPage() {
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.98 }}
-                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#2a2a2a] hover:bg-[#333] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
+                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#141a25] hover:bg-[#1a2231] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
                 <Github size={17} />
                 Continue with GitHub
@@ -211,14 +210,14 @@ export default function LoginPage() {
               <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                 Email Address
               </label>
-              <div className="flex items-center gap-3 bg-[#110d00] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                <AtSign size={14} className="text-[#4a3a2a] shrink-0" />
+              <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
+                <AtSign size={14} className="text-[#8b93a6] shrink-0" />
                 <input
                   type="email"
                   placeholder="architect@planex.ai"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                  className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                 />
               </div>
             </div>
@@ -228,45 +227,27 @@ export default function LoginPage() {
               <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
                 Password
               </label>
-              <div className="flex items-center gap-3 bg-[#110d00] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                <Lock size={14} className="text-[#4a3a2a] shrink-0" />
+              <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
+                <Lock size={14} className="text-[#8b93a6] shrink-0" />
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="auth-input bg-transparent text-white text-sm placeholder-[#3a2a1a] outline-none w-full"
+                  className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="text-[#4a3a2a] hover:text-[#f97316] transition-colors shrink-0"
+                  className="text-[#8b93a6] hover:text-[#f97316] transition-colors shrink-0"
                 >
                   {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
               </div>
             </div>
 
-            {/* Persist + Lost key */}
-            <div className="flex items-center justify-between mb-6">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div
-                  role="checkbox"
-                  aria-checked={persist}
-                  tabIndex={0}
-                  onClick={() => setPersist(!persist)}
-                  className={`w-4 h-4 rounded border flex items-center justify-center transition-all cursor-pointer ${
-                    persist
-                      ? "bg-[#f97316] border-[#f97316]"
-                      : "border-white/20 bg-transparent"
-                  }`}
-                >
-                  {persist && <div className="w-2 h-2 rounded-sm bg-black" />}
-                </div>
-                <span className="text-[#6b5c4c] text-xs group-hover:text-white transition-colors">
-                  Persist session
-                </span>
-              </label>
+            {/* Lost key */}
+            <div className="flex items-center justify-end mb-6">
               <Link href="#" className="text-[#f97316] text-xs hover:underline">
                 Forgot Password?
               </Link>
@@ -280,11 +261,11 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full bg-[#f97316] hover:bg-[#ea6c0a] disabled:opacity-70 disabled:cursor-not-allowed text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
             >
-              {loading ? "Authenticating..." : "Engage System"}
+              {loading ? "Authenticating..." : "Login"}
             </motion.button>
 
             {/* Register link */}
-            <p className="text-center text-[#4a3a2a] text-xs mt-5">
+            <p className="text-center text-[#8b93a6] text-xs mt-5">
               New architect?{" "}
               <Link
                 href="/register"
@@ -298,7 +279,7 @@ export default function LoginPage() {
       </div>
 
       {/* Bottom-right binary decoration */}
-      <div className="absolute bottom-4 right-6 text-[#2a1a00] text-[10px] font-mono hidden lg:block select-none">
+      <div className="absolute bottom-4 right-6 text-[#394255] text-[10px] font-mono hidden lg:block select-none">
         01001110 01000101 11010101 01001110
         <br />
         100 01 71267 0. 132-4201
