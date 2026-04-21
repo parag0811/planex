@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 import { useRouter } from "next/navigation";
+import Header from "@/src/components/layout/Header";
 
 export default function DashboardLayout({
   children,
@@ -29,5 +30,10 @@ export default function DashboardLayout({
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <Header />
+      {children}
+    </>
+  );
 }

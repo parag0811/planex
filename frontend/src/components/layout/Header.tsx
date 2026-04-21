@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, LogOut, Settings, User, Zap } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "@/src/store/slices/authSlice";
 import type { RootState } from "@/src/store/store";
@@ -12,9 +12,13 @@ import type { RootState } from "@/src/store/store";
 export default function Header() {
   const dispatch = useDispatch();
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuth, user } = useSelector((state: RootState) => state.auth);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Check if we're on the projects page
+  const isProjectsPage = pathname?.includes("projects");
 
   const avatarSrc = useMemo(() => {
     if (!user) {
@@ -93,7 +97,25 @@ export default function Header() {
           </span>
         </Link>
 
-        <div className="relative flex items-center gap-3" ref={menuRef}>
+        {/* Navigation - Show only on projects page */}
+        {isProjectsPage && isAuth && (
+          <nav className="flex items-center gap-8">
+            <Link
+              href="/projects"
+              className="text-sm font-semibold text-white hover:text-[#f97316] transition-colors"
+            >
+              PROJECTS
+            </Link>
+            <Link
+              href="#"
+              className="text-sm font-semibold text-[#8b93a6] hover:text-white transition-colors"
+            >
+              WORKSPACE
+            </Link>
+          </nav>
+        )}
+
+        <div className="relative flex items-center gap-3 ml-auto" ref={menuRef}>
           {!isAuth && (
             <Link
               href="/login"
