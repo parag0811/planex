@@ -160,7 +160,7 @@ export default function CreateProjectPage() {
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 px-6 py-3 bg-[#0b0f16] hover:bg-[#1a2130] border border-white/10 text-white font-semibold rounded-lg transition-colors"
+                className="flex-1 px-6 py-3 bg-[#0b0f16] hover:bg-[#1a2130] border border-white/10 text-white font-semibold rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>

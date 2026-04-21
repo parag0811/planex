@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 import { useRouter } from "next/navigation";
 import Header from "@/src/components/layout/Header";
+import FullPageLoader from "@/src/components/common/FullPageLoader";
 
 export default function DashboardLayout({
   children,
@@ -23,11 +24,11 @@ export default function DashboardLayout({
   }, [loading, token, isAuth, router]);
 
   if (loading) {
-    return null;
+    return <FullPageLoader />;
   }
 
   if (!token || !isAuth) {
-    return null;
+    return <FullPageLoader subtitle="Redirecting to login..." />;
   }
 
   return (

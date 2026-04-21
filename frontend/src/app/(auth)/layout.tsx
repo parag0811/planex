@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 import { useRouter } from "next/navigation";
+import FullPageLoader from "@/src/components/common/FullPageLoader";
 
 export default function AuthLayout({
   children,
@@ -22,11 +23,11 @@ export default function AuthLayout({
   }, [loading, token, isAuth, router]);
 
   if (loading) {
-    return null;
+    return <FullPageLoader subtitle="Restoring your session..." />;
   }
 
   if (token && isAuth) {
-    return null;
+    return <FullPageLoader subtitle="Redirecting to projects..." />;
   }
 
   return <>{children}</>;
