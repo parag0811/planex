@@ -25,8 +25,8 @@ interface SidebarProps {
 const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType; href: (projectId: string) => string }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, href: (projectId) => `/projects/${projectId}` },
   { id: "idea", label: "Idea", icon: Lightbulb, href: (projectId) => `/projects/${projectId}/idea` },
-  { id: "db-schema", label: "DB Schema", icon: Database, href: (projectId) => `/projects/${projectId}/database` },
-  { id: "api-design", label: "API Design", icon: Code2, href: (projectId) => `/projects/${projectId}/api` },
+  { id: "db-schema", label: "Database", icon: Database, href: (projectId) => `/projects/${projectId}/database` },
+  { id: "api-design", label: "Api", icon: Code2, href: (projectId) => `/projects/${projectId}/api` },
   { id: "folder", label: "Folder", icon: FolderTree, href: (projectId) => `/projects/${projectId}/folder` },
 ];
 
@@ -44,22 +44,22 @@ export default function Sidebar({
   const SidebarContent = () => (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Brand */}
-      <div className="flex items-center gap-3 px-4.5 pt-5 pb-4.5 shrink-0">
-        <div className="w-9 h-9 rounded-[10px] bg-linear-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[#0f0800] shrink-0">
+      <div className="flex items-center gap-3 px-5 pt-6 pb-6 shrink-0 border-b border-white/[0.05]">
+        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center text-[#0f0800] shrink-0">
           <Flame size={16} />
         </div>
         <div className="flex flex-col">
-          <span className="text-[15px] font-bold tracking-[0.12em] text-[#f0ebe3] leading-none font-rajdhani">
-            FORGE
+          <span className="text-[13px] font-bold tracking-[0.12em] text-white/90 leading-tight">
+            PLANEX
           </span>
-          <span className="text-[9px] text-orange-500/60 tracking-[0.08em] mt-0.5 font-mono">
-            v2.4.0-ALPHA
+          <span className="text-[8px] text-orange-500/50 tracking-[0.08em] mt-0.5 font-mono">
+            PROJECT AI
           </span>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 flex flex-col px-2.5 py-3.5 gap-0.5 overflow-y-auto">
+      <nav className="flex-1 flex flex-col px-3 py-4 gap-1.5 overflow-y-auto">
         {NAV_ITEMS.map((item, i) => {
           const Icon = item.icon;
           const href = item.href(projectId);
@@ -75,11 +75,11 @@ export default function Sidebar({
                 setMobileOpen(false);
               }}
               className={`
-                relative flex items-center gap-2.5 px-3 py-2.5 rounded-lg w-full text-left
-                text-[13.5px] font-semibold tracking-[0.04em] transition-colors duration-200
+                relative flex items-center gap-2.5 px-3.5 py-2 rounded-lg w-full text-left
+                text-[12.5px] font-semibold tracking-[0.04em] transition-colors duration-200
                 ${isActive
-                  ? "text-orange-500"
-                  : "text-white/40 hover:text-white/65 hover:bg-white/4"
+                  ? "text-orange-500 bg-orange-500/8 border border-orange-500/20"
+                  : "text-white/45 hover:text-white/65 hover:bg-white/[0.05]"
                 }
               `}
             >
@@ -102,11 +102,11 @@ export default function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="flex items-center gap-2.5 px-4.5 py-4 border-t border-white/6 shrink-0">
+      <div className="flex items-center gap-3 px-5 py-4 border-t border-white/[0.05] shrink-0">
         <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] shrink-0 animate-pulse" />
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-white/65 truncate">{projectName}</p>
-          <p className="text-[9px] text-green-500 tracking-widest uppercase font-mono">{projectStatus}</p>
+          <p className="text-[12px] font-semibold text-white/60 truncate">{projectName}</p>
+          <p className="text-[8px] text-green-500 tracking-widest uppercase font-mono mt-0.5">{projectStatus}</p>
         </div>
       </div>
     </div>
@@ -115,7 +115,7 @@ export default function Sidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden md:block w-55 shrink-0 h-screen sticky top-0 bg-[rgba(12,7,2,0.97)] border-r border-white/6 backdrop-blur-xl z-20">
+      <aside className="hidden md:block w-56 shrink-0 h-screen sticky top-0 bg-[#06070c] border-r border-white/[0.05] z-20">
         <SidebarContent />
       </aside>
 

@@ -19,7 +19,7 @@ const highlights = [
 export default function ProjectOverviewPage() {
   return (
     <main
-      className="flex-1 min-w-0 px-7 py-8"
+      className="flex-1 min-w-0 px-7 py-8 overflow-y-auto"
       style={{ fontFamily: "'Rajdhani', sans-serif", color: "#e0d5c5" }}
     >
       <motion.div

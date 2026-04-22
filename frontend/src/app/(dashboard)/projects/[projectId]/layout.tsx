@@ -1,36 +1,37 @@
 "use client";
 
+import { useSelector } from "react-redux";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
+import type { RootState } from "@/src/store/store";
 
 export default function ProjectIdLayout({
   children,
   params,
-  projectName = "Project Obsidian",
 }: {
   children: React.ReactNode;
   params: { projectId: string };
-  projectName?: string;
 }) {
   const { projectId } = params;
+  const pathname = usePathname();
+  const currentProject = useSelector(
+    (state: RootState) => state.project.currentProject,
+  );
+  const projectName = currentProject?.name || "Project";
+
+  // Only show header for section pages, not the overview page
+  const isOverviewPage = pathname === `/projects/${projectId}`;
+  const showHeader = !isOverviewPage;
 
   return (
     <div
-      className="flex min-h-screen relative"
+      className="flex min-h-screen relative bg-[#06070c]"
       style={{
-        background: "radial-gradient(ellipse at 15% 40%, #1e0e00 0%, #0c0702 45%, #080500 100%)",
         fontFamily: "'Rajdhani', sans-serif",
         color: "#e0d5c5",
       }}
     >
-      {/* Noise overlay */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0 opacity-30"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
-        }}
-      />
-
       {/* Sidebar */}
       <Sidebar
         projectId={projectId}
@@ -39,8 +40,8 @@ export default function ProjectIdLayout({
       />
 
       {/* Right side: header + page content */}
-      <div className="flex-1 min-w-0 flex flex-col relative z-10">
-        <ProjectHeader projectName={projectName} />
+      <div className="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden">
+        {showHeader && <ProjectHeader projectName={projectName} />}
         {children}
       </div>
     </div>

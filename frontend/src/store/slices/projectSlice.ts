@@ -8,6 +8,10 @@ export interface Project {
   [key: string]: unknown;
 }
 
+export type SectionType = "idea" | "database" | "api" | "folder";
+
+type SectionResponse = unknown;
+
 interface ProjectPayload {
   projectId: string;
   name: string;
@@ -100,6 +104,27 @@ export const deleteProject = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to delete project"),
+      );
+    }
+  },
+);
+
+export const getSectionByType = createAsyncThunk(
+  "project/getSectionByType",
+  async (
+    params: { projectId: string; type: SectionType },
+    { rejectWithValue },
+  ) => {
+    try {
+      const { projectId, type } = params;
+      const res = await axiosInstance.get(
+        `/projects/${projectId}/sections/${type}`,
+      );
+
+      return res.data.data as SectionResponse;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to fetch project section"),
       );
     }
   },
@@ -209,7 +234,9 @@ const projectSlice = createSlice({
         state.remove.loading = false;
         if (
           state.currentProject &&
-          !state.projects.some((project) => project.id === state.currentProject?.id)
+          !state.projects.some(
+            (project) => project.id === state.currentProject?.id,
+          )
         ) {
           state.currentProject = null;
         }
