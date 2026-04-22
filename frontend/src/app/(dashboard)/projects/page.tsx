@@ -12,10 +12,9 @@ import {
   Zap,
   ExternalLink,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProjects } from "@/src/store/slices/projectSlice";
+import { fetchProjects, setCurrentProject } from "@/src/store/slices/projectSlice";
 import type { RootState, AppDispatch } from "@/src/store/store";
 import ProjectsFooter from "@/src/components/layout/ProjectsFooter";
 
@@ -59,24 +58,12 @@ export default function ProjectsPage() {
     return <Icon size={24} className="text-[#f97316]" />;
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
+  const openProject = (projectId: string) => {
+    const selectedProject = projects.find((project) => project.id === projectId) ?? null;
+    dispatch(setCurrentProject(selectedProject));
+    router.push(`/projects/${projectId}`);
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5 },
-    },
-  };
 
   return (
     <div className="min-h-screen bg-[#06070c] pt-28">
@@ -136,6 +123,7 @@ export default function ProjectsPage() {
             <motion.div
               key={project.id}
               variants={makeFadeUp(index)}
+              onClick={() => openProject(project.id)}
               className="bg-[#10141d] border border-white/10 rounded-2xl p-6 hover:border-[#f97316]/50 transition-all duration-300 hover:shadow-lg hover:shadow-[#f97316]/10 group cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
@@ -190,7 +178,13 @@ export default function ProjectsPage() {
                 </div>
               )}
 
-              <button className="w-full bg-[#0b0f16] hover:bg-[#1a2130] text-[#f97316] font-semibold py-2 rounded-lg transition-colors cursor-pointer">
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openProject(project.id);
+                }}
+                className="w-full bg-[#0b0f16] hover:bg-[#1a2130] text-[#f97316] font-semibold py-2 rounded-lg transition-colors cursor-pointer"
+              >
                 View Details
               </button>
             </motion.div>

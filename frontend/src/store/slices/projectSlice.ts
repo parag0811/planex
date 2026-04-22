@@ -48,7 +48,9 @@ export const fetchProjects = createAsyncThunk(
 
       return (res.data.data ?? res.data.projects ?? []) as Project[];
     } catch (error: any) {
-      return rejectWithValue(getErrorMessage(error, "Failed to fetch projects"));
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to fetch projects"),
+      );
     }
   },
 );
@@ -61,7 +63,9 @@ export const createProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return true;
     } catch (error: any) {
-      return rejectWithValue(getErrorMessage(error, "Failed to create project"));
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to create project"),
+      );
     }
   },
 );
@@ -79,7 +83,9 @@ export const updateProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return true;
     } catch (error: any) {
-      return rejectWithValue(getErrorMessage(error, "Failed to update project"));
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to update project"),
+      );
     }
   },
 );
@@ -92,7 +98,9 @@ export const deleteProject = createAsyncThunk(
       await dispatch(fetchProjects()).unwrap();
       return projectId;
     } catch (error: any) {
-      return rejectWithValue(getErrorMessage(error, "Failed to delete project"));
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to delete project"),
+      );
     }
   },
 );
@@ -105,6 +113,7 @@ interface ProjectState {
   create: OperationState;
   update: OperationState;
   remove: OperationState;
+  currentProject: Project | null;
 }
 
 const initialState: ProjectState = {
@@ -127,12 +136,16 @@ const initialState: ProjectState = {
     loading: false,
     error: null,
   },
+  currentProject: null,
 };
 
 const projectSlice = createSlice({
   name: "project",
   initialState,
   reducers: {
+    setCurrentProject: (state, action: { payload: Project | null }) => {
+      state.currentProject = action.payload;
+    },
     clearProjectErrors: (state) => {
       state.error = null;
       state.fetch.error = null;
@@ -152,6 +165,12 @@ const projectSlice = createSlice({
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.loading = false;
         state.projects = action.payload;
+        if (state.currentProject) {
+          const selectedProject = action.payload.find(
+            (project) => project.id === state.currentProject?.id,
+          );
+          state.currentProject = selectedProject ?? null;
+        }
         state.fetch.loading = false;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
@@ -188,6 +207,12 @@ const projectSlice = createSlice({
       })
       .addCase(deleteProject.fulfilled, (state) => {
         state.remove.loading = false;
+        if (
+          state.currentProject &&
+          !state.projects.some((project) => project.id === state.currentProject?.id)
+        ) {
+          state.currentProject = null;
+        }
       })
       .addCase(deleteProject.rejected, (state, action) => {
         state.remove.loading = false;
@@ -196,5 +221,5 @@ const projectSlice = createSlice({
   },
 });
 
-export const { clearProjectErrors } = projectSlice.actions;
+export const { setCurrentProject, clearProjectErrors } = projectSlice.actions;
 export default projectSlice.reducer;
