@@ -96,7 +96,9 @@ const STACK_COLORS: Record<string, string> = {
 
 export default function IdeaPage() {
   const params = useParams();
-  const projectId = params.projectId as string;
+  const rawProjectId = params?.projectId;
+  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
+  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
 
   const [ideaData, setIdeaData] = useState<IdeaSectionContent | null>(null);
@@ -110,7 +112,7 @@ export default function IdeaPage() {
         setLoading(true);
         setError(null);
         const result = await dispatch(
-          getSectionByType({ projectId, type: "idea" }),
+          getSectionByType({ projectId: resolvedProjectId, type: "idea" }),
         ).unwrap();
         setIdeaData(result as IdeaSectionContent);
       } catch (err: any) {
@@ -120,10 +122,12 @@ export default function IdeaPage() {
       }
     };
 
-    if (projectId) {
+    if (resolvedProjectId) {
       fetchIdea();
+    } else {
+      setLoading(false);
     }
-  }, [projectId, dispatch]);
+  }, [resolvedProjectId, dispatch]);
 
   const handleApplySuggestion = (suggestion: ApplySuggestion) => {
     if (!ideaData) return;

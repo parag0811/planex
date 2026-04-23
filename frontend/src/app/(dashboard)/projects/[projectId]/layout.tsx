@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useSelector } from "react-redux";
 import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
@@ -7,12 +8,11 @@ import type { RootState } from "@/src/store/store";
 
 export default function ProjectIdLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: { projectId: string };
 }) {
-  const { projectId } = params;
+  const pathname = usePathname();
+  const projectId = pathname.split("/")[2] || "";
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
   );
@@ -28,7 +28,7 @@ export default function ProjectIdLayout({
     >
       <ProjectHeader projectName={projectName} />
 
-      <div className="flex min-h-[calc(100vh-3rem)] relative">
+      <div className="flex min-h-[calc(100vh-3.5rem)] relative">
         {/* Sidebar */}
         <Sidebar
           projectId={projectId}

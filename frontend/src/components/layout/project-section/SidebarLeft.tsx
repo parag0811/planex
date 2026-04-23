@@ -140,7 +140,7 @@ export default function Sidebar({
   return (
     <>
       {/* Desktop */}
-      <aside className="hidden md:block w-64 shrink-0 h-[calc(100vh-3rem)] sticky top-12 border-r border-white/5 z-20">
+      <aside className="hidden md:block w-64 shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-white/5 z-20">
         <SidebarContent />
       </aside>
 
@@ -167,7 +167,7 @@ export default function Sidebar({
               key="drawer"
               initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }}
               transition={{ type: "spring", stiffness: 350, damping: 35 }}
-              className="fixed top-12 left-0 bottom-0 w-64 z-50 border-r border-white/8"
+              className="fixed top-14 left-0 bottom-0 w-64 z-50 border-r border-white/8"
             >
               <button
                 className="absolute right-2 top-2 z-10 flex rounded-md bg-white/[0.07] p-1.5 text-white/50"

@@ -178,7 +178,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             animate={{ width: 340, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.32, ease: EASE } as Transition}
-            className="shrink-0 h-screen sticky top-0 flex flex-col overflow-hidden border-l border-white/[0.06] z-20"
+            className="shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col overflow-hidden border-l border-white/[0.06] z-20"
             style={{ background: "rgba(6,4,1,0.97)" }}
           >
             {/* Header */}

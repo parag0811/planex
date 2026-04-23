@@ -117,8 +117,9 @@ export const getSectionByType = createAsyncThunk(
   ) => {
     try {
       const { projectId, type } = params;
+      const normalizedType = type.toUpperCase();
       const res = await axiosInstance.get(
-        `/projects/${projectId}/sections/${type}`,
+        `/projects/${projectId}/sections/${normalizedType}`,
       );
 
       return res.data.data as SectionResponse;

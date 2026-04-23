@@ -53,9 +53,10 @@ export const getSectionByType = async (
     const section = await getSectionByTypeService(projectId, type as TYPES);
 
     if (!section) {
-      const error = new Error("Section is empty") as AppError;
-      error.status = 404;
-      throw error;
+      return res.status(200).json({
+        data: null,
+        message: "Section is empty",
+      });
     }
 
     await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
@@ -64,6 +65,7 @@ export const getSectionByType = async (
       data: section,
     });
   } catch (err) {
+    console.log("Section Error", err)
     next(err);
   }
 };
