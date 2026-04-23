@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Header from "@/src/components/layout/Header";
 import FullPageLoader from "@/src/components/common/FullPageLoader";
 
@@ -13,9 +13,11 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { loading, isAuth, token } = useSelector(
     (state: RootState) => state.auth,
   );
+  const isProjectDetailPage = /^\/projects\/[^/]+(?:\/.*)?$/.test(pathname || "");
 
   useEffect(() => {
     if (!loading && (!token || !isAuth)) {
@@ -33,8 +35,8 @@ export default function DashboardLayout({
 
   return (
     <>
-      <Header />
-      {children}
+      {!isProjectDetailPage && <Header />}
+      <div className={isProjectDetailPage ? "" : "pt-16"}>{children}</div>
     </>
   );
 }

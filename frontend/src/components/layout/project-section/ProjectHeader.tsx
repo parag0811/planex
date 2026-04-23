@@ -1,75 +1,92 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Bell, Settings, UserCircle2 } from "lucide-react";
 
 interface ProjectHeaderProps {
   projectName?: string;
 }
 
-type SectionType = "overview" | "idea" | "database" | "api" | "folder";
-
-const SECTION_LABELS: Record<SectionType, string> = {
-  overview: "OVERVIEW",
-  idea: "IDEA",
-  database: "DATABASE",
-  api: "API",
-  folder: "FOLDER",
-};
-
-const SECTION_BUTTONS: Record<SectionType, { show: boolean; label?: string }> = {
-  overview: { show: false },
-  idea: { show: true, label: "SAVE" },
-  database: { show: true, label: "SAVE" },
-  api: { show: true, label: "SAVE" },
-  folder: { show: true, label: "SAVE" },
-};
+const HEADER_TABS = [
+  { id: "dashboard", label: "Dashboard" },
+  { id: "projects", label: "Projects" },
+  { id: "compute", label: "Compute" },
+  { id: "logs", label: "Logs" },
+] as const;
 
 export default function ProjectHeader({
   projectName = "Project Obsidian",
 }: ProjectHeaderProps) {
   const pathname = usePathname();
 
-  const getCurrentSection = (): SectionType => {
-    if (pathname.includes("/idea")) return "idea";
-    if (pathname.includes("/database")) return "database";
-    if (pathname.includes("/api")) return "api";
-    if (pathname.includes("/folder")) return "folder";
-    return "overview";
-  };
+  const projectId = pathname.split("/")[2];
+  const dashboardHref = projectId ? `/projects/${projectId}` : "/projects";
+  const projectsHref = "/projects";
 
-  const currentSection = getCurrentSection();
-  const sectionLabel = SECTION_LABELS[currentSection];
-  const buttonConfig = SECTION_BUTTONS[currentSection];
+  const activeTab = pathname === "/projects" ? "projects" : "dashboard";
 
   return (
     <motion.header
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="flex justify-between items-center px-7 py-3 border-b border-white/[0.05] gap-4 flex-wrap pl-14 md:pl-7 bg-[#06070c]"
+      transition={{ duration: 0.3 }}
+      className="sticky top-0 z-30 border-b border-white/5 bg-[#070910]/95 backdrop-blur"
       style={{ fontFamily: "'Rajdhani', sans-serif" }}
     >
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-[12px]">
-        <span className="text-white/30">PROJECTS</span>
-        <span className="text-white/15 mx-1">/</span>
-        <span className="text-white/60 font-semibold tracking-[0.02em]">{projectName}</span>
-        <span className="text-white/15 mx-1">/</span>
-        <span className="text-orange-500 font-semibold tracking-[0.02em]">{sectionLabel}</span>
-      </div>
+      <div className="flex h-14 items-center justify-between gap-4 px-3 md:px-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <Link href={dashboardHref} className="shrink-0 cursor-pointer text-[28px] leading-none font-bold text-white">
+            Planex
+          </Link>
 
-      {/* Actions - only show for section pages, not overview */}
-      {buttonConfig.show && (
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-1.5 bg-orange-500 text-[#0f0800] rounded-lg text-[11px] font-bold tracking-[0.06em] hover:bg-orange-600 transition-all duration-200 cursor-pointer">
-            {buttonConfig.label || "SAVE"}
+          <nav className="hidden sm:flex items-center gap-4">
+            {HEADER_TABS.map((tab) => {
+              const href = tab.id === "dashboard" ? dashboardHref : tab.id === "projects" ? projectsHref : "#";
+              const isActive = activeTab === tab.id;
+
+              return (
+                <Link
+                  key={tab.id}
+                  href={href}
+                  className={`cursor-pointer border-b pb-1 text-[17px] leading-none transition-colors ${
+                    isActive
+                      ? "text-orange-400 border-orange-500/90"
+                      : "text-[#8f97a8] border-transparent hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full text-[#a5aec2] transition-colors hover:text-white"
+            aria-label="Notifications"
+          >
+            <Bell size={15} />
           </button>
-          <button className="text-white/40 hover:text-orange-500 transition-colors duration-200 cursor-pointer text-[11px] font-bold tracking-widest uppercase">
-            AI COPILOT
+          <button
+            type="button"
+            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full text-[#a5aec2] transition-colors hover:text-white"
+            aria-label="Settings"
+          >
+            <Settings size={15} />
+          </button>
+          <button
+            type="button"
+            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-[#10151f] text-[#a5aec2] transition-colors hover:text-white"
+            aria-label="Profile"
+          >
+            <UserCircle2 size={14} />
           </button>
         </div>
-      )}
+      </div>
     </motion.header>
   );
 }
