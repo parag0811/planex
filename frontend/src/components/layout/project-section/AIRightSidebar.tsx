@@ -2,9 +2,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
+import { usePathname } from "next/navigation";
 import {
-  Sparkles, Send, X, ChevronRight,
-  Bot, User, Loader2, CheckCheck, PanelRightClose, PanelRightOpen,
+  Sparkles,
+  Send,
+  ChevronRight,
+  Bot,
+  User,
+  Loader2,
+  CheckCheck,
+  PanelRightClose,
+  PanelRightOpen,
+  Zap,
 } from "lucide-react";
 
 interface Message {
@@ -32,10 +41,10 @@ const fadeUp = (delay = 0) => ({
 });
 
 const STARTER_PROMPTS = [
-  "Suggest a tech stack for my idea",
+  "Suggest a tech stack for this section",
   "What are the core features I should build?",
   "Estimate complexity and team size",
-  "What are potential risks?",
+  "What are potential risks in this plan?",
 ];
 
 const MOCK_RESPONSES: Record<string, { content: string; suggestion?: ApplySuggestion }> = {
@@ -92,7 +101,16 @@ function getResponse(input: string) {
   return MOCK_RESPONSES.default;
 }
 
+const getSectionContext = (pathname: string): string => {
+  if (pathname.includes("/idea")) return "IDEA SECTION";
+  if (pathname.includes("/database")) return "DATABASE SECTION";
+  if (pathname.includes("/api")) return "API SECTION";
+  if (pathname.includes("/folder")) return "FOLDER SECTION";
+  return "PROJECT SECTION";
+};
+
 export default function AIRightSidebar({ onApplySuggestion, projectDescription }: AISidebarProps) {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -106,6 +124,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sectionContext = getSectionContext(pathname);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -156,17 +175,30 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setIsOpen(true)}
-            className="fixed right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-2 bg-orange-500/10 border border-orange-500/25 rounded-xl px-2 py-4 text-orange-500 cursor-pointer hover:bg-orange-500/18 transition-all duration-200"
+            className="fixed bottom-20 right-3 z-30 flex flex-col items-center gap-1.5 rounded-lg border border-orange-500/25 bg-orange-500/10 px-1.5 py-2.5 text-orange-500 transition-all duration-200 hover:bg-orange-500/18 md:right-4 md:top-1/2 md:-translate-y-1/2"
           >
-            <Sparkles size={16} />
+            <Sparkles size={14} />
             <span
-              className="text-[9px] font-mono tracking-[0.12em] uppercase"
+              className="text-[8px] font-mono tracking-widest uppercase"
               style={{ writingMode: "vertical-rl" }}
             >
-              AI Scout 
+              AI Copilot
             </span>
-            <PanelRightOpen size={14} />
+            <PanelRightOpen size={12} />
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-10 bg-black/45 md:hidden"
+            aria-label="Close AI sidebar backdrop"
+          />
         )}
       </AnimatePresence>
 
@@ -174,58 +206,66 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
       <AnimatePresence>
         {isOpen && (
           <motion.aside
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 340, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
+            initial={{ opacity: 0, x: 28 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 28 }}
             transition={{ duration: 0.32, ease: EASE } as Transition}
-            className="shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 flex flex-col overflow-hidden border-l border-white/[0.06] z-20"
-            style={{ background: "rgba(6,4,1,0.97)" }}
+            className="fixed bottom-0 right-0 top-14 z-20 flex w-[92vw] max-w-90 flex-col overflow-hidden border-l border-orange-500/15 bg-[#070a12] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] md:static md:h-[calc(100vh-3.5rem)] md:w-85 md:max-w-none md:shrink-0 md:shadow-none"
+            style={{ fontFamily: "'Rajdhani', sans-serif" }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06] shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/12 border border-orange-500/22 flex items-center justify-center">
-                  <Sparkles size={13} className="text-orange-500" />
-                </div>
-                <div>
-                  <p className="text-[13px] font-bold text-white/80" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.06em" }}>
-                    AI COPILOT
-                  </p>
-                  <p className="text-[9px] text-orange-500/55 font-mono tracking-[0.08em]">
-                    FORGE INTELLIGENCE
+            <div className="shrink-0 border-b border-white/6 px-4 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-[18px] font-bold uppercase tracking-[0.04em] text-white/90">
+                    AI Copilot
                   </p>
                 </div>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg p-1 text-white/25 transition-colors hover:bg-white/5 hover:text-white/55"
+                >
+                  <PanelRightClose size={15} />
+                </button>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-white/25 hover:text-white/55 transition-colors p-1 rounded-lg hover:bg-white/[0.05]"
-              >
-                <PanelRightClose size={15} />
-              </button>
+
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6e7688]">
+                Context : {sectionContext}
+              </p>
+
+              <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-2.5">
+                <div className="grid h-4.5 w-4.5 place-items-center rounded-xs bg-orange-500 text-[#140b01]">
+                  <Zap size={10} />
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8397]">
+                  Planex AI
+                </p>
+              </div>
             </div>
 
             {/* Starter prompts (shown only at start) */}
             {messages.length === 1 && (
-              <div className="px-3 py-3 border-b border-white/[0.04] flex flex-col gap-1.5 shrink-0">
-                <p className="text-[9px] text-white/22 font-mono tracking-[0.14em] uppercase px-1 mb-1">
+              <div className="shrink-0 border-b border-white/5 px-3 py-3">
+                <p className="mb-1 px-1 text-[10px] font-mono uppercase tracking-[0.12em] text-white/22">
                   Quick prompts
                 </p>
-                {STARTER_PROMPTS.map((p) => (
+                <div className="flex flex-col gap-1.5">
+                  {STARTER_PROMPTS.map((p) => (
                   <button
                     key={p}
                     onClick={() => sendMessage(p)}
-                    className="flex items-center gap-2 text-left px-2.5 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[12px] text-white/40 hover:text-white/65 hover:bg-white/[0.05] hover:border-orange-500/18 transition-all duration-200 cursor-pointer w-full"
-                    style={{ fontFamily: "'Rajdhani', sans-serif" }}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-white/6 bg-[#0d111a] px-2.5 py-2 text-left text-[13px] text-white/45 transition-all duration-200 hover:border-orange-500/30 hover:text-white/70"
                   >
                     <ChevronRight size={11} className="text-orange-500/40 shrink-0" />
                     {p}
                   </button>
                 ))}
+                </div>
               </div>
             )}
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-3 min-h-0">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-4">
               {messages.map((msg, i) => (
                 <motion.div
                   key={msg.id}
@@ -238,7 +278,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
                       className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
                         msg.role === "assistant"
                           ? "bg-orange-500/12 border border-orange-500/22"
-                          : "bg-white/[0.07] border border-white/[0.12]"
+                            : "bg-white/[0.07] border border-white/12"
                       }`}
                     >
                       {msg.role === "assistant"
@@ -253,12 +293,11 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
 
                   {/* Bubble */}
                   <div
-                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[12.5px] leading-[1.72] ${
+                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-[1.72] ${
                       msg.role === "user"
-                        ? "bg-orange-500/[0.12] border border-orange-500/20 text-white/72 rounded-tr-sm"
-                        : "bg-white/[0.04] border border-white/[0.07] text-white/58 rounded-tl-sm"
+                        ? "rounded-tr-sm border border-orange-500/20 bg-orange-500/12 text-white/75"
+                        : "rounded-tl-sm border border-white/7 bg-[#121722] text-white/60"
                     }`}
-                    style={{ fontFamily: "'Rajdhani', sans-serif" }}
                   >
                     {msg.content.split("\n").map((line, li) => (
                       <span key={li}>
@@ -274,22 +313,25 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
 
                   {/* Apply suggestion button */}
                   {msg.suggestion && (
-                    <motion.button
+                    <motion.div
                       {...fadeUp(0.1)}
-                      onClick={() => handleApply(msg)}
-                      disabled={applied.has(msg.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.06em] transition-all duration-200 border cursor-pointer ${
-                        applied.has(msg.id)
-                          ? "bg-green-500/10 border-green-500/25 text-green-400 cursor-default"
-                          : "bg-orange-500/[0.09] border-orange-500/22 text-orange-400 hover:bg-orange-500/18 hover:border-orange-500/35"
-                      }`}
-                      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+                      className="w-full max-w-[88%] rounded-md border border-orange-500/25 bg-[#140f0b] p-3"
                     >
-                      {applied.has(msg.id)
-                        ? <><CheckCheck size={12} /> Applied</>
-                        : <><CheckCheck size={12} /> Apply This</>
-                      }
-                    </motion.button>
+                      <p className="text-[12px] font-semibold text-white/80">Add "{msg.suggestion.label}"</p>
+                      <p className="mt-0.5 text-[10px] text-white/35">Automatic monthly invoice generation.</p>
+
+                      <motion.button
+                        onClick={() => handleApply(msg)}
+                        disabled={applied.has(msg.id)}
+                        className={`mt-2.5 w-full rounded-sm border px-2 py-2 text-[12px] font-bold uppercase tracking-widest transition-all duration-200 ${
+                          applied.has(msg.id)
+                            ? "cursor-default border-green-500/35 bg-green-500/12 text-green-400"
+                            : "cursor-pointer border-orange-500/30 bg-[#0c1019] text-orange-400 hover:bg-orange-500/20"
+                        }`}
+                      >
+                        {applied.has(msg.id) ? "Applied" : "Apply Change"}
+                      </motion.button>
+                    </motion.div>
                   )}
                 </motion.div>
               ))}
@@ -299,10 +341,10 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 px-3.5 py-2.5 bg-white/[0.03] border border-white/[0.06] rounded-2xl rounded-tl-sm w-fit"
+                  className="flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-white/6 bg-[#121722] px-3.5 py-2.5"
                 >
                   <Loader2 size={11} className="text-orange-500 animate-spin" />
-                  <span className="text-[11px] text-white/30 font-mono tracking-[0.06em]">thinking...</span>
+                  <span className="text-[12px] text-white/30 font-mono tracking-[0.06em]">thinking...</span>
                 </motion.div>
               )}
 
@@ -310,17 +352,16 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             </div>
 
             {/* Input */}
-            <div className="px-3 py-3 border-t border-white/[0.05] shrink-0">
-              <div className="flex items-end gap-2 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 focus-within:border-orange-500/28 focus-within:bg-white/[0.055] transition-all duration-200">
+            <div className="shrink-0 border-t border-white/5 px-3 py-3">
+              <div className="flex items-end gap-2 rounded-sm border border-white/8 bg-[#0a0e18] px-3 py-2.5 transition-all duration-200 focus-within:border-orange-500/28">
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKey}
-                  placeholder="Ask AI anything about your idea..."
+                  placeholder="Ask AI..."
                   rows={1}
-                  className="flex-1 bg-transparent border-none outline-none resize-none text-[12.5px] text-white/65 placeholder:text-white/22 leading-relaxed max-h-24 overflow-y-auto"
-                  style={{ fontFamily: "'Rajdhani', sans-serif" }}
+                  className="flex-1 bg-transparent border-none outline-none resize-none text-[13.5px] text-white/65 placeholder:text-white/22 leading-relaxed max-h-24 overflow-y-auto"
                 />
                 <motion.button
                   whileTap={{ scale: 0.9 }}
@@ -329,15 +370,17 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
                   className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 transition-all duration-200 ${
                     input.trim() && !isThinking
                       ? "bg-orange-500 text-[#0f0800] cursor-pointer hover:bg-orange-400"
-                      : "bg-white/[0.06] text-white/20 cursor-not-allowed"
+                      : "bg-white/6 text-white/20 cursor-not-allowed"
                   }`}
                 >
                   <Send size={12} />
                 </motion.button>
               </div>
-              <p className="text-[9px] text-white/15 font-mono text-center mt-2 tracking-[0.06em]">
-                SHIFT+ENTER for new line · ENTER to send
-              </p>
+
+              <div className="mt-2 flex items-center justify-between px-0.5 text-[9px] font-mono uppercase tracking-widest text-white/18">
+                <span>Model: Geist-7B</span>
+                <span>Press Enter to send</span>
+              </div>
             </div>
           </motion.aside>
         )}
