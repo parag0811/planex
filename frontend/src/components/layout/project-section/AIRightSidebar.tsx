@@ -31,6 +31,8 @@ export interface ApplySuggestion {
 interface AISidebarProps {
   onApplySuggestion?: (suggestion: ApplySuggestion) => void;
   projectDescription?: string;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
@@ -109,9 +111,15 @@ const getSectionContext = (pathname: string): string => {
   return "PROJECT SECTION";
 };
 
-export default function AIRightSidebar({ onApplySuggestion, projectDescription }: AISidebarProps) {
+export default function AIRightSidebar({
+  onApplySuggestion,
+  projectDescription,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+}: AISidebarProps) {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(true);
+  const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true);
+  const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -125,6 +133,13 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sectionContext = getSectionContext(pathname);
+
+  const setSidebarOpen = (open: boolean) => {
+    if (controlledIsOpen === undefined) {
+      setUncontrolledIsOpen(open);
+    }
+    onOpenChange?.(open);
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -174,7 +189,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            onClick={() => setIsOpen(true)}
+            onClick={() => setSidebarOpen(true)}
             className="fixed bottom-20 right-3 z-30 flex flex-col items-center gap-1.5 rounded-lg border border-orange-500/25 bg-orange-500/10 px-1.5 py-2.5 text-orange-500 transition-all duration-200 hover:bg-orange-500/18 md:right-4 md:top-1/2 md:-translate-y-1/2"
           >
             <Sparkles size={14} />
@@ -195,7 +210,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
+            onClick={() => setSidebarOpen(false)}
             className="fixed inset-0 z-10 bg-black/45 md:hidden"
             aria-label="Close AI sidebar backdrop"
           />
@@ -210,7 +225,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 28 }}
             transition={{ duration: 0.32, ease: EASE } as Transition}
-            className="fixed bottom-0 right-0 top-14 z-20 flex w-[92vw] max-w-90 flex-col overflow-hidden border-l border-orange-500/15 bg-[#070a12] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] md:static md:h-[calc(100vh-3.5rem)] md:w-85 md:max-w-none md:shrink-0 md:shadow-none"
+            className="fixed bottom-0 right-0 top-14 z-20 flex w-[92vw] max-w-90 flex-col overflow-hidden border-l border-orange-500/15 bg-[#070a12] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] md:w-85 md:max-w-none md:shrink-0 md:shadow-none"
             style={{ fontFamily: "'Rajdhani', sans-serif" }}
           >
             {/* Header */}
@@ -222,7 +237,7 @@ export default function AIRightSidebar({ onApplySuggestion, projectDescription }
                   </p>
                 </div>
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => setSidebarOpen(false)}
                   className="rounded-lg p-1 text-white/25 transition-colors hover:bg-white/5 hover:text-white/55"
                 >
                   <PanelRightClose size={15} />

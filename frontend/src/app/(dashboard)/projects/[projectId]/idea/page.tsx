@@ -1,32 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ElementType,
+  type FormEvent,
+} from "react";
 import { useParams } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { motion, Variants } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Lightbulb,
-  ArrowRight,
   AlertCircle,
   CheckCircle,
   Zap,
-  Code2,
   Database,
   Globe,
   Server,
   Cpu,
   Sparkles,
   Layers,
-  GitBranch,
+  Circle,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Save,
+  X,
 } from "lucide-react";
 import { getSectionByType } from "@/src/store/slices/projectSlice";
 import type { AppDispatch } from "@/src/store/store";
-import AIRightSidebar, { ApplySuggestion } from "@/src/components/layout/project-section/AIRightSidebar";
+import AIRightSidebar, {
+  type ApplySuggestion,
+} from "@/src/components/layout/project-section/AIRightSidebar";
+
+type FeaturePriority = "must_have" | "nice_to_have";
+
+type StackCategory =
+  | "frontend"
+  | "backend"
+  | "database"
+  | "infrastructure"
+  | "ai"
+  | "frameworks";
 
 interface KeyFeature {
   name: string;
   description: string;
-  priority: "critical" | "high" | "medium" | "low";
+  priority: FeaturePriority;
 }
 
 interface IdeaSectionContent {
@@ -46,6 +69,12 @@ interface IdeaSectionContent {
   team_size: string;
 }
 
+interface SectionPayload {
+  content?: unknown;
+}
+
+type ModalType = "feature" | "requirement" | "tech" | null;
+
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const fadeUp = (i: number): Variants => ({
@@ -53,7 +82,7 @@ const fadeUp = (i: number): Variants => ({
   show: {
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.5, ease: EASE },
+    transition: { delay: i * 0.08, duration: 0.45, ease: EASE },
   },
 });
 
@@ -62,21 +91,17 @@ const stagger: Variants = {
   show: { transition: { staggerChildren: 0.08 } },
 };
 
-const PRIORITY_COLORS = {
-  critical: "#ef4444",
-  high: "#f97316",
-  medium: "#f59e0b",
-  low: "#22c55e",
+const PRIORITY_COLORS: Record<FeaturePriority, string> = {
+  must_have: "#f97316",
+  nice_to_have: "#94a3b8",
 };
 
-const PRIORITY_LABELS = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+const PRIORITY_LABELS: Record<FeaturePriority, string> = {
+  must_have: "Must Have",
+  nice_to_have: "Nice To Have",
 };
 
-const STACK_ICONS: Record<string, React.ElementType> = {
+const STACK_ICONS: Record<StackCategory, ElementType> = {
   frontend: Globe,
   backend: Server,
   database: Database,
@@ -85,13 +110,162 @@ const STACK_ICONS: Record<string, React.ElementType> = {
   frameworks: Layers,
 };
 
-const STACK_COLORS: Record<string, string> = {
+const STACK_COLORS: Record<StackCategory, string> = {
   frontend: "#60a5fa",
   backend: "#f97316",
   database: "#a78bfa",
   infrastructure: "#22c55e",
   ai: "#f59e0b",
   frameworks: "#e879f9",
+};
+
+const STACK_KEYS: StackCategory[] = [
+  "frontend",
+  "backend",
+  "database",
+  "infrastructure",
+  "ai",
+  "frameworks",
+];
+
+const EMPTY_IDEA: IdeaSectionContent = {
+  raw_idea: "",
+  overview: "",
+  key_features: [],
+  requirements: [],
+  suggested_tech_stack: {
+    frontend: [],
+    backend: [],
+    database: [],
+    infrastructure: [],
+    ai: [],
+    frameworks: [],
+  },
+  estimated_complexity: "medium",
+  team_size: "",
+};
+
+const asStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+const normalizeIdea = (payload: unknown): IdeaSectionContent => {
+  const source =
+    payload &&
+    typeof payload === "object" &&
+    "content" in (payload as SectionPayload) &&
+    (payload as SectionPayload).content &&
+    typeof (payload as SectionPayload).content === "object"
+      ? (payload as SectionPayload).content
+      : payload;
+
+  const raw = (source ?? {}) as Partial<IdeaSectionContent>;
+  const stackRaw =
+    (raw.suggested_tech_stack ?? {}) as Partial<
+      IdeaSectionContent["suggested_tech_stack"]
+    >;
+
+  const normalizedFeatures = Array.isArray(raw.key_features)
+    ? raw.key_features
+        .map((feature) => ({
+          name: typeof feature?.name === "string" ? feature.name.trim() : "",
+          description:
+            typeof feature?.description === "string"
+              ? feature.description.trim()
+              : "",
+          priority:
+            (feature?.priority === "must_have" ? "must_have" : "nice_to_have") as FeaturePriority,
+        }))
+        .filter((feature) => feature.name || feature.description)
+    : [];
+
+  const complexity =
+    raw.estimated_complexity === "low" ||
+    raw.estimated_complexity === "medium" ||
+    raw.estimated_complexity === "high"
+      ? raw.estimated_complexity
+      : "medium";
+
+  return {
+    raw_idea: typeof raw.raw_idea === "string" ? raw.raw_idea : "",
+    overview: typeof raw.overview === "string" ? raw.overview : "",
+    key_features: normalizedFeatures,
+    requirements: asStringArray(raw.requirements),
+    suggested_tech_stack: {
+      frontend: asStringArray(stackRaw.frontend),
+      backend: asStringArray(stackRaw.backend),
+      database: asStringArray(stackRaw.database),
+      infrastructure: asStringArray(stackRaw.infrastructure),
+      ai: asStringArray(stackRaw.ai),
+      frameworks: asStringArray(stackRaw.frameworks),
+    },
+    estimated_complexity: complexity,
+    team_size: typeof raw.team_size === "string" ? raw.team_size : "",
+  };
+};
+
+const buildGeneratedIdea = (
+  rawIdea: string,
+  current: IdeaSectionContent,
+): IdeaSectionContent => {
+  const clean = rawIdea.trim();
+  const topic = clean.split(/[.!?\n]/)[0]?.trim() || "the product";
+
+  const overview =
+    clean.length > 0
+      ? `${clean} This solution focuses on a clean workflow, reliable delivery, and strong usability for primary users. It should launch with a focused MVP and expand through iterative releases.`
+      : current.overview;
+
+  const keyFeatures: KeyFeature[] = [
+    {
+      name: "Core Workflow Management",
+      description: `Allow users to complete the main ${topic.toLowerCase()} journey with minimal steps.`,
+      priority: "must_have",
+    },
+    {
+      name: "Authentication and Access",
+      description: "Secure account access with role-based permissions and protected resources.",
+      priority: "must_have",
+    },
+    {
+      name: "Analytics Dashboard",
+      description: "Provide a visual dashboard for activity, KPIs, and operational insights.",
+      priority: "nice_to_have",
+    },
+    {
+      name: "Notifications",
+      description: "Send contextual in-app and email notifications for critical events.",
+      priority: "nice_to_have",
+    },
+  ];
+
+  return {
+    ...current,
+    raw_idea: clean,
+    overview,
+    key_features: keyFeatures,
+    requirements: [
+      "User authentication and authorization",
+      "Role-based access control",
+      "Responsive interface for desktop and mobile",
+      "Validation and error handling across all forms",
+      "Audit logging for important actions",
+    ],
+    suggested_tech_stack: {
+      frontend: ["Next.js", "TypeScript", "Tailwind CSS"],
+      backend: ["Node.js", "Fastify", "Prisma"],
+      database: ["PostgreSQL", "Redis"],
+      infrastructure: ["Docker", "Vercel"],
+      ai: ["OpenAI API"],
+      frameworks: ["Framer Motion"],
+    },
+    estimated_complexity: clean.length > 180 ? "high" : "medium",
+    team_size: clean.length > 180 ? "4-6 developers" : "2-4 developers",
+  };
 };
 
 export default function IdeaPage() {
@@ -101,352 +275,818 @@ export default function IdeaPage() {
   const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
 
-  const [ideaData, setIdeaData] = useState<IdeaSectionContent | null>(null);
+  const [ideaData, setIdeaData] = useState<IdeaSectionContent>(EMPTY_IDEA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(true);
+  const [status, setStatus] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchIdea = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const result = await dispatch(
-          getSectionByType({ projectId: resolvedProjectId, type: "idea" }),
-        ).unwrap();
-        setIdeaData(result as IdeaSectionContent);
-      } catch (err: any) {
-        setError(err.message || "Failed to fetch idea section");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [featureForm, setFeatureForm] = useState<KeyFeature>({
+    name: "",
+    description: "",
+    priority: "nice_to_have",
+  });
+  const [requirementForm, setRequirementForm] = useState("");
+  const [techForm, setTechForm] = useState<{ category: StackCategory; value: string }>({
+    category: "frontend",
+    value: "",
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-    if (resolvedProjectId) {
-      fetchIdea();
-    } else {
+  const hasAnyContent = useMemo(
+    () =>
+      Boolean(ideaData.raw_idea.trim()) ||
+      Boolean(ideaData.overview.trim()) ||
+      ideaData.key_features.length > 0 ||
+      ideaData.requirements.length > 0 ||
+      STACK_KEYS.some((key) => (ideaData.suggested_tech_stack[key] ?? []).length > 0),
+    [ideaData],
+  );
+
+  const fetchIdea = useCallback(async () => {
+    if (!resolvedProjectId) {
+      setIdeaData(EMPTY_IDEA);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await dispatch(
+        getSectionByType({ projectId: resolvedProjectId, type: "idea" }),
+      ).unwrap();
+      setIdeaData(normalizeIdea(result));
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch idea section");
+      setIdeaData(EMPTY_IDEA);
+    } finally {
       setLoading(false);
     }
-  }, [resolvedProjectId, dispatch]);
+  }, [dispatch, resolvedProjectId]);
+
+  useEffect(() => {
+    fetchIdea();
+  }, [fetchIdea]);
+
+  useEffect(() => {
+    const root = document.scrollingElement ?? document.documentElement;
+    const previous = root.scrollTop;
+
+    window.scrollTo(0, 0);
+    root.scrollTop = 0;
+    scrollRef.current?.scrollTo(0, 0);
+
+    return () => {
+      history.scrollRestoration = "auto";
+      root.scrollTop = previous;
+    };
+  }, [resolvedProjectId]);
 
   const handleApplySuggestion = (suggestion: ApplySuggestion) => {
-    if (!ideaData) return;
-    const updated = { ...ideaData, ...suggestion.payload };
-    setIdeaData(updated as IdeaSectionContent);
+    setIdeaData((current) => normalizeIdea({ ...current, ...suggestion.payload }));
+    setStatus("Applied suggestion locally.");
   };
 
+  const handleGenerate = () => {
+    if (!ideaData.raw_idea.trim()) {
+      setStatus("Add a raw idea first to generate suggestions.");
+      return;
+    }
+
+    setIdeaData((current) => buildGeneratedIdea(current.raw_idea, current));
+    setStatus("Generated suggestion fields from raw idea.");
+  };
+
+  const handleManualSave = () => {
+    setStatus("Draft saved locally (frontend only).");
+  };
+
+  const openFeatureModal = () => {
+    setFeatureForm({ name: "", description: "", priority: "nice_to_have" });
+    setActiveModal("feature");
+  };
+
+  const openRequirementModal = () => {
+    setRequirementForm("");
+    setActiveModal("requirement");
+  };
+
+  const openTechModal = () => {
+    setTechForm({ category: "frontend", value: "" });
+    setActiveModal("tech");
+  };
+
+  const addFeature = (e: FormEvent) => {
+    e.preventDefault();
+    if (!featureForm.name.trim() || !featureForm.description.trim()) {
+      return;
+    }
+
+    setIdeaData((current) => ({
+      ...current,
+      key_features: [
+        ...current.key_features,
+        {
+          name: featureForm.name.trim(),
+          description: featureForm.description.trim(),
+          priority: featureForm.priority,
+        },
+      ],
+    }));
+    setActiveModal(null);
+  };
+
+  const addRequirement = (e: FormEvent) => {
+    e.preventDefault();
+    if (!requirementForm.trim()) {
+      return;
+    }
+
+    setIdeaData((current) => ({
+      ...current,
+      requirements: [...current.requirements, requirementForm.trim()],
+    }));
+    setActiveModal(null);
+  };
+
+  const addTechItem = (e: FormEvent) => {
+    e.preventDefault();
+    if (!techForm.value.trim()) {
+      return;
+    }
+
+    setIdeaData((current) => ({
+      ...current,
+      suggested_tech_stack: {
+        ...current.suggested_tech_stack,
+        [techForm.category]: [
+          ...(current.suggested_tech_stack[techForm.category] ?? []),
+          techForm.value.trim(),
+        ],
+      },
+    }));
+    setActiveModal(null);
+  };
+
+  const removeFeature = (index: number) => {
+    setIdeaData((current) => ({
+      ...current,
+      key_features: current.key_features.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const removeRequirement = (index: number) => {
+    setIdeaData((current) => ({
+      ...current,
+      requirements: current.requirements.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const removeTech = (category: StackCategory, index: number) => {
+    setIdeaData((current) => ({
+      ...current,
+      suggested_tech_stack: {
+        ...current.suggested_tech_stack,
+        [category]: (current.suggested_tech_stack[category] ?? []).filter(
+          (_, idx) => idx !== index,
+        ),
+      },
+    }));
+  };
+
+  const displayedFeatures =
+    ideaData.key_features.length > 0
+      ? ideaData.key_features
+      : [
+          {
+            name: "No feature added yet",
+            description: "Use ADD FEATURE or Generate Suggestions.",
+            priority: "nice_to_have" as FeaturePriority,
+          },
+        ];
+
+  const displayedRequirements =
+    ideaData.requirements.length > 0
+      ? ideaData.requirements
+      : ["No requirements added yet."];
+
   return (
-    <div className="flex flex-1 w-full overflow-hidden gap-0" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+    <div
+      ref={scrollRef}
+      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
+      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+    >
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <motion.div
+          className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 transition-[padding-right] duration-300 ${
+            aiOpen ? "lg:pr-85" : "lg:pr-0"
+          }`}
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div
+            variants={fadeUp(0)}
+            className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/8 bg-[#0b1019] px-4 py-3"
+          >
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35">
+              <span>Planex</span>
+              <span>/</span>
+              <span>{(ideaData.raw_idea.split(" ").slice(0, 3).join(" ") || "Project").toUpperCase()}</span>
+              <span>/</span>
+              <span className="text-white/80">IDEA</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchIdea}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
+              >
+                <RefreshCw size={12} />
+                Refresh
+              </button>
+              <button
+                onClick={handleManualSave}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+              >
+                <Save size={12} />
+                Save
+              </button>
+            </div>
+          </motion.div>
+
           {loading && (
-            <div className="flex items-center justify-center h-full">
+            <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full"
+                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
               />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+                Loading idea section
+              </p>
             </div>
           )}
 
           {error && (
-            <div className="p-6 m-6 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
-              <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+              <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-500" />
               <div>
-                <p className="text-red-500 font-semibold">Error</p>
-                <p className="text-red-500/70 text-sm mt-1">{error}</p>
+                <p className="font-semibold text-red-500">Error</p>
+                <p className="mt-1 text-sm text-red-500/70">{error}</p>
               </div>
             </div>
           )}
 
-          {ideaData && (
-            <motion.div
-              className="p-8 max-w-6xl mx-auto w-full"
-              variants={stagger}
-              initial="hidden"
-              animate="show"
-            >
-              {/* Page Header */}
-              <motion.div variants={fadeUp(0)} className="mb-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
-                    <Lightbulb size={20} className="text-orange-500" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-white">Idea</h1>
-                    <p className="text-white/40 text-sm mt-1">
-                      Define your project concept and scope
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
+          {status && (
+            <div className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90">
+              {status}
+            </div>
+          )}
 
-              {/* Raw Idea / Overview Section */}
-              <motion.div variants={fadeUp(1)} className="mb-8">
-                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-6">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-4">
-                    Project Description
-                  </p>
-                  <p className="text-white/60 leading-relaxed text-sm">
-                    {ideaData.raw_idea || ideaData.overview}
+          <motion.div variants={fadeUp(1)} className="mb-7">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10">
+                  <Lightbulb size={20} className="text-orange-500" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold uppercase text-white">IDEA</h1>
+                  <p className="mt-1 text-sm text-white/45">
+                    Define your project concept and scope
                   </p>
                 </div>
-              </motion.div>
+              </div>
+              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30">
+                {hasAnyContent ? "Draft loaded" : "No data yet"}
+              </p>
+            </div>
+          </motion.div>
 
-              {/* Overview Section */}
-              {ideaData.overview && (
-                <motion.div variants={fadeUp(2)} className="mb-8">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-4">
-                    Overview
-                  </p>
-                  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-6">
-                    <p className="text-white/55 leading-relaxed text-sm">
-                      {ideaData.overview}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Metrics Grid */}
-              <motion.div
-                variants={fadeUp(3)}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+          <motion.div variants={fadeUp(2)} className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Raw Idea
+              </p>
+              <button
+                onClick={handleGenerate}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
               >
-                {/* Estimated Complexity */}
-                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-3">
-                    Complexity
+                <Sparkles size={12} />
+                Generate Suggestions
+              </button>
+            </div>
+            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <textarea
+                value={ideaData.raw_idea}
+                onChange={(e) =>
+                  setIdeaData((current) => ({ ...current, raw_idea: e.target.value }))
+                }
+                placeholder="Describe your project idea here..."
+                rows={5}
+                className="w-full resize-y bg-transparent text-sm leading-relaxed text-white/70 outline-none placeholder:text-white/25"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp(3)} className="mb-6">
+            <p className="mb-3 text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+              Overview
+            </p>
+            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <textarea
+                value={ideaData.overview}
+                onChange={(e) =>
+                  setIdeaData((current) => ({ ...current, overview: e.target.value }))
+                }
+                placeholder="Short overview of what this product does and who it serves..."
+                rows={4}
+                className="w-full resize-y bg-transparent text-sm leading-relaxed text-white/65 outline-none placeholder:text-white/25"
+              />
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp(4)} className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <p className="mb-3 text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Complexity
+              </p>
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-lg"
+                  style={{
+                    background: `${
+                      ideaData.estimated_complexity === "high"
+                        ? "#ef4444"
+                        : ideaData.estimated_complexity === "medium"
+                          ? "#f59e0b"
+                          : "#22c55e"
+                    }15`,
+                    border: `1px solid ${
+                      ideaData.estimated_complexity === "high"
+                        ? "#ef4444"
+                        : ideaData.estimated_complexity === "medium"
+                          ? "#f59e0b"
+                          : "#22c55e"
+                    }30`,
+                    color:
+                      ideaData.estimated_complexity === "high"
+                        ? "#ef4444"
+                        : ideaData.estimated_complexity === "medium"
+                          ? "#f59e0b"
+                          : "#22c55e",
+                  }}
+                >
+                  <Zap size={16} />
+                </div>
+                <div className="w-full">
+                  <select
+                    value={ideaData.estimated_complexity}
+                    onChange={(e) =>
+                      setIdeaData((current) => ({
+                        ...current,
+                        estimated_complexity: e.target.value as "low" | "medium" | "high",
+                      }))
+                    }
+                    className="w-full bg-transparent text-sm font-semibold capitalize text-white/75 outline-none"
+                  >
+                    <option className="bg-[#0a0f18]" value="low">
+                      low
+                    </option>
+                    <option className="bg-[#0a0f18]" value="medium">
+                      medium
+                    </option>
+                    <option className="bg-[#0a0f18]" value="high">
+                      high
+                    </option>
+                  </select>
+                  <p className="mt-0.5 text-[11px] text-white/30">Estimated implementation scope</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <p className="mb-3 text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Team Size
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-500/15 text-blue-500">
+                  <Globe size={16} />
+                </div>
+                <input
+                  value={ideaData.team_size}
+                  onChange={(e) =>
+                    setIdeaData((current) => ({ ...current, team_size: e.target.value }))
+                  }
+                  placeholder="2-4 developers"
+                  className="w-full bg-transparent text-sm font-semibold text-white/70 outline-none placeholder:text-white/30"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <p className="mb-3 text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Features
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/15 text-purple-500">
+                  <CheckCircle size={16} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white/70">
+                    {ideaData.key_features.length}
                   </p>
-                  <div className="flex items-center gap-3">
+                  <p className="mt-0.5 text-[11px] text-white/30">Key features identified</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp(5)} className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Key Features
+              </p>
+              <button
+                onClick={openFeatureModal}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+              >
+                <Plus size={12} />
+                Add Feature
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {displayedFeatures.map((feature, i) => (
+                <motion.div
+                  key={`${feature.name}-${i}`}
+                  variants={fadeUp(i * 0.05)}
+                  className="group rounded-xl border border-white/[0.07] bg-white/2.5 p-4 transition-all duration-200 hover:border-white/11"
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-white/80">
+                        {feature.name || "Untitled Feature"}
+                      </h3>
+                      <p className="mt-2 text-[11px] uppercase tracking-widest text-white/40">
+                        {PRIORITY_LABELS[feature.priority]}
+                      </p>
+                    </div>
+                    {ideaData.key_features.length > 0 && (
+                      <button
+                        onClick={() => removeFeature(i)}
+                        className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-red-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="mb-3 flex items-center gap-2">
                     <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
                       style={{
-                        background: `${
-                          ideaData.estimated_complexity === "high"
-                            ? "#ef4444"
-                            : ideaData.estimated_complexity === "medium"
-                              ? "#f59e0b"
-                              : "#22c55e"
-                        }15`,
-                        border: `1px solid ${
-                          ideaData.estimated_complexity === "high"
-                            ? "#ef4444"
-                            : ideaData.estimated_complexity === "medium"
-                              ? "#f59e0b"
-                              : "#22c55e"
-                        }30`,
-                        color:
-                          ideaData.estimated_complexity === "high"
-                            ? "#ef4444"
-                            : ideaData.estimated_complexity === "medium"
-                              ? "#f59e0b"
-                              : "#22c55e",
+                        background: `${PRIORITY_COLORS[feature.priority]}15`,
+                        border: `1px solid ${PRIORITY_COLORS[feature.priority]}30`,
                       }}
                     >
-                      <Zap size={16} />
-                    </div>
-                    <div>
-                      <p className="text-white/70 font-semibold text-sm capitalize">
-                        {ideaData.estimated_complexity}
-                      </p>
-                      <p className="text-white/30 text-[11px] mt-0.5">
-                        {ideaData.estimated_complexity === "high"
-                          ? "Complex systems"
-                          : ideaData.estimated_complexity === "medium"
-                            ? "Moderate scope"
-                            : "Simple scope"}
-                      </p>
+                      <Circle
+                        size={11}
+                        style={{
+                          color: PRIORITY_COLORS[feature.priority],
+                          fill: PRIORITY_COLORS[feature.priority],
+                        }}
+                      />
                     </div>
                   </div>
-                </div>
-
-                {/* Team Size */}
-                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-3">
-                    Team Size
+                  <p className="text-[12px] leading-relaxed text-white/55">
+                    {feature.description || "No feature description available yet."}
                   </p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center text-blue-500">
-                      <Globe size={16} />
-                    </div>
-                    <div>
-                      <p className="text-white/70 font-semibold text-sm">
-                        {ideaData.team_size || "TBD"}
-                      </p>
-                      <p className="text-white/30 text-[11px] mt-0.5">
-                        Estimated developers
-                      </p>
-                    </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp(6)} className="mb-6">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Requirements
+              </p>
+              <button
+                onClick={openRequirementModal}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+              >
+                <Plus size={12} />
+                Add Requirement
+              </button>
+            </div>
+            <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/2.5 p-4">
+              {displayedRequirements.map((requirement, i) => (
+                <motion.div
+                  key={`${requirement}-${i}`}
+                  variants={fadeUp(i * 0.04)}
+                  className="flex items-start gap-3 rounded-lg border border-white/5 bg-white/1 px-3 py-2.5"
+                >
+                  <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/3">
+                    <CheckCircle size={11} className="text-white/45" />
                   </div>
-                </div>
+                  <p className="flex-1 text-sm leading-relaxed text-white/58">{requirement}</p>
+                  {ideaData.requirements.length > 0 && (
+                    <button
+                      onClick={() => removeRequirement(i)}
+                      className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-red-400"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
-                {/* Features Count */}
-                <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-3">
-                    Features
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-500">
-                      <CheckCircle size={16} />
-                    </div>
-                    <div>
-                      <p className="text-white/70 font-semibold text-sm">
-                        {ideaData.key_features.length}
-                      </p>
-                      <p className="text-white/30 text-[11px] mt-0.5">
-                        Key features identified
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+          <motion.div variants={fadeUp(7)}>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                Tech Stack
+              </p>
+              <button
+                onClick={openTechModal}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+              >
+                <Plus size={12} />
+                Add Stack Item
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {STACK_KEYS.map((category) => {
+                const items = ideaData.suggested_tech_stack[category] ?? [];
+                const Icon = STACK_ICONS[category];
+                const color = STACK_COLORS[category];
 
-              {/* Key Features */}
-              {ideaData.key_features && ideaData.key_features.length > 0 && (
-                <motion.div variants={fadeUp(4)} className="mb-8">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-4">
-                    Key Features
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {ideaData.key_features.map((feature, i) => (
-                      <motion.div
-                        key={i}
-                        variants={fadeUp(i * 0.1)}
-                        className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-4 group hover:border-white/[0.11] transition-all duration-200"
+                return (
+                  <div
+                    key={category}
+                    className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5"
+                  >
+                    <div className="mb-4 flex items-center gap-2.5">
+                      <div
+                        className="flex h-7 w-7 items-center justify-center rounded-lg"
+                        style={{
+                          background: `${color}15`,
+                          border: `1px solid ${color}30`,
+                          color,
+                        }}
                       >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-white/80 font-semibold text-sm">
-                              {feature.name}
-                            </h3>
-                            <p className="text-[11px] text-white/40 mt-2 tracking-widest uppercase">
-                              {PRIORITY_LABELS[feature.priority]}
-                            </p>
-                          </div>
-                          <div
-                            className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                        <Icon size={14} />
+                      </div>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{ color }}
+                      >
+                        {category}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {items.length > 0 ? (
+                        items.map((item, i) => (
+                          <span
+                            key={`${item}-${i}`}
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold"
                             style={{
-                              background: `${PRIORITY_COLORS[feature.priority]}15`,
-                              border: `1px solid ${PRIORITY_COLORS[feature.priority]}30`,
+                              background: `${color}12`,
+                              border: `1px solid ${color}22`,
+                              color,
                             }}
                           >
-                            <GitBranch
-                              size={14}
-                              style={{ color: PRIORITY_COLORS[feature.priority] }}
-                            />
-                          </div>
-                        </div>
-                        <p className="text-white/50 text-[12px] leading-relaxed">
-                          {feature.description}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Requirements */}
-              {ideaData.requirements && ideaData.requirements.length > 0 && (
-                <motion.div variants={fadeUp(5)} className="mb-8">
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-4">
-                    Requirements
-                  </p>
-                  <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-6 space-y-3">
-                    {ideaData.requirements.map((req, i) => (
-                      <motion.div
-                        key={i}
-                        variants={fadeUp(i * 0.05)}
-                        className="flex items-start gap-3 group"
-                      >
-                        <div className="w-5 h-5 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                          <CheckCircle size={12} className="text-green-500" />
-                        </div>
-                        <p className="text-white/55 text-sm leading-relaxed flex-1">
-                          {req}
-                        </p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Tech Stack */}
-              {ideaData.suggested_tech_stack && (
-                <motion.div variants={fadeUp(6)}>
-                  <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase mb-4">
-                    Tech Stack
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {(
-                      [
-                        "frontend",
-                        "backend",
-                        "database",
-                        "infrastructure",
-                        "ai",
-                        "frameworks",
-                      ] as const
-                    ).map((category) => {
-                      const items =
-                        ideaData.suggested_tech_stack[category] ?? [];
-                      if (items.length === 0) return null;
-
-                      const Icon = STACK_ICONS[category];
-                      const color = STACK_COLORS[category];
-
-                      return (
-                        <div
-                          key={category}
-                          className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-5"
-                        >
-                          <div className="flex items-center gap-2.5 mb-4">
-                            <div
-                              className="w-7 h-7 rounded-lg flex items-center justify-center"
-                              style={{
-                                background: `${color}15`,
-                                border: `1px solid ${color}30`,
-                                color,
-                              }}
+                            {item}
+                            <button
+                              onClick={() => removeTech(category, i)}
+                              className="cursor-pointer opacity-80 transition hover:opacity-100"
                             >
-                              <Icon size={14} />
-                            </div>
-                            <p
-                              className="text-[10px] font-bold tracking-widest uppercase"
-                              style={{ color }}
-                            >
-                              {category}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {items.map((item, i) => (
-                              <span
-                                key={i}
-                                className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold"
-                                style={{
-                                  background: `${color}12`,
-                                  border: `1px solid ${color}22`,
-                                  color: color,
-                                }}
-                              >
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="rounded-lg border border-white/8 px-2.5 py-1.5 text-[11px] font-semibold text-white/28">
+                          Not added
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </motion.div>
-              )}
-            </motion.div>
-          )}
+                );
+              })}
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
 
-      {/* Right Sidebar - AI Copilot */}
       <AIRightSidebar
+        isOpen={aiOpen}
+        onOpenChange={setAiOpen}
         onApplySuggestion={handleApplySuggestion}
-        projectDescription={ideaData?.raw_idea || ""}
+        projectDescription={ideaData.raw_idea || ""}
       />
+
+      <AnimatePresence>
+        {activeModal && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveModal(null)}
+              className="fixed inset-0 z-40 bg-black/55"
+              aria-label="Close modal backdrop"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1019] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: "'Rajdhani', sans-serif" }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.08em] text-white/90">
+                  {activeModal === "feature"
+                    ? "Add Feature"
+                    : activeModal === "requirement"
+                      ? "Add Requirement"
+                      : "Add Tech Stack Item"}
+                </p>
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {activeModal === "feature" && (
+                <form onSubmit={addFeature} className="space-y-3">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Name
+                    </p>
+                    <input
+                      value={featureForm.name}
+                      onChange={(e) =>
+                        setFeatureForm((current) => ({
+                          ...current,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder="Feature name"
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none placeholder:text-white/25 focus:border-orange-500/45"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Description
+                    </p>
+                    <textarea
+                      value={featureForm.description}
+                      onChange={(e) =>
+                        setFeatureForm((current) => ({
+                          ...current,
+                          description: e.target.value,
+                        }))
+                      }
+                      rows={3}
+                      placeholder="One-sentence feature description"
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none placeholder:text-white/25 focus:border-orange-500/45"
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Priority
+                    </p>
+                    <select
+                      value={featureForm.priority}
+                      onChange={(e) =>
+                        setFeatureForm((current) => ({
+                          ...current,
+                          priority: e.target.value as FeaturePriority,
+                        }))
+                      }
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none focus:border-orange-500/45"
+                    >
+                      <option value="must_have">must_have</option>
+                      <option value="nice_to_have">nice_to_have</option>
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white/65 transition hover:text-white/85"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                    >
+                      Add Feature
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {activeModal === "requirement" && (
+                <form onSubmit={addRequirement} className="space-y-3">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Requirement
+                    </p>
+                    <textarea
+                      value={requirementForm}
+                      onChange={(e) => setRequirementForm(e.target.value)}
+                      rows={3}
+                      placeholder="Describe a non-functional/system requirement"
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none placeholder:text-white/25 focus:border-orange-500/45"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white/65 transition hover:text-white/85"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                    >
+                      Add Requirement
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {activeModal === "tech" && (
+                <form onSubmit={addTechItem} className="space-y-3">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Category
+                    </p>
+                    <select
+                      value={techForm.category}
+                      onChange={(e) =>
+                        setTechForm((current) => ({
+                          ...current,
+                          category: e.target.value as StackCategory,
+                        }))
+                      }
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none focus:border-orange-500/45"
+                    >
+                      {STACK_KEYS.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.14em] text-white/35">
+                      Item
+                    </p>
+                    <input
+                      value={techForm.value}
+                      onChange={(e) =>
+                        setTechForm((current) => ({
+                          ...current,
+                          value: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Next.js, PostgreSQL"
+                      className="w-full rounded-md border border-white/10 bg-[#101625] px-3 py-2 text-sm text-white/80 outline-none placeholder:text-white/25 focus:border-orange-500/45"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-white/65 transition hover:text-white/85"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                    >
+                      Add Item
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
