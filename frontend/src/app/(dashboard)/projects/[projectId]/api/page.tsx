@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
 import {
   Code2, Plus, X, ChevronDown, Check, Sparkles,
@@ -109,235 +109,505 @@ function EditField({ value, onChange, placeholder = "", mono = false, className 
   );
 }
 
-// Shared: key:value editor
-function KVEditor({ data, onChange, color }: { data: Record<string, string>; onChange: (d: Record<string, string>) => void; color: string }) {
-  const [k, setK] = useState(""); const [v, setV] = useState("");
-  const add = () => { if (!k.trim()) return; onChange({ ...data, [k.trim()]: v.trim() || "string" }); setK(""); setV(""); };
-  return (
-    <div className="flex flex-col gap-1">
-      {Object.entries(data).map(([key, val]) => (
-        <div key={key} className="flex items-center gap-1.5 group text-[10px] font-mono">
-          <span style={{ color }}>{key}</span>
-          <span className="text-white/20">:</span>
-          <span className="text-white/38">{val}</span>
-          <button onClick={() => { const d = { ...data }; delete d[key]; onChange(d); }} className="ml-auto opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all">
-            <X size={8} />
-          </button>
-        </div>
-      ))}
-      <div className="flex items-center gap-1 mt-0.5">
-        <input value={k} onChange={(e) => setK(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="key"  className="w-16 bg-transparent outline-none text-[10px] font-mono text-white/40 placeholder:text-white/14" style={{ fontFamily: "'Share Tech Mono',monospace" }} />
-        <span className="text-white/15 text-[10px]">:</span>
-        <input value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="type" className="w-16 bg-transparent outline-none text-[10px] font-mono text-white/30 placeholder:text-white/14" style={{ fontFamily: "'Share Tech Mono',monospace" }} />
-        <button onClick={add} className="text-orange-500/35 hover:text-orange-500 transition-colors"><Plus size={9} /></button>
-      </div>
-    </div>
-  );
-}
+// Modal: Add/Edit Route
+function RouteModal({ route, isOpen, onClose, onSave }: {
+  route?: ApiRoute | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (route: ApiRoute) => void;
+}) {
+  const [form, setForm] = useState<ApiRoute>(route || {
+    id: uid(),
+    name: "",
+    method: "GET" as HttpMethod,
+    path: "",
+    description: "",
+    request: {},
+    response: { success: {} },
+    authRequired: false,
+  });
 
-// Route row (expandable)
-function RouteRow({ route, onUpdate, onRemove }: { route: ApiRoute; onUpdate: (r: ApiRoute) => void; onRemove: () => void }) {
-  const [open, setOpen] = useState(false);
-  const s = METHOD_STYLE[route.method];
   const methods: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
   return (
-    <motion.div layout className="border border-white/[0.07] rounded-xl overflow-hidden bg-white/[0.025] hover:border-white/[0.12] transition-colors duration-200 group/r">
-      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer select-none" onClick={() => setOpen((p) => !p)}>
-        <select
-          value={route.method}
-          onChange={(e) => { e.stopPropagation(); onUpdate({ ...route, method: e.target.value as HttpMethod }); }}
-          onClick={(e) => e.stopPropagation()}
-          className="text-[10px] font-bold rounded-lg px-2 py-[3px] border outline-none appearance-none shrink-0 cursor-pointer tracking-[0.08em]"
-          style={{ background: s.bg, borderColor: s.border, color: s.color, fontFamily: "'Share Tech Mono',monospace" }}
-        >
-          {methods.map((m) => <option key={m} value={m} style={{ background: "#0c0702", color: METHOD_STYLE[m].color }}>{m}</option>)}
-        </select>
-
-        <span className="flex-1 min-w-0 truncate font-mono" onClick={(e) => e.stopPropagation()}>
-          <EditField value={route.path} onChange={(v) => onUpdate({ ...route, path: v })} placeholder="/api/v1/..." mono className="text-[12px] text-white/55" />
-        </span>
-
-        <button
-          onClick={(e) => { e.stopPropagation(); onUpdate({ ...route, authRequired: !route.authRequired }); }}
-          className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border shrink-0 transition-all ${route.authRequired ? "bg-orange-500/10 border-orange-500/22 text-orange-400" : "bg-white/[0.03] border-white/[0.07] text-white/25"}`}
-        >
-          {route.authRequired ? <Lock size={8} /> : <Unlock size={8} />}
-          {route.authRequired ? "AUTH" : "PUBLIC"}
-        </button>
-
-        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="opacity-0 group-hover/r:opacity-100 text-white/20 hover:text-red-400 transition-all p-0.5 shrink-0">
-          <Trash2 size={12} />
-        </button>
-        <ChevronDown size={13} className={`text-white/22 transition-transform duration-200 shrink-0 ${open ? "rotate-180" : ""}`} />
-      </div>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden border-t border-white/[0.05]">
-            <div className="px-4 py-4 flex flex-col gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[["Name", "name", route.name], ["Description", "description", route.description]].map(([label, key, val]) => (
-                  <div key={key as string}>
-                    <p className="text-[9px] text-white/20 font-mono tracking-[0.12em] uppercase mb-1">{label}</p>
-                    <EditField value={val as string} onChange={(v) => onUpdate({ ...route, [key as string]: v })} placeholder={label + "..."} className="text-[12.5px] text-white/55" />
-                  </div>
-                ))}
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div className="w-full max-w-2xl rounded-xl border border-white/8 bg-[#0b1019] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">
+                  {route ? "Edit Endpoint" : "Add Endpoint"}
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-white/55"
+                >
+                  <X size={18} />
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {([["params", "#a78bfa"], ["query", "#60a5fa"], ["body", "#f97316"]] as const).map(([sec, color]) => (
-                  <div key={sec} className="bg-black/20 border border-white/[0.05] rounded-lg p-3">
-                    <p className="text-[9px] font-mono uppercase tracking-[0.12em] mb-2" style={{ color }}>{sec}</p>
-                    <KVEditor data={route.request?.[sec] ?? {}} color={color} onChange={(d) => onUpdate({ ...route, request: { ...route.request, [sec]: d } })} />
-                  </div>
-                ))}
-              </div>
+              <div className="flex flex-col gap-5">
+                {/* Name */}
+                <div>
+                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                    Endpoint Name
+                  </label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="e.g., Get User"
+                    className="w-full rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                  />
+                </div>
 
-              <div className="bg-black/20 border border-white/[0.05] rounded-lg p-3">
-                <p className="text-[9px] font-mono uppercase tracking-[0.12em] mb-2 text-green-400/60">Response</p>
-                <KVEditor data={route.response.success} color="#22c55e" onChange={(d) => onUpdate({ ...route, response: { success: d } })} />
+                {/* Method & Path */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                      Method
+                    </label>
+                    <select
+                      value={form.method}
+                      onChange={(e) => setForm({ ...form, method: e.target.value as HttpMethod })}
+                      className="w-full rounded-md border border-white/8 bg-[#0f1520] px-3 py-3 text-sm font-mono text-white/80 outline-none transition hover:border-white/12 focus:border-orange-500/30"
+                    >
+                      {methods.map((m) => (
+                        <option key={m} value={m} style={{ color: METHOD_STYLE[m].color }}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                      Path
+                    </label>
+                    <input
+                      value={form.path}
+                      onChange={(e) => setForm({ ...form, path: e.target.value })}
+                      placeholder="/api/v1/users"
+                      className="w-full rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 font-mono text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                    Description
+                  </label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="Describe what this endpoint does..."
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                  />
+                </div>
+
+                {/* Auth Required */}
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.authRequired}
+                      onChange={(e) => setForm({ ...form, authRequired: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/20"
+                    />
+                    <span className="text-sm text-white/70">Requires Authentication</span>
+                  </label>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 rounded-md border border-white/8 bg-transparent px-4 py-2 text-sm font-semibold text-white/60 transition hover:bg-white/5 hover:text-white/80"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (form.name.trim() && form.path.trim()) {
+                        onSave(form);
+                        onClose();
+                      }
+                    }}
+                    className="flex-1 rounded-md border border-orange-500/35 bg-orange-500/12 px-4 py-2 text-sm font-semibold text-orange-400 transition hover:bg-orange-500/20 hover:border-orange-500/50"
+                  >
+                    Save Endpoint
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
-// WS event card
-function WsCard({ event, onUpdate, onRemove }: { event: WebSocketEvent; onUpdate: (e: WebSocketEvent) => void; onRemove: () => void }) {
+// Modal: Add/Edit WebSocket Event
+function WsModal({ event, isOpen, onClose, onSave }: {
+  event?: WebSocketEvent | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (event: WebSocketEvent) => void;
+}) {
+  const [form, setForm] = useState<WebSocketEvent>(event || {
+    id: uid(),
+    name: "",
+    description: "",
+    payload: {},
+  });
+  const [kvKey, setKvKey] = useState("");
+  const [kvValue, setKvValue] = useState("");
+
+  const addPayloadField = () => {
+    if (kvKey.trim()) {
+      setForm({
+        ...form,
+        payload: { ...form.payload, [kvKey.trim()]: kvValue.trim() || "string" },
+      });
+      setKvKey("");
+      setKvValue("");
+    }
+  };
+
   return (
-    <div className="bg-white/[0.025] border border-white/[0.07] rounded-xl p-4 flex flex-col gap-3 hover:border-white/[0.12] transition-colors group">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Wifi size={12} className="text-purple-400 shrink-0" />
-          <EditField value={event.name} onChange={(v) => onUpdate({ ...event, name: v })} placeholder="event:name" mono className="text-[12px] font-mono text-purple-300/75" />
-        </div>
-        <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all">
-          <Trash2 size={12} />
-        </button>
-      </div>
-      <EditField value={event.description} onChange={(v) => onUpdate({ ...event, description: v })} placeholder="What triggers this event..." className="text-[12px] text-white/38" />
-      <div className="bg-black/20 border border-white/[0.05] rounded-lg p-3">
-        <p className="text-[9px] font-mono uppercase tracking-[0.12em] mb-2 text-purple-400/55">Payload</p>
-        <KVEditor data={event.payload} color="#a78bfa" onChange={(d) => onUpdate({ ...event, payload: d })} />
-      </div>
-    </div>
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div className="w-full max-w-xl rounded-xl border border-white/8 bg-[#0b1019] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white">
+                  {event ? "Edit Event" : "Add Event"}
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-white/55"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                {/* Name */}
+                <div>
+                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                    Event Name
+                  </label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="e.g., project:update"
+                    className="w-full rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 font-mono text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                    Description
+                  </label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="What triggers this event..."
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                  />
+                </div>
+
+                {/* Payload Fields */}
+                <div>
+                  <label className="mb-3 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                    Payload Fields
+                  </label>
+                  <div className="mb-3 space-y-2 rounded-md border border-white/8 bg-[#0f1520] p-3">
+                    {Object.entries(form.payload).length === 0 ? (
+                      <p className="text-xs text-white/25">No fields yet.</p>
+                    ) : (
+                      Object.entries(form.payload).map(([key, val]) => (
+                        <div
+                          key={key}
+                          className="flex items-center justify-between gap-2 rounded-sm border border-white/5 bg-[#0b1019] px-2.5 py-1.5"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-mono text-purple-300">{key}</span>
+                            <span className="text-white/15">:</span>
+                            <span className="text-xs font-mono text-white/45 ml-1">{val}</span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              const newPayload = { ...form.payload };
+                              delete newPayload[key];
+                              setForm({ ...form, payload: newPayload });
+                            }}
+                            className="text-white/20 transition hover:text-red-400"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Add Field */}
+                  <div className="flex gap-2">
+                    <input
+                      value={kvKey}
+                      onChange={(e) => setKvKey(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addPayloadField()}
+                      placeholder="Field name"
+                      className="flex-1 rounded-md border border-white/8 bg-[#0f1520] px-3 py-2 font-mono text-xs text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30"
+                    />
+                    <input
+                      value={kvValue}
+                      onChange={(e) => setKvValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addPayloadField()}
+                      placeholder="Type"
+                      className="flex-1 rounded-md border border-white/8 bg-[#0f1520] px-3 py-2 font-mono text-xs text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30"
+                    />
+                    <button
+                      onClick={addPayloadField}
+                      className="rounded-md border border-orange-500/35 bg-orange-500/12 px-3 py-2 text-orange-400 transition hover:bg-orange-500/20"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 rounded-md border border-white/8 bg-transparent px-4 py-2 text-sm font-semibold text-white/60 transition hover:bg-white/5 hover:text-white/80"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (form.name.trim()) {
+                        onSave(form);
+                        onClose();
+                      }
+                    }}
+                    className="flex-1 rounded-md border border-orange-500/35 bg-orange-500/12 px-4 py-2 text-sm font-semibold text-orange-400 transition hover:bg-orange-500/20 hover:border-orange-500/50"
+                  >
+                    Save Event
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
 // Page
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+
+const fadeUp = (i: number) => ({
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.07, duration: 0.4, ease: EASE },
+  },
+});
+
 export default function ApiDesignPage() {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [api, setApi]       = useState<ApiSectionContent>(EMPTY);
   const [shown, setShown]   = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(true);
   const [tab, setTab]       = useState<"rest" | "realtime" | "auth">("rest");
+  
+  // Route modal state
+  const [routeModalOpen, setRouteModalOpen] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<ApiRoute | null>(null);
+  
+  // WebSocket modal state
+  const [wsModalOpen, setWsModalOpen] = useState(false);
+  const [editingWs, setEditingWs] = useState<WebSocketEvent | null>(null);
+  
+  // Auth route modal state
+  const [authRouteModalOpen, setAuthRouteModalOpen] = useState(false);
+  const [authRouteInput, setAuthRouteInput] = useState("");
 
   const show  = () => { setApi(MOCK); setShown(true); };
   const reset = () => { setApi(EMPTY); setShown(false); };
 
-  const upRoute  = (id: string, r: ApiRoute)       => setApi((p) => ({ ...p, rest: p.rest.map((x) => x.id === id ? r : x) }));
-  const delRoute = (id: string)                     => setApi((p) => ({ ...p, rest: p.rest.filter((x) => x.id !== id) }));
-  const addRoute = ()                               => setApi((p) => ({ ...p, rest: [...p.rest, { id: uid(), name: "New Endpoint", method: "GET" as HttpMethod, path: "/api/v1/", description: "", request: {}, response: { success: {} }, authRequired: false }] }));
+  const upRoute  = (r: ApiRoute) => setApi((p) => ({ ...p, rest: p.rest.map((x) => x.id === r.id ? r : x) }));
+  const delRoute = (id: string) => setApi((p) => ({ ...p, rest: p.rest.filter((x) => x.id !== id) }));
+  const addRoute = () => { setEditingRoute(null); setRouteModalOpen(true); };
+  const saveRoute = (r: ApiRoute) => {
+    if (editingRoute) {
+      upRoute(r);
+    } else {
+      setApi((p) => ({ ...p, rest: [...p.rest, r] }));
+    }
+    setRouteModalOpen(false);
+    setEditingRoute(null);
+  };
+  const editRoute = (r: ApiRoute) => { setEditingRoute(r); setRouteModalOpen(true); };
 
-  const upEvent  = (id: string, e: WebSocketEvent) => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).map((x) => x.id === id ? e : x) }));
-  const delEvent = (id: string)                     => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).filter((x) => x.id !== id) }));
-  const addEvent = ()                               => setApi((p) => ({ ...p, realtime: [...(p.realtime ?? []), { id: uid(), name: "event:name", description: "", payload: {} }] }));
+  const upEvent  = (e: WebSocketEvent) => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).map((x) => x.id === e.id ? e : x) }));
+  const delEvent = (id: string) => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).filter((x) => x.id !== id) }));
+  const addEvent = () => { setEditingWs(null); setWsModalOpen(true); };
+  const saveEvent = (e: WebSocketEvent) => {
+    if (editingWs) {
+      upEvent(e);
+    } else {
+      setApi((p) => ({ ...p, realtime: [...(p.realtime ?? []), e] }));
+    }
+    setWsModalOpen(false);
+    setEditingWs(null);
+  };
+  const editEvent = (e: WebSocketEvent) => { setEditingWs(e); setWsModalOpen(true); };
 
-  const applyAI  = (s: ApplySuggestion)             => { setApi((p) => ({ ...p, ...s.payload })); setShown(true); };
+  const applyAI  = (s: ApplySuggestion) => { setApi((p) => ({ ...p, ...s.payload })); setShown(true); };
 
   const authTypes: AuthFlow["type"][] = ["JWT", "OAuth", "Session"];
 
   return (
-    <div className="flex flex-1 min-h-screen" style={{ fontFamily: "'Rajdhani',sans-serif", color: "#e0d5c5" }}>
-
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        <main className="px-7 py-8 flex flex-col gap-7 max-w-4xl">
-
-          {/* Sub-nav */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={T()} className="flex items-center justify-between pl-7 md:pl-0 flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-orange-500/10 border border-orange-500/18 flex items-center justify-center">
-                <Code2 size={12} className="text-orange-500" />
-              </div>
-              <span className="text-[11px] text-white/32 font-mono tracking-[0.1em]">API DESIGN</span>
+    <div
+      ref={scrollRef}
+      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
+      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+    >
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <motion.div
+          className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 transition-[padding-right] duration-300 ${
+            aiOpen ? "lg:pr-85" : "lg:pr-0"
+          }`}
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div
+            variants={fadeUp(0)}
+            className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/8 bg-[#0b1019] px-4 py-3"
+          >
+            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35">
+              <span>Planex</span>
+              <span>/</span>
+              <span>API</span>
+              <span>/</span>
+              <span className="text-white/80">DESIGN</span>
             </div>
             <div className="flex items-center gap-2">
               {shown && (
-                <button onClick={reset} className="flex items-center gap-1.5 text-[10px] text-white/28 font-mono tracking-[0.06em] hover:text-white/55 transition-colors">
-                  <RotateCcw size={11} /> Reset
+                <button
+                  onClick={reset}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
+                >
+                  <RotateCcw size={12} />
+                  Reset
                 </button>
               )}
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.96 }}
-                onClick={() => setAiOpen((p) => !p)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold tracking-[0.06em] border transition-all duration-200 cursor-pointer ${aiOpen ? "bg-orange-500/18 border-orange-500/32 text-orange-400" : "bg-white/[0.04] border-white/[0.08] text-white/38 hover:text-orange-400 hover:border-orange-500/18"}`}
-              >
-                <Sparkles size={12} />
-                AI Copilot
-                {aiOpen && <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.7)]" />}
-              </motion.button>
             </div>
           </motion.div>
 
-          {/* Title */}
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={T(0.04)}>
-            <h1
-              className="font-bold leading-tight mb-2"
-              style={{
-                fontSize: "clamp(26px, 3.5vw, 44px)",
-                background: "linear-gradient(90deg, #c2410c 0%, #f97316 50%, #fdba74 100%)",
-                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-              }}
-            >
-              API Design
-            </h1>
-            <p className="text-[13px] text-white/28 max-w-lg leading-relaxed">
-              Architect your communication layer. Define REST endpoints, WebSocket events, and auth flows.
-            </p>
+          <motion.div variants={fadeUp(1)} className="mb-7">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10">
+                  <Code2 size={20} className="text-orange-500" />
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold uppercase text-white">API DESIGN</h1>
+                  <p className="mt-1 text-sm text-white/45">
+                    Define REST, WebSocket, and authentication layers.
+                  </p>
+                </div>
+              </div>
+            </div>
           </motion.div>
 
-          {/* Show Fields button */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={T(0.08)}>
+          <motion.div variants={fadeUp(2)} className="mb-6">
             {!shown ? (
               <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={show}
-                className="flex items-center gap-2.5 px-6 py-3 rounded-xl text-[13px] font-bold tracking-[0.08em] cursor-pointer bg-gradient-to-r from-orange-600 to-orange-400 text-[#0f0800] shadow-[0_0_24px_rgba(249,115,22,0.18)]"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
               >
-                <ChevronDown size={15} />
+                <ChevronDown size={13} />
                 Show API Fields
               </motion.button>
             ) : (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-1.5 text-[11px] text-green-400/70 font-mono tracking-[0.06em]">
-                <Check size={11} /> Fields visible — edit any section below
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center gap-1.5 text-[11px] text-green-400/70 font-mono tracking-[0.08em]"
+              >
+                <Check size={12} /> Fields visible — edit below
               </motion.span>
             )}
           </motion.div>
 
-          {/* Content */}
           <AnimatePresence>
             {shown && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                transition={T(0.04)}
+                variants={fadeUp(3)}
+                initial="hidden"
+                animate="show"
+                exit="hidden"
                 className="flex flex-col gap-6"
               >
                 {/* Tabs */}
-                <div className="flex gap-1 bg-white/[0.02] border border-white/[0.06] rounded-xl p-1 w-fit flex-wrap">
+                <div className="flex gap-1 bg-white/2 border border-white/8 rounded-md p-1 w-fit flex-wrap">
                   {([
-                    ["rest",     Globe, `REST (${api.rest.length})`                      ],
-                    ["realtime", Wifi,  `WebSocket (${api.realtime?.length ?? 0})`       ],
-                    ["auth",     Key,   "Auth Flow"                                      ],
+                    ["rest", Globe, `REST (${api.rest.length})`],
+                    ["realtime", Wifi, `WebSocket (${api.realtime?.length ?? 0})`],
+                    ["auth", Key, "Auth Flow"],
                   ] as const).map(([id, Icon, label]) => (
                     <button
                       key={id}
                       onClick={() => setTab(id)}
-                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-bold tracking-[0.06em] transition-all duration-200 cursor-pointer ${tab === id ? "bg-orange-500/15 border border-orange-500/25 text-orange-400" : "text-white/28 hover:text-white/55"}`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[11px] font-bold tracking-[0.08em] transition-all duration-200 cursor-pointer ${
+                        tab === id
+                          ? "bg-orange-500/12 border border-orange-500/25 text-orange-400"
+                          : "text-white/35 hover:text-white/55"
+                      }`}
                     >
-                      <Icon size={12} />{label}
+                      <Icon size={12} />
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -346,45 +616,184 @@ export default function ApiDesignPage() {
 
                   {/* REST */}
                   {tab === "rest" && (
-                    <motion.div key="rest" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex flex-col gap-3">
+                    <motion.div
+                      key="rest"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-4"
+                    >
                       <div className="flex items-center justify-between">
-                        <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase">REST Endpoints</p>
-                        <button onClick={addRoute} className="flex items-center gap-1.5 text-[11px] text-orange-500/60 hover:text-orange-500 font-mono tracking-[0.06em] transition-colors cursor-pointer">
-                          <Plus size={12} /> Add Endpoint
+                        <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                          REST Endpoints
+                        </p>
+                        <button
+                          onClick={addRoute}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                        >
+                          <Plus size={12} />
+                          Add Endpoint
                         </button>
                       </div>
-                      {api.rest.length === 0
-                        ? <div className="flex flex-col items-center py-12 gap-3 border border-dashed border-white/[0.06] rounded-xl"><Globe size={22} className="text-white/15" /><p className="text-[12px] text-white/18">No endpoints yet.</p></div>
-                        : api.rest.map((r) => <RouteRow key={r.id} route={r} onUpdate={(u) => upRoute(r.id, u)} onRemove={() => delRoute(r.id)} />)
-                      }
+                      {api.rest.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 border border-dashed border-white/8 rounded-md py-12 px-4">
+                          <Globe size={24} className="text-white/15" />
+                          <p className="text-sm text-white/25">No endpoints yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {api.rest.map((r) => {
+                            const s = METHOD_STYLE[r.method];
+                            return (
+                              <motion.div
+                                key={r.id}
+                                layout
+                                className="flex items-center gap-3 rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 hover:border-white/12 transition-colors group"
+                              >
+                                <div
+                                  className="rounded-sm px-2 py-1 text-[10px] font-bold tracking-[0.08em] shrink-0"
+                                  style={{
+                                    background: s.bg,
+                                    borderColor: s.border,
+                                    color: s.color,
+                                    border: `1px solid ${s.border}`,
+                                  }}
+                                >
+                                  {r.method}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-mono text-white/80 truncate">{r.path}</p>
+                                  <p className="text-xs text-white/40 truncate">{r.description}</p>
+                                </div>
+                                {r.authRequired && (
+                                  <div className="flex items-center gap-1 rounded-sm bg-orange-500/10 px-2 py-1 text-[10px] text-orange-400 shrink-0">
+                                    <Lock size={10} />
+                                    AUTH
+                                  </div>
+                                )}
+                                <button
+                                  onClick={() => editRoute(r)}
+                                  className="rounded-md p-1.5 text-white/35 transition hover:bg-white/8 hover:text-white/70"
+                                >
+                                  <ChevronDown size={14} className="-rotate-90" />
+                                </button>
+                                <button
+                                  onClick={() => delRoute(r.id)}
+                                  className="rounded-md p-1.5 text-white/35 transition hover:bg-white/8 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </motion.div>
                   )}
 
                   {/* WebSocket */}
                   {tab === "realtime" && (
-                    <motion.div key="realtime" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex flex-col gap-3">
+                    <motion.div
+                      key="realtime"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-4"
+                    >
                       <div className="flex items-center justify-between">
-                        <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase">WebSocket Events</p>
-                        <button onClick={addEvent} className="flex items-center gap-1.5 text-[11px] text-orange-500/60 hover:text-orange-500 font-mono tracking-[0.06em] transition-colors cursor-pointer">
-                          <Plus size={12} /> Add Event
+                        <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                          WebSocket Events
+                        </p>
+                        <button
+                          onClick={addEvent}
+                          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                        >
+                          <Plus size={12} />
+                          Add Event
                         </button>
                       </div>
-                      {(api.realtime ?? []).length === 0
-                        ? <div className="flex flex-col items-center py-12 gap-3 border border-dashed border-white/[0.06] rounded-xl"><Wifi size={22} className="text-white/15" /><p className="text-[12px] text-white/18">No WebSocket events defined.</p></div>
-                        : <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{(api.realtime ?? []).map((e) => <WsCard key={e.id} event={e} onUpdate={(u) => upEvent(e.id, u)} onRemove={() => delEvent(e.id)} />)}</div>
-                      }
+                      {(api.realtime ?? []).length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-3 border border-dashed border-white/8 rounded-md py-12 px-4">
+                          <Wifi size={24} className="text-white/15" />
+                          <p className="text-sm text-white/25">No WebSocket events defined.</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                          {(api.realtime ?? []).map((e) => (
+                            <motion.div
+                              key={e.id}
+                              layout
+                              className="flex flex-col gap-3 rounded-md border border-white/8 bg-[#0f1520] p-4 hover:border-white/12 transition-colors group"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-mono text-sm text-purple-300 truncate">{e.name}</p>
+                                  <p className="mt-1 text-xs text-white/45 line-clamp-2">{e.description}</p>
+                                </div>
+                                <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => editEvent(e)}
+                                    className="rounded-md p-1.5 text-white/35 transition hover:bg-white/8 hover:text-white/70"
+                                  >
+                                    <ChevronDown size={14} className="-rotate-90" />
+                                  </button>
+                                  <button
+                                    onClick={() => delEvent(e.id)}
+                                    className="rounded-md p-1.5 text-white/35 transition hover:bg-white/8 hover:text-red-400"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                              {Object.entries(e.payload).length > 0 && (
+                                <div className="rounded-sm border border-white/5 bg-[#0b1019] p-2">
+                                  <p className="text-[9px] font-mono text-white/30 mb-1">Payload:</p>
+                                  <div className="space-y-1">
+                                    {Object.entries(e.payload)
+                                      .slice(0, 2)
+                                      .map(([key, val]) => (
+                                        <div key={key} className="text-[10px] font-mono text-white/40">
+                                          <span className="text-purple-400">{key}</span>
+                                          <span className="text-white/15">: </span>
+                                          <span className="text-white/30">{val}</span>
+                                        </div>
+                                      ))}
+                                    {Object.entries(e.payload).length > 2 && (
+                                      <div className="text-[10px] text-white/20">
+                                        +{Object.entries(e.payload).length - 2} more fields
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   )}
 
                   {/* Auth */}
                   {tab === "auth" && (
-                    <motion.div key="auth" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="flex flex-col gap-4">
-                      <p className="text-[9px] text-white/25 tracking-[0.2em] font-mono uppercase">Authentication Flow</p>
-                      <div className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-5 flex flex-col gap-5">
-
+                    <motion.div
+                      key="auth"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-4"
+                    >
+                      <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                        Authentication Flow
+                      </p>
+                      <div className="rounded-md border border-white/8 bg-white/2 p-5 flex flex-col gap-5">
                         {/* Type */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] text-white/20 font-mono tracking-[0.14em] uppercase">Auth Type</p>
+                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                            Auth Type
+                          </p>
                           <div className="flex gap-2 flex-wrap">
                             {authTypes.map((t) => {
                               const { color, Icon } = AUTH_STYLE[t];
@@ -392,11 +801,29 @@ export default function ApiDesignPage() {
                               return (
                                 <button
                                   key={t}
-                                  onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, type: t } }))}
-                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold tracking-[0.06em] border transition-all duration-200 cursor-pointer"
-                                  style={active ? { background: `${color}15`, borderColor: `${color}30`, color } : { background: "rgba(255,255,255,0.02)", borderColor: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.28)" }}
+                                  onClick={() =>
+                                    setApi((p) => ({
+                                      ...p,
+                                      auth: { ...p.auth, type: t },
+                                    }))
+                                  }
+                                  className="flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-[11px] font-bold tracking-[0.08em] transition-all duration-200"
+                                  style={
+                                    active
+                                      ? {
+                                          background: `${color}15`,
+                                          borderColor: `${color}30`,
+                                          color,
+                                        }
+                                      : {
+                                          background: "rgba(255,255,255,0.04)",
+                                          borderColor: "rgba(255,255,255,0.08)",
+                                          color: "rgba(255,255,255,0.35)",
+                                        }
+                                  }
                                 >
-                                  <Icon size={13} />{t}
+                                  <Icon size={12} />
+                                  {t}
                                 </button>
                               );
                             })}
@@ -405,36 +832,85 @@ export default function ApiDesignPage() {
 
                         {/* Description */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] text-white/20 font-mono tracking-[0.14em] uppercase">Description</p>
-                          <div className="bg-black/20 border border-white/[0.05] rounded-xl p-3">
-                            <EditField value={api.auth.description} onChange={(v) => setApi((p) => ({ ...p, auth: { ...p.auth, description: v } }))} placeholder="Describe the auth strategy..." className="text-[13px] text-white/48" />
+                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                            Description
+                          </p>
+                          <div className="rounded-md border border-white/8 bg-[#0b1019] p-3">
+                            <EditField
+                              value={api.auth.description}
+                              onChange={(v) =>
+                                setApi((p) => ({
+                                  ...p,
+                                  auth: { ...p.auth, description: v },
+                                }))
+                              }
+                              placeholder="Describe the auth strategy..."
+                              className="text-sm text-white/50"
+                            />
                           </div>
                         </div>
 
                         {/* Protected routes */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] text-white/20 font-mono tracking-[0.14em] uppercase">Protected Routes</p>
-                          <div className="flex flex-col gap-1.5">
+                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                            Protected Routes
+                          </p>
+                          <div className="space-y-1.5">
                             {api.auth.routes.map((r, i) => (
                               <div key={i} className="flex items-center gap-2 group">
-                                <ArrowRight size={11} className="text-orange-500/38 shrink-0" />
-                                <code className="flex-1 text-[12px] font-mono text-white/52">
-                                  <EditField value={r} onChange={(v) => { const routes = [...api.auth.routes]; routes[i] = v; setApi((p) => ({ ...p, auth: { ...p.auth, routes } })); }} placeholder="/api/v1/..." mono className="text-white/52" />
+                                <ArrowRight size={10} className="text-orange-500/35 shrink-0" />
+                                <code className="flex-1 text-[12px] font-mono text-white/50">
+                                  <EditField
+                                    value={r}
+                                    onChange={(v) => {
+                                      const routes = [...api.auth.routes];
+                                      routes[i] = v;
+                                      setApi((p) => ({
+                                        ...p,
+                                        auth: { ...p.auth, routes },
+                                      }));
+                                    }}
+                                    placeholder="/api/v1/..."
+                                    mono
+                                    className="text-white/50"
+                                  />
                                 </code>
-                                <button onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: p.auth.routes.filter((_, j) => j !== i) } }))} className="opacity-0 group-hover:opacity-100 text-white/20 hover:text-red-400 transition-all">
+                                <button
+                                  onClick={() =>
+                                    setApi((p) => ({
+                                      ...p,
+                                      auth: {
+                                        ...p.auth,
+                                        routes: p.auth.routes.filter((_, j) => j !== i),
+                                      },
+                                    }))
+                                  }
+                                  className="rounded-md p-1 text-white/25 transition hover:bg-white/8 hover:text-red-400"
+                                >
                                   <X size={10} />
                                 </button>
                               </div>
                             ))}
-                            <button onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: [...p.auth.routes, "/api/v1/"] } }))} className="flex items-center gap-1.5 text-[11px] text-white/20 hover:text-orange-500 font-mono tracking-[0.06em] transition-colors mt-1 w-fit">
-                              <Plus size={10} /> Add route
+                            <button
+                              onClick={() =>
+                                setApi((p) => ({
+                                  ...p,
+                                  auth: {
+                                    ...p.auth,
+                                    routes: [...p.auth.routes, "/api/v1/"],
+                                  },
+                                }))
+                              }
+                              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/65 transition hover:border-white/20 hover:text-white/85 w-fit"
+                            >
+                              <Plus size={10} />
+                              Add Route
                             </button>
                           </div>
                         </div>
                       </div>
                     </motion.div>
                   )}
-
                 </AnimatePresence>
               </motion.div>
             )}
@@ -442,22 +918,44 @@ export default function ApiDesignPage() {
 
           {/* Empty nudge */}
           {!shown && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={T(0.15)} className="flex flex-col items-center text-center py-16 gap-4 border border-dashed border-white/[0.06] rounded-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-orange-500/[0.06] border border-orange-500/14 flex items-center justify-center">
-                <Code2 size={24} className="text-orange-500/55" />
+            <motion.div
+              variants={fadeUp(4)}
+              className="flex flex-col items-center text-center gap-4 border border-dashed border-white/8 rounded-md py-16 px-4"
+            >
+              <div className="w-12 h-12 rounded-md bg-orange-500/8 border border-orange-500/15 flex items-center justify-center">
+                <Code2 size={20} className="text-orange-500/40" />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <p className="text-[15px] font-bold text-white/38">No API defined yet</p>
-                <p className="text-[12.5px] text-white/18 max-w-[280px] leading-relaxed">Click "Show API Fields" above or use the AI Copilot to generate your structure.</p>
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-bold text-white/40">No API defined yet</p>
+                <p className="text-xs text-white/25 max-w-xs leading-relaxed">
+                  Click "Show API Fields" above or use the AI Copilot to generate your API structure.
+                </p>
               </div>
             </motion.div>
           )}
-
-        </main>
+        </motion.div>
       </div>
 
-      {/* AI sidebar */}
-      {aiOpen && <AIRightSidebar onApplySuggestion={applyAI} projectDescription="API Design" />}
+      <AIRightSidebar
+        onApplySuggestion={applyAI}
+        projectDescription="Design your API endpoints, WebSocket events, and authentication flow."
+        isOpen={aiOpen}
+        onOpenChange={setAiOpen}
+      />
+
+      <RouteModal
+        route={editingRoute}
+        isOpen={routeModalOpen}
+        onClose={() => { setRouteModalOpen(false); setEditingRoute(null); }}
+        onSave={saveRoute}
+      />
+
+      <WsModal
+        event={editingWs}
+        isOpen={wsModalOpen}
+        onClose={() => { setWsModalOpen(false); setEditingWs(null); }}
+        onSave={saveEvent}
+      />
     </div>
   );
 }
