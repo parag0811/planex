@@ -5,6 +5,18 @@ export interface Project {
   id: string;
   name: string;
   owner_id?: string;
+  members?: Array<{
+    id: string;
+    user_id: string;
+    project_id: string;
+    user?: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      [key: string]: unknown;
+    };
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 }
 
@@ -51,6 +63,21 @@ export const fetchProjects = createAsyncThunk(
       const res = await axiosInstance.get("/projects");
 
       return (res.data.data ?? res.data.projects ?? []) as Project[];
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to fetch projects"),
+      );
+    }
+  },
+);
+
+export const fetchProjectById = createAsyncThunk(
+  "project/fetchProjectById",
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get(`/projects/${projectId}`);
+
+      return res.data.project as Project;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to fetch projects"),
@@ -204,6 +231,9 @@ const projectSlice = createSlice({
         state.error = action.payload as string;
         state.fetch.loading = false;
         state.fetch.error = action.payload as string;
+      })
+      .addCase(fetchProjectById.fulfilled, (state, action) => {
+        state.currentProject = action.payload;
       })
       .addCase(createProject.pending, (state) => {
         state.create.loading = true;

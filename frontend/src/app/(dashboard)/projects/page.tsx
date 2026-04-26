@@ -5,7 +5,6 @@ import { motion, Variants } from "framer-motion";
 import {
   Plus,
   Search,
-  ArrowUpRight,
   Database,
   Globe,
   Shield,
@@ -14,7 +13,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProjects, setCurrentProject } from "@/src/store/slices/projectSlice";
+import { fetchProjects } from "@/src/store/slices/projectSlice";
 import type { RootState, AppDispatch } from "@/src/store/store";
 import ProjectsFooter from "@/src/components/layout/ProjectsFooter";
 
@@ -57,13 +56,6 @@ export default function ProjectsPage() {
     const Icon = icons[index % icons.length];
     return <Icon size={24} className="text-[#f97316]" />;
   };
-
-  const openProject = (projectId: string) => {
-    const selectedProject = projects.find((project) => project.id === projectId) ?? null;
-    dispatch(setCurrentProject(selectedProject));
-    router.push(`/projects/${projectId}`);
-  };
-
 
   return (
     <div className="min-h-screen bg-[#06070c] pt-28">
@@ -123,7 +115,15 @@ export default function ProjectsPage() {
             <motion.div
               key={project.id}
               variants={makeFadeUp(index)}
-              onClick={() => openProject(project.id)}
+              onClick={() => router.push(`/projects/${project.id}`)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  router.push(`/projects/${project.id}`);
+                }
+              }}
               className="bg-[#10141d] border border-white/10 rounded-2xl p-6 hover:border-[#f97316]/50 transition-all duration-300 hover:shadow-lg hover:shadow-[#f97316]/10 group cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
@@ -177,16 +177,6 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               )}
-
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openProject(project.id);
-                }}
-                className="w-full bg-[#0b0f16] hover:bg-[#1a2130] text-[#f97316] font-semibold py-2 rounded-lg transition-colors cursor-pointer"
-              >
-                View Details
-              </button>
             </motion.div>
           ))}
         </motion.div>

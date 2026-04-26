@@ -1,7 +1,13 @@
 "use client";
 
+import { AppDispatch } from "@/src/store/store";
 import { motion } from "framer-motion";
 import { Copy, TriangleAlert } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { fetchProjectById } from "@/src/store/slices/projectSlice";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "@/src/store/store";
 
 const stats = [
   { label: "Cluster Uptime", value: "99.982%" },
@@ -21,6 +27,30 @@ const riskItems = [
 ];
 
 export default function ProjectOverviewPage() {
+  const params = useParams();
+  const projectId =
+    typeof params?.projectId === "string"
+      ? params.projectId
+      : Array.isArray(params?.projectId)
+        ? params.projectId[0]
+        : undefined;
+  const dispatch = useDispatch<AppDispatch>();
+  const currentProject = useSelector(
+    (state: RootState) => state.project.currentProject,
+  );
+
+
+  useEffect(() => {
+    if (projectId) {
+      dispatch(fetchProjectById(projectId));
+    }
+  }, [dispatch, projectId]);
+
+  const members = currentProject?.members ?? [];
+  const projectName = currentProject?.name ?? "Project";
+  const projectDescription =
+    String(currentProject?.description ?? "Project details are loading.");
+
   return (
     <main
       className="flex-1 min-w-0 overflow-y-auto bg-[#05070d] px-4 py-5 md:px-7 md:py-7"
@@ -30,7 +60,7 @@ export default function ProjectOverviewPage() {
         <div className="mb-5 flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.22em]">
           <span className="text-[#586177]">PLANEX</span>
           <span className="text-[#303646]">&gt;</span>
-          <span className="text-[#8791a6]">PROJECT AETHER</span>
+          <span className="text-[#8791a6]">{projectName.toUpperCase()}</span>
           <span className="text-[#303646]">&gt;</span>
           <span className="text-orange-500">DASHBOARD</span>
         </div>
@@ -43,11 +73,11 @@ export default function ProjectOverviewPage() {
         >
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
-              <h1 className="text-2xl font-bold text-white md:text-3xl">Project Aether</h1>
+              <h1 className="text-2xl font-bold text-white md:text-3xl">
+                {projectName}
+              </h1>
               <p className="mt-2 text-[13px] leading-relaxed text-[#8f98ad]">
-                Decentralized high-performance computing layer designed for massive
-                parallelized LLM training clusters. Orchestrating cold-storage data
-                pipelines with real-time semantic indexing.
+                {projectDescription}
               </p>
             </div>
 
@@ -69,7 +99,9 @@ export default function ProjectOverviewPage() {
                 <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-[#6f778a]">
                   {stat.label}
                 </p>
-                <p className="mt-2 text-3xl font-semibold text-white">{stat.value}</p>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {stat.value}
+                </p>
               </motion.article>
             ))}
           </div>
@@ -82,31 +114,48 @@ export default function ProjectOverviewPage() {
             transition={{ delay: 0.06, duration: 0.28 }}
           >
             <p className="mb-2 text-[9px] uppercase tracking-[0.2em] text-[#5c6579]">
-              Infrastructure Team
+              Project Members
             </p>
 
             <div className="space-y-2">
-              {teamMembers.map((member) => (
-                <div
-                  key={member.name}
-                  className="flex items-center justify-between rounded-sm border border-white/6 bg-[#0c0f18] p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-sm bg-white/10 text-[10px] font-bold text-white">
-                      {member.name
-                        .split(" ")
-                        .map((part) => part[0])
-                        .join("")
-                        .slice(0, 2)}
+              {members.length > 0 ? (
+                members.map((member) => {
+                  const memberName =
+                    member.user?.name ?? member.user?.email ?? member.user_id;
+                  const memberRole = member.user?.email ?? "Project Member";
+                  const initials = memberName
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between rounded-sm border border-white/6 bg-[#0c0f18] p-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-9 w-9 place-items-center rounded-sm bg-white/10 text-[10px] font-bold text-white">
+                          {initials || "PM"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {memberName}
+                          </p>
+                          <p className="text-[11px] text-[#8590a7]">
+                            {memberRole}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{member.name}</p>
-                      <p className="text-[11px] text-[#8590a7]">{member.role}</p>
-                    </div>
-                  </div>
-                  <button className="text-[#5d667a] transition-colors hover:text-orange-500">X</button>
+                  );
+                })
+              ) : (
+                <div className="rounded-sm border border-white/6 bg-[#0c0f18] p-3 text-[11px] text-[#8590a7]">
+                  No members found for this project yet.
                 </div>
-              ))}
+              )}
 
               <button
                 type="button"
@@ -128,9 +177,13 @@ export default function ProjectOverviewPage() {
               </p>
 
               <div className="rounded-sm border border-white/6 bg-[#0c0f18] p-4">
-                <p className="text-[8px] uppercase tracking-[0.2em] text-[#6b7388]">Global Invite URL</p>
+                <p className="text-[8px] uppercase tracking-[0.2em] text-[#6b7388]">
+                  Global Invite URL
+                </p>
                 <div className="mt-3 flex items-center justify-between gap-2 rounded-sm border border-white/8 bg-[#060911] px-3 py-2">
-                  <span className="truncate text-[11px] text-[#c5cde1]">https://aether.os/auth/</span>
+                  <span className="truncate text-[11px] text-[#c5cde1]">
+                    https://aether.os/auth/
+                  </span>
                   <button className="inline-flex items-center gap-1 rounded-sm bg-white px-2 py-1 text-[10px] font-bold text-[#0b1020] transition-colors hover:bg-orange-100">
                     <Copy size={11} />
                     Copy
