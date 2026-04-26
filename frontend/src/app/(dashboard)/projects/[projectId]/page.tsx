@@ -4,8 +4,12 @@ import { AppDispatch } from "@/src/store/store";
 import { motion } from "framer-motion";
 import { Copy, TriangleAlert } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { fetchProjectById } from "@/src/store/slices/projectSlice";
+import { useEffect } from "react";
+import {
+  fetchProjectById,
+  removeMember,
+  updateMemberRole,
+} from "@/src/store/slices/projectSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 
@@ -13,11 +17,6 @@ const stats = [
   { label: "Cluster Uptime", value: "99.982%" },
   { label: "Avg Latency", value: "14.2ms" },
   { label: "Node Count", value: "2,048" },
-];
-
-const teamMembers = [
-  { name: "Alex Chen", role: "Lead Architect" },
-  { name: "Sarah Miller", role: "Lead Backend" },
 ];
 
 const riskItems = [
@@ -38,6 +37,7 @@ export default function ProjectOverviewPage() {
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
   );
+  const { update, remove } = useSelector((state: RootState) => state.project);
 
 
   useEffect(() => {
@@ -50,6 +50,21 @@ export default function ProjectOverviewPage() {
   const projectName = currentProject?.name ?? "Project";
   const projectDescription =
     String(currentProject?.description ?? "Project details are loading.");
+
+  const handleRoleChange = (
+    memberId: string,
+    role: "EDITOR" | "VIEWER",
+  ) => {
+    if (!projectId) return;
+
+    dispatch(updateMemberRole({ projectId, memberId, role }));
+  };
+
+  const handleRemoveMember = (memberId: string) => {
+    if (!projectId) return;
+
+    dispatch(removeMember({ projectId, memberId }));
+  };
 
   return (
     <main
@@ -148,6 +163,32 @@ export default function ProjectOverviewPage() {
                           </p>
                         </div>
                       </div>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={member.role ?? "VIEWER"}
+                          onChange={(event) =>
+                            handleRoleChange(
+                              member.id,
+                              event.target.value as "EDITOR" | "VIEWER",
+                            )
+                          }
+                          disabled={update.loading}
+                          className="rounded-sm border border-white/12 bg-[#080a12] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#d2d9ea] outline-none"
+                        >
+                          <option value="EDITOR">Editor</option>
+                          <option value="VIEWER">Viewer</option>
+                        </select>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMember(member.user_id)}
+                          disabled={remove.loading}
+                          className="rounded-sm border border-red-500/30 bg-red-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-red-300 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   );
                 })
@@ -156,13 +197,6 @@ export default function ProjectOverviewPage() {
                   No members found for this project yet.
                 </div>
               )}
-
-              <button
-                type="button"
-                className="w-full rounded-sm border border-dashed border-white/12 bg-[#080a12] p-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[#6f778b] transition-colors hover:border-orange-500/35 hover:text-orange-400"
-              >
-                + Add Member
-              </button>
             </div>
           </motion.article>
 

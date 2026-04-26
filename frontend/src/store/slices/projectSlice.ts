@@ -9,6 +9,7 @@ export interface Project {
     id: string;
     user_id: string;
     project_id: string;
+    role?: "EDITOR" | "VIEWER";
     user?: {
       id: string;
       name?: string | null;
@@ -28,6 +29,13 @@ interface ProjectPayload {
   projectId: string;
   name: string;
 }
+
+interface MemberPayload {
+  projectId: string;
+  memberId: string;
+}
+
+type MemberRole = "EDITOR" | "VIEWER";
 
 interface OperationState {
   loading: boolean;
@@ -158,6 +166,49 @@ export const getSectionByType = createAsyncThunk(
   },
 );
 
+export const updateMemberRole = createAsyncThunk(
+  "project/updateMemberRole",
+  async (
+    params: MemberPayload & { role: MemberRole },
+    { rejectWithValue },
+  ) => {
+    try {
+      const { projectId, memberId, role } = params;
+
+      await axiosInstance.patch(
+        `/projects/${projectId}/members/${memberId}/role`,
+        { role },
+      );
+
+      return { projectId, memberId, role };
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to update member's role"),
+      );
+    }
+  },
+);
+
+export const removeMember = createAsyncThunk(
+  "project/removeMember",
+  async (
+    params: MemberPayload,
+    { rejectWithValue },
+  ) => {
+    try {
+      const { projectId, memberId } = params;
+
+      await axiosInstance.delete(`/projects/${projectId}/members/${memberId}`);
+
+      return { projectId, memberId };
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to remove member"),
+      );
+    }
+  },
+);
+
 interface ProjectState {
   projects: Project[];
   loading: boolean;
@@ -257,6 +308,26 @@ const projectSlice = createSlice({
         state.update.loading = false;
         state.update.error = action.payload as string;
       })
+      .addCase(updateMemberRole.pending, (state) => {
+        state.update.loading = true;
+        state.update.error = null;
+      })
+      .addCase(updateMemberRole.fulfilled, (state, action) => {
+        state.update.loading = false;
+
+        if (!state.currentProject?.members) return;
+
+        state.currentProject.members = state.currentProject.members.map(
+          (member) =>
+            member.id === action.payload.memberId
+              ? { ...member, role: action.payload.role }
+              : member,
+        );
+      })
+      .addCase(updateMemberRole.rejected, (state, action) => {
+        state.update.loading = false;
+        state.update.error = action.payload as string;
+      })
       .addCase(deleteProject.pending, (state) => {
         state.remove.loading = true;
         state.remove.error = null;
@@ -273,6 +344,23 @@ const projectSlice = createSlice({
         }
       })
       .addCase(deleteProject.rejected, (state, action) => {
+        state.remove.loading = false;
+        state.remove.error = action.payload as string;
+      })
+      .addCase(removeMember.pending, (state) => {
+        state.remove.loading = true;
+        state.remove.error = null;
+      })
+      .addCase(removeMember.fulfilled, (state, action) => {
+        state.remove.loading = false;
+
+        if (!state.currentProject?.members) return;
+
+        state.currentProject.members = state.currentProject.members.filter(
+          (member) => member.id !== action.payload.memberId,
+        );
+      })
+      .addCase(removeMember.rejected, (state, action) => {
         state.remove.loading = false;
         state.remove.error = action.payload as string;
       });
