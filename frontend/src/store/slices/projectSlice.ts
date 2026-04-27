@@ -30,6 +30,12 @@ interface ProjectPayload {
   name: string;
 }
 
+interface InviteLinkResponse {
+  inviteLink: string;
+  message?: string;
+  expiresAt?: string;
+}
+
 interface MemberPayload {
   projectId: string;
   memberId: string;
@@ -209,6 +215,21 @@ export const removeMember = createAsyncThunk(
   },
 );
 
+export const generateInviteLink = createAsyncThunk(
+  "project/generateInviteLink",
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post(`/projects/${projectId}/invite-link`);
+
+      return res.data as InviteLinkResponse;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to generate invite link"),
+      );
+    }
+  },
+);
+
 interface ProjectState {
   projects: Project[];
   loading: boolean;
@@ -217,6 +238,9 @@ interface ProjectState {
   create: OperationState;
   update: OperationState;
   remove: OperationState;
+  inviteLink: string | null;
+  inviteLinkVisible: boolean;
+  inviteLinkState: OperationState;
   currentProject: Project | null;
 }
 
@@ -240,6 +264,12 @@ const initialState: ProjectState = {
     loading: false,
     error: null,
   },
+  inviteLink: null,
+  inviteLinkVisible: false,
+  inviteLinkState: {
+    loading: false,
+    error: null,
+  },
   currentProject: null,
 };
 
@@ -256,6 +286,15 @@ const projectSlice = createSlice({
       state.create.error = null;
       state.update.error = null;
       state.remove.error = null;
+      state.inviteLinkState.error = null;
+    },
+    showInviteLink: (state) => {
+      if (state.inviteLink) {
+        state.inviteLinkVisible = true;
+      }
+    },
+    hideInviteLink: (state) => {
+      state.inviteLinkVisible = false;
     },
   },
   extraReducers: (builder) => {
@@ -285,6 +324,9 @@ const projectSlice = createSlice({
       })
       .addCase(fetchProjectById.fulfilled, (state, action) => {
         state.currentProject = action.payload;
+        state.inviteLink = null;
+        state.inviteLinkVisible = false;
+        state.inviteLinkState.error = null;
       })
       .addCase(createProject.pending, (state) => {
         state.create.loading = true;
@@ -363,9 +405,27 @@ const projectSlice = createSlice({
       .addCase(removeMember.rejected, (state, action) => {
         state.remove.loading = false;
         state.remove.error = action.payload as string;
+      })
+      .addCase(generateInviteLink.pending, (state) => {
+        state.inviteLinkState.loading = true;
+        state.inviteLinkState.error = null;
+      })
+      .addCase(generateInviteLink.fulfilled, (state, action) => {
+        state.inviteLinkState.loading = false;
+        state.inviteLink = action.payload.inviteLink;
+        state.inviteLinkVisible = false;
+      })
+      .addCase(generateInviteLink.rejected, (state, action) => {
+        state.inviteLinkState.loading = false;
+        state.inviteLinkState.error = action.payload as string;
       });
   },
 });
 
-export const { setCurrentProject, clearProjectErrors } = projectSlice.actions;
+export const {
+  setCurrentProject,
+  clearProjectErrors,
+  showInviteLink,
+  hideInviteLink,
+} = projectSlice.actions;
 export default projectSlice.reducer;

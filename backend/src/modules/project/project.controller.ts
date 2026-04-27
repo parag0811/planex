@@ -1,6 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../../db/prisma";
 
+const getFrontendBaseUrl = (req: Request) => {
+  return (
+    process.env.FRONTEND_URL?.trim().replace(/\/$/, "") ||
+    req.get("origin")?.trim().replace(/\/$/, "") ||
+    "http://localhost:3000"
+  );
+};
+
 interface CreateProjectRequest {
   name: string;
 }
@@ -150,6 +158,7 @@ export const createProjectInviteLink = async (
       project.inviteTokenExpiry &&
       project.inviteTokenExpiry > new Date()
     ) {
+      const frontendBaseUrl = getFrontendBaseUrl(req);
       const slug = project.name
         .toLowerCase()
         .replace(/\s+/g, "")
@@ -157,7 +166,7 @@ export const createProjectInviteLink = async (
 
       return res.status(200).json({
         message: "Invite link already active",
-        inviteLink: `${process.env.FRONTEND_URL}/invite/${slug}/${project.inviteToken}`,
+        inviteLink: `${frontendBaseUrl}/invite/${slug}/${project.inviteToken}`,
       });
     }
 
@@ -177,10 +186,11 @@ export const createProjectInviteLink = async (
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[^\w-]/g, "");
+    const frontendBaseUrl = getFrontendBaseUrl(req);
 
     return res.status(200).json({
       message: "Invite Link generated.",
-      inviteLink: `${process.env.FRONTEND_URL}/invite/${slug}/${token}`,
+      inviteLink: `${frontendBaseUrl}/invite/${slug}/${token}`,
       expiresAt: updatedProject.inviteTokenExpiry,
     });
   } catch (error) {
@@ -210,9 +220,10 @@ export const regenerateInviteLink = async (
       .toLowerCase()
       .replace(/\s+/g, "")
       .replace(/[^\w-]/g, "");
+    const frontendBaseUrl = getFrontendBaseUrl(req);
 
     return res.status(200).json({
-      inviteLink: `${process.env.FRONTEND_URL}/invite${slug}/${token}`,
+      inviteLink: `${frontendBaseUrl}/invite/${slug}/${token}`,
     });
   } catch (error) {
     next(error);

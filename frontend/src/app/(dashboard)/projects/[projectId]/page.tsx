@@ -6,8 +6,11 @@ import { Copy, TriangleAlert } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import {
+  generateInviteLink,
   fetchProjectById,
+  hideInviteLink,
   removeMember,
+  showInviteLink,
   updateMemberRole,
 } from "@/src/store/slices/projectSlice";
 import { useDispatch, useSelector } from "react-redux";
@@ -37,7 +40,8 @@ export default function ProjectOverviewPage() {
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
   );
-  const { update, remove } = useSelector((state: RootState) => state.project);
+  const { update, remove, inviteLink, inviteLinkVisible, inviteLinkState } =
+    useSelector((state: RootState) => state.project);
 
 
   useEffect(() => {
@@ -64,6 +68,27 @@ export default function ProjectOverviewPage() {
     if (!projectId) return;
 
     dispatch(removeMember({ projectId, memberId }));
+  };
+
+  const handleGenerateInviteLink = () => {
+    if (!projectId) return;
+
+    dispatch(generateInviteLink(projectId));
+  };
+
+  const handleToggleInviteLinkVisibility = () => {
+    if (inviteLinkVisible) {
+      dispatch(hideInviteLink());
+      return;
+    }
+
+    dispatch(showInviteLink());
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return;
+
+    await navigator.clipboard.writeText(inviteLink);
   };
 
   return (
@@ -211,18 +236,60 @@ export default function ProjectOverviewPage() {
               </p>
 
               <div className="rounded-sm border border-white/6 bg-[#0c0f18] p-4">
-                <p className="text-[8px] uppercase tracking-[0.2em] text-[#6b7388]">
-                  Global Invite URL
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-sm border border-white/8 bg-[#060911] px-3 py-2">
-                  <span className="truncate text-[11px] text-[#c5cde1]">
-                    https://aether.os/auth/
-                  </span>
-                  <button className="inline-flex items-center gap-1 rounded-sm bg-white px-2 py-1 text-[10px] font-bold text-[#0b1020] transition-colors hover:bg-orange-100">
-                    <Copy size={11} />
-                    Copy
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[8px] uppercase tracking-[0.2em] text-[#6b7388]">
+                    Project Invite URL
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateInviteLink}
+                      disabled={inviteLinkState.loading}
+                      className="rounded-sm border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-orange-200 transition-colors hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {inviteLinkState.loading ? "Generating..." : "Generate Link"}
+                    </button>
+
+                    {inviteLink && (
+                      <button
+                        type="button"
+                        onClick={handleToggleInviteLinkVisibility}
+                        className="rounded-sm border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[#d2d9ea] transition-colors hover:bg-white/10"
+                      >
+                        {inviteLinkVisible ? "Hide Link" : "See Link"}
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {inviteLinkState.error && (
+                  <p className="mt-3 text-[11px] text-red-300">
+                    {inviteLinkState.error}
+                  </p>
+                )}
+
+                {inviteLinkVisible && inviteLink && (
+                  <div className="mt-3 flex items-center justify-between gap-2 rounded-sm border border-white/8 bg-[#060911] px-3 py-2">
+                    <span className="truncate text-[11px] text-[#c5cde1]">
+                      {inviteLink}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCopyInviteLink}
+                      className="inline-flex items-center gap-1 rounded-sm bg-white px-2 py-1 text-[10px] font-bold text-[#0b1020] transition-colors hover:bg-orange-100"
+                    >
+                      <Copy size={11} />
+                      Copy
+                    </button>
+                  </div>
+                )}
+
+                {!inviteLink && !inviteLinkState.loading && (
+                  <p className="mt-3 text-[11px] text-[#8590a7]">
+                    Generate a link to share access with other members.
+                  </p>
+                )}
               </div>
             </motion.article>
 
