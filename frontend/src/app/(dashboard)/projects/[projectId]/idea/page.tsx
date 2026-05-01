@@ -10,7 +10,7 @@ import {
   type FormEvent,
 } from "react";
 import { useParams } from "next/navigation";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Lightbulb,
@@ -30,8 +30,11 @@ import {
   Save,
   X,
 } from "lucide-react";
-import { getSectionByType } from "@/src/store/slices/projectSlice";
-import type { AppDispatch } from "@/src/store/store";
+import {
+  fetchSectionByType,
+  upsertSection,
+} from "@/src/store/slices/sectionSlice";
+import type { AppDispatch, RootState } from "@/src/store/store";
 import AIRightSidebar, {
   type ApplySuggestion,
 } from "@/src/components/layout/project-section/AIRightSidebar";
@@ -274,10 +277,11 @@ export default function IdeaPage() {
   const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
   const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
+  const ideaSectionState = useSelector(
+    (state: RootState) => state.section.projects[resolvedProjectId]?.idea,
+  );
 
   const [ideaData, setIdeaData] = useState<IdeaSectionContent>(EMPTY_IDEA);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
 
@@ -304,25 +308,24 @@ export default function IdeaPage() {
     [ideaData],
   );
 
+  const loading = Boolean(
+    ideaSectionState?.fetch.loading || ideaSectionState?.save.loading,
+  );
+  const error = ideaSectionState?.fetch.error ?? ideaSectionState?.save.error ?? null;
+
   const fetchIdea = useCallback(async () => {
     if (!resolvedProjectId) {
       setIdeaData(EMPTY_IDEA);
-      setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
       const result = await dispatch(
-        getSectionByType({ projectId: resolvedProjectId, type: "idea" }),
+        fetchSectionByType({ projectId: resolvedProjectId, type: "idea" }),
       ).unwrap();
-      setIdeaData(normalizeIdea(result));
+      setIdeaData(normalizeIdea(result.section));
     } catch (err: any) {
-      setError(err.message || "Failed to fetch idea section");
       setIdeaData(EMPTY_IDEA);
-    } finally {
-      setLoading(false);
     }
   }, [dispatch, resolvedProjectId]);
 
@@ -359,8 +362,26 @@ export default function IdeaPage() {
     setStatus("Generated suggestion fields from raw idea.");
   };
 
-  const handleManualSave = () => {
-    setStatus("Draft saved locally (frontend only).");
+  const handleManualSave = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before saving the idea section.");
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        upsertSection({
+          projectId: resolvedProjectId,
+          type: "idea",
+          content: ideaData,
+        }),
+      ).unwrap();
+
+      setIdeaData(normalizeIdea(result.section));
+      setStatus("Idea section saved.");
+    } catch (err: any) {
+      setStatus(err?.message || "Failed to save idea section.");
+    }
   };
 
   const openFeatureModal = () => {
