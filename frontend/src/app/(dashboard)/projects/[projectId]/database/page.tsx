@@ -696,7 +696,7 @@ export default function DatabasePage() {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               {schema.entities.map((entity, entityIndex) => (
                 <div
-                  key={`${entity.name}-${entityIndex}`}
+                  key={entityIndex}
                   className="overflow-hidden rounded-md border border-white/8 bg-[#090e17]"
                 >
                   <div className="border-b border-white/6 bg-white/4 px-4 py-3">
@@ -748,7 +748,7 @@ export default function DatabasePage() {
                     <div className="space-y-2">
                       {entity.fields.map((field, fieldIndex) => (
                         <div
-                          key={`${field.name}-${fieldIndex}`}
+                          key={fieldIndex}
                           className="rounded-md border border-white/6 bg-white/2 p-2.5"
                         >
                           <div className="grid grid-cols-12 gap-2">
