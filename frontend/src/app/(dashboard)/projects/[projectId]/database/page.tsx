@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, type Variants } from "framer-motion";
 import {
   Database,
@@ -14,9 +14,13 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-import AIRightSidebar, {
-  type ApplySuggestion,
-} from "@/src/components/layout/project-section/AIRightSidebar";
+import { useDispatch, useSelector } from "react-redux";
+import { useParams } from "next/navigation";
+import {
+  fetchSectionByType,
+  upsertSection,
+} from "@/src/store/slices/sectionSlice";
+import type { AppDispatch, RootState } from "@/src/store/store";
 
 type DatabaseFieldType =
   | "uuid"
@@ -88,7 +92,7 @@ const fadeUp = (i: number): Variants => ({
 });
 
 const createEmptyField = (): DatabaseField => ({
-  name: "",
+  name: "field_name",
   type: "string",
   required: false,
   unique: false,
@@ -100,9 +104,70 @@ const createEmptyEntity = (): DatabaseEntity => ({
   description: "",
   fields: [
     { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
-    { name: "createdAt", type: "datetime", required: true, unique: false, description: "Created timestamp" },
+    {
+      name: "createdAt",
+      type: "datetime",
+      required: true,
+      unique: false,
+      description: "Created timestamp",
+    },
+    {
+      name: "updatedAt",
+      type: "datetime",
+      required: true,
+      unique: false,
+      description: "Updated timestamp",
+    },
   ],
 });
+
+const FIELD_PRESETS: Array<{
+  label: string;
+  field: DatabaseField;
+}> = [
+  {
+    label: "Primary ID",
+    field: { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
+  },
+  {
+    label: "Created At",
+    field: {
+      name: "createdAt",
+      type: "datetime",
+      required: true,
+      unique: false,
+      description: "Created timestamp",
+    },
+  },
+  {
+    label: "Updated At",
+    field: {
+      name: "updatedAt",
+      type: "datetime",
+      required: true,
+      unique: false,
+      description: "Updated timestamp",
+    },
+  },
+  {
+    label: "Name",
+    field: { name: "name", type: "string", required: true, unique: false, description: "Display name" },
+  },
+  {
+    label: "Email",
+    field: { name: "email", type: "string", required: true, unique: true, description: "Unique email" },
+  },
+  {
+    label: "Foreign Key",
+    field: {
+      name: "userId",
+      type: "uuid",
+      required: true,
+      unique: false,
+      description: "Reference to another entity",
+    },
+  },
+];
 
 const SAMPLE_SCHEMA: DatabaseSectionContent = {
   entities: [
@@ -245,8 +310,16 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
 };
 
 export default function DatabasePage() {
+  const params = useParams();
+  const rawProjectId = params?.projectId;
+  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
+  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
+  const dispatch = useDispatch<AppDispatch>();
+  const databaseSectionState = useSelector(
+    (state: RootState) => state.section.projects[resolvedProjectId]?.database,
+  );
+
   const [schema, setSchema] = useState<DatabaseSectionContent>(SAMPLE_SCHEMA);
-  const [aiOpen, setAiOpen] = useState(true);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -255,6 +328,34 @@ export default function DatabasePage() {
     () => schema.entities.map((entity) => entity.name.trim()).filter(Boolean),
     [schema.entities],
   );
+
+  const loading = Boolean(
+    databaseSectionState?.fetch.loading || databaseSectionState?.save.loading,
+  );
+
+  const fetchDatabaseSection = useCallback(async () => {
+    if (!resolvedProjectId) {
+      setSchema(SAMPLE_SCHEMA);
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        fetchSectionByType({ projectId: resolvedProjectId, type: "database" }),
+      ).unwrap();
+
+      const normalized = normalizeSchema(result.section?.content);
+      if (normalized) {
+        setSchema(normalized);
+      }
+    } catch {
+      setSchema(SAMPLE_SCHEMA);
+    }
+  }, [dispatch, resolvedProjectId]);
+
+  useEffect(() => {
+    fetchDatabaseSection();
+  }, [fetchDatabaseSection]);
 
   const addEntity = () => {
     setSchema((current) => ({
@@ -281,13 +382,36 @@ export default function DatabasePage() {
     setStatus("Entity removed.");
   };
 
-  const addField = (entityIndex: number) => {
+  const addField = (entityIndex: number, field: DatabaseField = createEmptyField()) => {
     setSchema((current) => ({
       ...current,
       entities: current.entities.map((entity, idx) =>
-        idx === entityIndex ? { ...entity, fields: [...entity.fields, createEmptyField()] } : entity,
+        idx === entityIndex ? { ...entity, fields: [...entity.fields, field] } : entity,
       ),
     }));
+  };
+
+  const addPresetField = (entityIndex: number, preset: DatabaseField) => {
+    setSchema((current) => {
+      const entity = current.entities[entityIndex];
+      if (!entity) return current;
+
+      const alreadyExists = entity.fields.some(
+        (field) => field.name.trim().toLowerCase() === preset.name.trim().toLowerCase(),
+      );
+
+      if (alreadyExists) {
+        setStatus(`Field \"${preset.name}\" already exists in ${entity.name}.`);
+        return current;
+      }
+
+      return {
+        ...current,
+        entities: current.entities.map((item, idx) =>
+          idx === entityIndex ? { ...item, fields: [...item.fields, preset] } : item,
+        ),
+      };
+    });
   };
 
   const updateField = (
@@ -383,8 +507,30 @@ export default function DatabasePage() {
     }));
   };
 
-  const handleSaveDraft = () => {
-    setStatus("Draft saved locally (frontend only).");
+  const handleSaveDraft = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before saving the database section.");
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        upsertSection({
+          projectId: resolvedProjectId,
+          type: "database",
+          content: schema,
+        }),
+      ).unwrap();
+
+      const normalized = normalizeSchema(result.section.content);
+      if (normalized) {
+        setSchema(normalized);
+      }
+
+      setStatus("Database section saved.");
+    } catch (error: any) {
+      setStatus(error?.message || "Failed to save database section.");
+    }
   };
 
   const handleRegenerate = () => {
@@ -392,24 +538,13 @@ export default function DatabasePage() {
     setStatus("Regenerated local database draft.");
   };
 
-  const handleApplySuggestion = (suggestion: ApplySuggestion) => {
-    const normalized = normalizeSchema(suggestion.payload);
-    if (!normalized) {
-      setStatus("Suggestion could not be applied to database schema.");
-      return;
-    }
-
-    setSchema(normalized);
-    setStatus("Applied AI suggestion locally.");
-  };
-
-  const fieldOptionsByEntity = useMemo(
-    () =>
-      schema.entities.map((entity) => ({
-        entity: entity.name,
-        fields: entity.fields.map((field) => field.name).filter(Boolean),
-      })),
-    [schema.entities],
+  const schemaOverview = useMemo(
+    () => ({
+      entities: schema.entities.length,
+      relationships: schema.relationships.length,
+      indexes: schema.indexes?.length ?? 0,
+    }),
+    [schema.entities.length, schema.relationships.length, schema.indexes],
   );
 
   return (
@@ -420,9 +555,7 @@ export default function DatabasePage() {
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
-          className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 transition-[padding-right] duration-300 ${
-            aiOpen ? "lg:pr-85" : "lg:pr-0"
-          }`}
+          className="mx-auto w-full px-4 py-5 sm:px-6 lg:px-8"
           initial="hidden"
           animate="show"
         >
@@ -443,17 +576,83 @@ export default function DatabasePage() {
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
               >
                 <RefreshCw size={12} />
-                Regenerate
+                Load sample
               </button>
               <button
                 onClick={handleSaveDraft}
+                disabled={loading}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
               >
                 <Save size={12} />
-                Save
+                {databaseSectionState?.save.loading ? "Saving..." : "Save"}
               </button>
             </div>
           </motion.div>
+
+          <motion.div variants={fadeUp(1)} className="mb-6 rounded-xl border border-white/8 bg-[#090e17] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300/90">
+                  Manual Schema Builder
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-white">Design the database step by step</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">
+                  Start with singular entities, add their columns, connect entities with relationships,
+                  and finish by adding indexes for frequently queried fields.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center text-xs text-white/55">
+                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
+                  <p className="text-lg font-bold text-white">{schemaOverview.entities}</p>
+                  <p className="mt-1 uppercase tracking-[0.16em]">Entities</p>
+                </div>
+                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
+                  <p className="text-lg font-bold text-white">{schemaOverview.relationships}</p>
+                  <p className="mt-1 uppercase tracking-[0.16em]">Relations</p>
+                </div>
+                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
+                  <p className="text-lg font-bold text-white">{schemaOverview.indexes}</p>
+                  <p className="mt-1 uppercase tracking-[0.16em]">Indexes</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">1. Entities</p>
+                <p className="mt-2 text-sm text-white/60">
+                  Use singular names like User, Project, or Task. Start with id and timestamps.
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">2. Relationships</p>
+                <p className="mt-2 text-sm text-white/60">
+                  Link entities using one-to-one, one-to-many, or many-to-many.
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">3. Indexes</p>
+                <p className="mt-2 text-sm text-white/60">
+                  Add indexes to frequently filtered fields like email and foreign keys.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          {loading && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
+              />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+                {databaseSectionState?.save.loading
+                  ? "Saving database section"
+                  : "Loading database section"}
+              </p>
+            </div>
+          )}
 
           {status && (
             <div className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90">
@@ -478,15 +677,20 @@ export default function DatabasePage() {
           </motion.div>
 
           <motion.div variants={fadeUp(2)} className="mb-8">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold text-white/90">Entities</h2>
-              <button
-                onClick={addEntity}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
-              >
-                <Plus size={12} />
-                Add Entity
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={addEntity}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                >
+                  <Plus size={12} />
+                  Add Entity
+                </button>
+                <p className="text-[11px] text-white/35">
+                  Keep entity names singular and add only fields you need.
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
@@ -514,8 +718,30 @@ export default function DatabasePage() {
                       value={entity.description}
                       onChange={(e) => updateEntity(entityIndex, { description: e.target.value })}
                       className="mt-2 w-full bg-transparent text-xs text-white/45 outline-none"
-                      placeholder="Entity description"
+                      placeholder="What does this entity represent?"
                     />
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {FIELD_PRESETS.map((preset) => (
+                        <button
+                          key={`${preset.label}-${entityIndex}`}
+                          onClick={() => addPresetField(entityIndex, preset.field)}
+                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white/95"
+                        >
+                          + {preset.label}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => addField(entityIndex)}
+                        className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                      >
+                        + Blank Field
+                      </button>
+                    </div>
+
+                    <p className="mt-3 text-[11px] text-white/30">
+                      Default columns already follow backend rules: id, createdAt, updatedAt.
+                    </p>
                   </div>
 
                   <div className="p-3">
@@ -532,7 +758,7 @@ export default function DatabasePage() {
                                 updateField(entityIndex, fieldIndex, { name: e.target.value })
                               }
                               className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-3"
-                              placeholder="fieldName"
+                              placeholder="column_name"
                             />
 
                             <select
@@ -592,20 +818,12 @@ export default function DatabasePage() {
                                 })
                               }
                               className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/55 outline-none"
-                              placeholder="Field description"
+                              placeholder="Why does this field exist?"
                             />
                           </div>
                         </div>
                       ))}
                     </div>
-
-                    <button
-                      onClick={() => addField(entityIndex)}
-                      className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-sm border border-white/10 bg-white/5 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white/90"
-                    >
-                      <Plus size={11} />
-                      Add Field
-                    </button>
                   </div>
                 </div>
               ))}
@@ -797,18 +1015,11 @@ export default function DatabasePage() {
               float, and json.
             </p>
             <p className="mt-2 text-[11px] text-white/30">
-              Entity options loaded: {fieldOptionsByEntity.length}
+              The structure mirrors the database prompt builder in the backend.
             </p>
           </motion.div>
         </motion.div>
       </div>
-
-      <AIRightSidebar
-        onApplySuggestion={handleApplySuggestion}
-        projectDescription="Refine and validate the project database schema design."
-        isOpen={aiOpen}
-        onOpenChange={setAiOpen}
-      />
     </div>
   );
 }

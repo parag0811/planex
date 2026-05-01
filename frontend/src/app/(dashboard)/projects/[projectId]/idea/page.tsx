@@ -308,9 +308,23 @@ export default function IdeaPage() {
     [ideaData],
   );
 
-  const loading = Boolean(
-    ideaSectionState?.fetch.loading || ideaSectionState?.save.loading,
+  const hasEditableContent = useMemo(
+    () =>
+      Boolean(ideaData.raw_idea.trim()) ||
+      Boolean(ideaData.overview.trim()) ||
+      ideaData.key_features.some(
+        (feature) => feature.name.trim() || feature.description.trim(),
+      ) ||
+      ideaData.requirements.some((requirement) => requirement.trim()) ||
+      STACK_KEYS.some((key) => (ideaData.suggested_tech_stack[key] ?? []).length > 0) ||
+      Boolean(ideaData.team_size.trim()) ||
+      ideaData.estimated_complexity !== "medium",
+    [ideaData],
   );
+
+  const isFetching = Boolean(ideaSectionState?.fetch.loading);
+  const isSaving = Boolean(ideaSectionState?.save.loading);
+  const loading = isFetching || isSaving;
   const error = ideaSectionState?.fetch.error ?? ideaSectionState?.save.error ?? null;
 
   const fetchIdea = useCallback(async () => {
@@ -365,6 +379,11 @@ export default function IdeaPage() {
   const handleManualSave = async () => {
     if (!resolvedProjectId) {
       setStatus("Select a project before saving the idea section.");
+      return;
+    }
+
+    if (!hasEditableContent) {
+      setStatus("Add at least one field before saving the idea section.");
       return;
     }
 
@@ -529,10 +548,11 @@ export default function IdeaPage() {
               </button>
               <button
                 onClick={handleManualSave}
+                disabled={isSaving}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
               >
                 <Save size={12} />
-                Save
+                {isSaving ? "Saving..." : "Save"}
               </button>
             </div>
           </motion.div>
@@ -545,7 +565,7 @@ export default function IdeaPage() {
                 className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
               />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
-                Loading idea section
+                {isSaving ? "Saving idea section" : "Loading idea section"}
               </p>
             </div>
           )}
