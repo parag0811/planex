@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Folder,
@@ -17,6 +17,10 @@ import {
 import AIRightSidebar, {
   type ApplySuggestion,
 } from "@/src/components/layout/project-section/AIRightSidebar";
+import { useParams } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/src/store/store";
+import { fetchSectionByType, upsertSection } from "@/src/store/slices/sectionSlice";
 
 interface FolderNode {
   id: string;
@@ -395,6 +399,17 @@ function TreeNode({
 
 export default function FolderStructurePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const params = useParams();
+  const rawProjectId = params?.projectId;
+  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
+  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
+
+  const dispatch = useDispatch<AppDispatch>();
+  const folderSectionState = useSelector(
+    (state: RootState) => state.section.projects[resolvedProjectId]?.folder,
+  );
+
+  const [status, setStatus] = useState<string | null>(null);
   const [folder, setFolder] = useState<FolderSectionContent>(EMPTY);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
@@ -417,14 +432,77 @@ export default function FolderStructurePage() {
   };
 
   const save = () => {
-    console.log("Folder structure saved:", folder);
-    // Will integrate with API later
+    handleSaveDraft();
   };
+
+  const normalizeFolder = (payload: unknown): FolderSectionContent => {
+    const source =
+      payload && typeof payload === "object" && "content" in (payload as any)
+        ? (payload as any).content
+        : payload;
+
+    const raw = (source ?? {}) as Partial<FolderSectionContent>;
+
+    const mapNode = (n: any): FolderNode => ({
+      id: typeof n?.id === "string" && n.id ? n.id : uid(),
+      name: typeof n?.name === "string" ? n.name : "",
+      type: n?.type === "folder" ? "folder" : "file",
+      children: Array.isArray(n?.children) ? n.children.map(mapNode) : [],
+    });
+
+    return {
+      root: Array.isArray(raw.root) ? raw.root.map(mapNode) : [],
+    };
+  };
+
+  const fetchFolder = useCallback(async () => {
+    if (!resolvedProjectId) return;
+    setStatus(null);
+    try {
+      const action = await dispatch(
+        fetchSectionByType({ projectId: resolvedProjectId, type: "folder" }),
+      ).unwrap();
+
+      const section = action.section as unknown;
+      const content = (section && (section as any).content) ?? section ?? null;
+      if (content) {
+        setFolder(normalizeFolder(content));
+        setShown(true);
+      } else {
+        setFolder(EMPTY);
+        setShown(false);
+      }
+    } catch (err: any) {
+      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to fetch folder");
+    }
+  }, [dispatch, resolvedProjectId]);
+
+  useEffect(() => {
+    fetchFolder();
+  }, [fetchFolder]);
+
+  const handleSaveDraft = async () => {
+    if (!resolvedProjectId) return;
+    setStatus(null);
+    try {
+      await dispatch(
+        upsertSection({ projectId: resolvedProjectId, type: "folder", content: folder }),
+      ).unwrap();
+      setStatus("Saved");
+    } catch (err: any) {
+      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to save folder");
+    }
+  };
+
+  const isFetching = Boolean(folderSectionState?.fetch.loading);
+  const isSaving = Boolean(folderSectionState?.save.loading);
+  const loading = isFetching || isSaving;
+  const error = folderSectionState?.fetch.error ?? folderSectionState?.save.error ?? null;
 
   const applyAI = (s: ApplySuggestion) => {
     const payload = s.payload as unknown as FolderSectionContent;
     if (payload.root) {
-      setFolder(payload);
+      setFolder(normalizeFolder(payload));
       setShown(true);
       setExpanded(new Set());
     }
@@ -521,14 +599,40 @@ export default function FolderStructurePage() {
               Show Sample
             </button>
             <button
+              onClick={fetchFolder}
+              disabled={isFetching}
+              className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12 disabled:opacity-50"
+            >
+              <X size={14} />
+              {isFetching ? "Fetching..." : "Refresh"}
+            </button>
+            <button
               onClick={save}
-              className="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20"
+              disabled={isSaving}
+              className="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20 disabled:opacity-50"
             >
               <Save size={14} />
-              Save
+              {isSaving ? "Saving..." : "Save"}
             </button>
           </div>
         </div>
+
+        {/* Status Messages */}
+        {error && (
+          <div className="border-b border-red-500/20 bg-red-500/5 px-6 py-3 text-xs font-mono text-red-400">
+            {error}
+          </div>
+        )}
+        {status && !error && (
+          <div className="border-b border-green-500/20 bg-green-500/5 px-6 py-3 text-xs font-mono text-green-400">
+            {status}
+          </div>
+        )}
+        {loading && (
+          <div className="border-b border-blue-500/20 bg-blue-500/5 px-6 py-3 text-xs font-mono text-blue-400">
+            {isFetching ? "Loading folder structure..." : "Saving folder structure..."}
+          </div>
+        )}
 
         {/* Content */}
         <div
