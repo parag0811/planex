@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
 import {
   Code2, Plus, X, ChevronDown, Check, Sparkles,
@@ -8,6 +10,11 @@ import {
   RotateCcw, Wifi, Key, Trash2,
 } from "lucide-react";
 import AIRightSidebar, { type ApplySuggestion } from "@/src/components/layout/project-section/AIRightSidebar";
+import {
+  fetchSectionByType,
+  upsertSection,
+} from "@/src/store/slices/sectionSlice";
+import type { AppDispatch, RootState } from "@/src/store/store";
 
 // Types
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -42,6 +49,10 @@ interface ApiSectionContent {
   auth: AuthFlow;
 }
 
+interface SectionPayload {
+  content?: unknown;
+}
+
 // Animation
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 const T = (delay = 0) => ({ duration: 0.38, delay, ease: EASE } as Transition);
@@ -58,6 +69,118 @@ const AUTH_STYLE = {
   JWT:     { color: "#f97316", Icon: Key    },
   OAuth:   { color: "#60a5fa", Icon: Globe  },
   Session: { color: "#a78bfa", Icon: Shield },
+};
+
+const AUTH_TYPES: AuthFlow["type"][] = ["JWT", "OAuth", "Session"];
+
+const isAuthType = (value: unknown): value is AuthFlow["type"] =>
+  value === "JWT" || value === "OAuth" || value === "Session";
+
+const toStringRecord = (value: unknown): Record<string, string> => {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
+    (result, [key, entry]) => {
+      if (typeof entry === "string") {
+        result[key] = entry;
+      }
+
+      return result;
+    },
+    {},
+  );
+};
+
+const normalizeApi = (payload: unknown): ApiSectionContent => {
+  const source =
+    payload &&
+    typeof payload === "object" &&
+    "content" in (payload as SectionPayload) &&
+    (payload as SectionPayload).content &&
+    typeof (payload as SectionPayload).content === "object"
+      ? (payload as SectionPayload).content
+      : payload;
+
+  const raw = (source ?? {}) as Partial<ApiSectionContent>;
+
+  const rest = Array.isArray(raw.rest)
+    ? raw.rest
+        .map((route) => {
+          if (!route || typeof route !== "object") return null;
+
+          const sourceRoute = route as Partial<ApiRoute>;
+          if (
+            typeof sourceRoute.id !== "string" ||
+            typeof sourceRoute.name !== "string" ||
+            typeof sourceRoute.path !== "string" ||
+            typeof sourceRoute.description !== "string" ||
+            !sourceRoute.method ||
+            !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(sourceRoute.method)
+          ) {
+            return null;
+          }
+
+          return {
+            id: sourceRoute.id,
+            name: sourceRoute.name,
+            method: sourceRoute.method as HttpMethod,
+            path: sourceRoute.path,
+            description: sourceRoute.description,
+            request:
+              sourceRoute.request && typeof sourceRoute.request === "object"
+                ? {
+                    body: toStringRecord(sourceRoute.request.body),
+                    params: toStringRecord(sourceRoute.request.params),
+                    query: toStringRecord(sourceRoute.request.query),
+                  }
+                : undefined,
+            response: {
+              success: toStringRecord(sourceRoute.response?.success),
+            },
+            authRequired: Boolean(sourceRoute.authRequired),
+          } satisfies ApiRoute;
+        })
+        .filter(Boolean) as ApiRoute[]
+    : [];
+
+  const realtime = Array.isArray(raw.realtime)
+    ? raw.realtime
+        .map((event) => {
+          if (!event || typeof event !== "object") return null;
+
+          const sourceEvent = event as Partial<WebSocketEvent>;
+          if (
+            typeof sourceEvent.id !== "string" ||
+            typeof sourceEvent.name !== "string" ||
+            typeof sourceEvent.description !== "string"
+          ) {
+            return null;
+          }
+
+          return {
+            id: sourceEvent.id,
+            name: sourceEvent.name,
+            description: sourceEvent.description,
+            payload: toStringRecord(sourceEvent.payload),
+          } satisfies WebSocketEvent;
+        })
+        .filter(Boolean) as WebSocketEvent[]
+    : [];
+
+  const authSource =
+    raw.auth && typeof raw.auth === "object" ? (raw.auth as Partial<AuthFlow>) : {};
+
+  return {
+    rest,
+    realtime,
+    auth: {
+      type: isAuthType(authSource.type) ? authSource.type : "JWT",
+      description: typeof authSource.description === "string" ? authSource.description : "",
+      routes: Array.isArray(authSource.routes)
+        ? authSource.routes.filter((route): route is string => typeof route === "string")
+        : [],
+    },
+  };
 };
 
 const uid = () => Math.random().toString(36).slice(2, 8);
@@ -83,6 +206,13 @@ const MOCK: ApiSectionContent = {
 };
 
 const EMPTY: ApiSectionContent = { rest: [], realtime: [], auth: { type: "JWT", description: "", routes: [] } };
+
+const hasApiContent = (api: ApiSectionContent) =>
+  api.rest.length > 0 ||
+  (api.realtime?.length ?? 0) > 0 ||
+  Boolean(api.auth.description.trim()) ||
+  api.auth.routes.length > 0 ||
+  api.auth.type !== "JWT";
 
 // Shared: inline editable field
 function EditField({ value, onChange, placeholder = "", mono = false, className = "" }: {
@@ -451,11 +581,22 @@ const fadeUp = (i: number) => ({
 });
 
 export default function ApiDesignPage() {
+  const params = useParams();
+  const rawProjectId = params?.projectId;
+  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
+  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [api, setApi]       = useState<ApiSectionContent>(EMPTY);
-  const [shown, setShown]   = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
+  const apiSectionState = useSelector(
+    (state: RootState) => state.section.projects[resolvedProjectId]?.api,
+  );
+
+  const [api, setApi] = useState<ApiSectionContent>(EMPTY);
+  const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
-  const [tab, setTab]       = useState<"rest" | "realtime" | "auth">("rest");
+  const [tab, setTab] = useState<"rest" | "realtime" | "auth">("rest");
+  const [status, setStatus] = useState<string | null>(null);
   
   // Route modal state
   const [routeModalOpen, setRouteModalOpen] = useState(false);
@@ -469,8 +610,75 @@ export default function ApiDesignPage() {
   const [authRouteModalOpen, setAuthRouteModalOpen] = useState(false);
   const [authRouteInput, setAuthRouteInput] = useState("");
 
-  const show  = () => { setApi(MOCK); setShown(true); };
-  const reset = () => { setApi(EMPTY); setShown(false); };
+  const isFetching = Boolean(apiSectionState?.fetch.loading);
+  const isSaving = Boolean(apiSectionState?.save.loading);
+  const loading = isFetching || isSaving;
+  const error = apiSectionState?.fetch.error ?? apiSectionState?.save.error ?? null;
+  const authTypes = AUTH_TYPES;
+
+  const fetchApi = useCallback(async () => {
+    if (!resolvedProjectId) {
+      setApi(EMPTY);
+      setShown(false);
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        fetchSectionByType({ projectId: resolvedProjectId, type: "api" }),
+      ).unwrap();
+
+      const normalized = normalizeApi(result.section?.content ?? result.section);
+      setApi(normalized);
+      setShown(Boolean(hasApiContent(normalized)));
+    } catch {
+      setApi(EMPTY);
+      setShown(false);
+    }
+  }, [dispatch, resolvedProjectId]);
+
+  useEffect(() => {
+    fetchApi();
+  }, [fetchApi]);
+
+  const handleSaveDraft = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before saving the API section.");
+      return;
+    }
+
+    if (!hasApiContent(api)) {
+      setStatus("Add at least one API field before saving the API section.");
+      return;
+    }
+
+    try {
+      const result = await dispatch(
+        upsertSection({
+          projectId: resolvedProjectId,
+          type: "api",
+          content: api,
+        }),
+      ).unwrap();
+
+      const normalized = normalizeApi(result.section?.content ?? result.section);
+      setApi(normalized);
+      setShown(true);
+      setStatus("API section saved.");
+    } catch (err: any) {
+      setStatus(err?.message || "Failed to save API section.");
+    }
+  };
+
+  const show = () => {
+    setApi((current) => (hasApiContent(current) ? current : MOCK));
+    setShown(true);
+  };
+  const reset = () => {
+    setApi(EMPTY);
+    setShown(false);
+    setStatus("API draft reset locally.");
+  };
 
   const upRoute  = (r: ApiRoute) => setApi((p) => ({ ...p, rest: p.rest.map((x) => x.id === r.id ? r : x) }));
   const delRoute = (id: string) => setApi((p) => ({ ...p, rest: p.rest.filter((x) => x.id !== id) }));
@@ -500,9 +708,11 @@ export default function ApiDesignPage() {
   };
   const editEvent = (e: WebSocketEvent) => { setEditingWs(e); setWsModalOpen(true); };
 
-  const applyAI  = (s: ApplySuggestion) => { setApi((p) => ({ ...p, ...s.payload })); setShown(true); };
-
-  const authTypes: AuthFlow["type"][] = ["JWT", "OAuth", "Session"];
+  const applyAI = (s: ApplySuggestion) => {
+    setApi((p) => normalizeApi({ ...p, ...s.payload }));
+    setShown(true);
+    setStatus("Applied suggestion locally.");
+  };
 
   return (
     <div
@@ -528,20 +738,54 @@ export default function ApiDesignPage() {
               <span>/</span>
               <span>API</span>
               <span>/</span>
-              <span className="text-white/80">DESIGN</span>
+              <span className="text-white/80">API</span>
             </div>
             <div className="flex items-center gap-2">
-              {shown && (
-                <button
-                  onClick={reset}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
-                >
-                  <RotateCcw size={12} />
-                  Reset
-                </button>
-              )}
+              <button
+                onClick={fetchApi}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
+              >
+                <RotateCcw size={12} />
+                Refresh
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={loading}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+              >
+                <Check size={12} />
+                {isSaving ? "Saving..." : "Save"}
+              </button>
             </div>
           </motion.div>
+
+          {loading && (
+            <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
+              />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+                {isSaving ? "Saving API section" : "Loading API section"}
+              </p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+              <div>
+                <p className="font-semibold text-red-500">Error</p>
+                <p className="mt-1 text-sm text-red-500/70">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {status && (
+            <div className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90">
+              {status}
+            </div>
+          )}
 
           <motion.div variants={fadeUp(1)} className="mb-7">
             <div className="flex items-center justify-between gap-3">
@@ -550,7 +794,7 @@ export default function ApiDesignPage() {
                   <Code2 size={20} className="text-orange-500" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold uppercase text-white">API DESIGN</h1>
+                  <h1 className="text-3xl font-bold uppercase text-white">API</h1>
                   <p className="mt-1 text-sm text-white/45">
                     Define REST, WebSocket, and authentication layers.
                   </p>
