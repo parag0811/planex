@@ -190,12 +190,12 @@ export default function AIRightSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setSidebarOpen(true)}
-            className="fixed bottom-20 right-3 z-30 flex flex-col items-center gap-1.5 rounded-lg border border-orange-500/25 bg-orange-500/10 px-1.5 py-2.5 text-orange-500 transition-all duration-200 hover:bg-orange-500/18 md:right-4 md:top-1/2 md:-translate-y-1/2"
+            className="fixed bottom-6 right-3 z-30 flex h-fit w-fit flex-col items-center gap-0.5 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2 py-2 text-orange-500 transition-all duration-200 hover:bg-orange-500/18 md:right-4 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
           >
             <Sparkles size={14} />
             <span
-              className="text-[8px] font-mono tracking-widest uppercase"
-              style={{ writingMode: "vertical-rl" }}
+              className="text-[7px] font-mono tracking-widest uppercase leading-none whitespace-nowrap"
+              style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
             >
               AI Copilot
             </span>
