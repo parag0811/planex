@@ -7,7 +7,6 @@ import {
   File,
   Plus,
   Trash2,
-  Sparkles,
   Save,
   X,
   ChevronDown,
@@ -38,74 +37,6 @@ const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const uid = () => Math.random().toString(36).slice(2, 11);
 
 const EMPTY: FolderSectionContent = { root: [] };
-
-const SAMPLE: FolderSectionContent = {
-  root: [
-    {
-      id: uid(),
-      name: "backend",
-      type: "folder",
-      children: [
-        { id: uid(), name: "src", type: "folder", children: [
-          { id: uid(), name: "controllers", type: "folder", children: [
-            { id: uid(), name: "authController.ts", type: "file" },
-            { id: uid(), name: "projectController.ts", type: "file" },
-          ]},
-          { id: uid(), name: "services", type: "folder", children: [
-            { id: uid(), name: "authService.ts", type: "file" },
-            { id: uid(), name: "projectService.ts", type: "file" },
-          ]},
-          { id: uid(), name: "routes", type: "folder", children: [
-            { id: uid(), name: "auth.routes.ts", type: "file" },
-            { id: uid(), name: "project.routes.ts", type: "file" },
-          ]},
-          { id: uid(), name: "middleware", type: "folder", children: [
-            { id: uid(), name: "auth.middleware.ts", type: "file" },
-            { id: uid(), name: "error.middleware.ts", type: "file" },
-          ]},
-          { id: uid(), name: "prisma", type: "folder", children: [
-            { id: uid(), name: "schema.prisma", type: "file" },
-          ]},
-          { id: uid(), name: "server.ts", type: "file" },
-        ]},
-        { id: uid(), name: "package.json", type: "file" },
-        { id: uid(), name: ".env", type: "file" },
-      ],
-    },
-    {
-      id: uid(),
-      name: "frontend",
-      type: "folder",
-      children: [
-        { id: uid(), name: "src", type: "folder", children: [
-          { id: uid(), name: "app", type: "folder", children: [
-            { id: uid(), name: "page.tsx", type: "file" },
-            { id: uid(), name: "layout.tsx", type: "file" },
-          ]},
-          { id: uid(), name: "components", type: "folder", children: [
-            { id: uid(), name: "Button.tsx", type: "file" },
-            { id: uid(), name: "Card.tsx", type: "file" },
-          ]},
-          { id: uid(), name: "services", type: "folder", children: [
-            { id: uid(), name: "api.ts", type: "file" },
-            { id: uid(), name: "auth.ts", type: "file" },
-          ]},
-        ]},
-        { id: uid(), name: "package.json", type: "file" },
-      ],
-    },
-    {
-      id: uid(),
-      name: ".gitignore",
-      type: "file",
-    },
-    {
-      id: uid(),
-      name: "README.md",
-      type: "file",
-    },
-  ],
-};
 
 const fadeUp = (i: number): Variants => ({
   hidden: { opacity: 0, y: 16 },
@@ -421,9 +352,9 @@ export default function FolderStructurePage() {
   const [addingToParent, setAddingToParent] = useState<string | null>(null);
 
   const show = () => {
-    setFolder(SAMPLE);
     setShown(true);
     setExpanded(new Set());
+    setStatus("Folder builder opened.");
   };
 
   const reset = () => {
@@ -595,8 +526,8 @@ export default function FolderStructurePage() {
               onClick={show}
               className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12"
             >
-              <Sparkles size={14} />
-              Show Sample
+              <Folder size={14} />
+              Open Builder
             </button>
             <button
               onClick={fetchFolder}
@@ -653,7 +584,7 @@ export default function FolderStructurePage() {
                   </div>
                   <p className="text-sm font-bold text-white/40">No folder structure yet</p>
                   <p className="text-xs text-white/25 max-w-xs">
-                    Click "Show Sample" to see a template or start adding folders manually
+                    Open the builder or start adding folders manually.
                   </p>
                   <button
                     onClick={() => openAddModal(null)}
@@ -682,8 +613,23 @@ export default function FolderStructurePage() {
                 >
                   <div className="space-y-1">
                     {folder.root.length === 0 ? (
-                      <div className="flex h-32 items-center justify-center rounded-md border border-dashed border-white/10 text-center">
-                        <p className="text-xs text-white/30">No items yet. Click "Add Root" to get started.</p>
+                      <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-white/10 text-center">
+                        <div className="w-10 h-10 rounded-lg bg-white/3 flex items-center justify-center">
+                          <Folder size={20} className="text-white/20" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-white/30">No items yet.</p>
+                          <p className="mt-1 text-[11px] text-white/20">
+                            Start adding folders or files manually.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => openAddModal(null)}
+                          className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20"
+                        >
+                          <Plus size={12} />
+                          Add Root Folder
+                        </button>
                       </div>
                     ) : (
                       folder.root.map((node) => (

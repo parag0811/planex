@@ -1,13 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
 import {
-  Code2, Plus, X, ChevronDown, Check, Sparkles,
-  Lock, Unlock, Globe, Shield, ArrowRight,
-  RotateCcw, Wifi, Key, Trash2,
+  Code2,
+  Plus,
+  X,
+  ChevronDown,
+  Check,
+  Sparkles,
+  AlertCircle,
+  Lock,
+  Globe,
+  Shield,
+  ArrowRight,
+  RotateCcw,
+  Wifi,
+  Key,
+  Trash2,
 } from "lucide-react";
 import AIRightSidebar, { type ApplySuggestion } from "@/src/components/layout/project-section/AIRightSidebar";
 import {
@@ -19,14 +31,24 @@ import type { AppDispatch, RootState } from "@/src/store/store";
 // Types
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+interface ApiRequestData {
+  body: Record<string, string>;
+  params: Record<string, string>;
+  query: Record<string, string>;
+}
+
+interface ApiResponseData {
+  success: Record<string, string>;
+}
+
 interface ApiRoute {
   id: string;
   name: string;
   method: HttpMethod;
   path: string;
   description: string;
-  request?: { body?: Record<string, string>; params?: Record<string, string>; query?: Record<string, string> };
-  response: { success: Record<string, string> };
+  request: ApiRequestData;
+  response: ApiResponseData;
   authRequired: boolean;
 }
 
@@ -75,6 +97,8 @@ const AUTH_TYPES: AuthFlow["type"][] = ["JWT", "OAuth", "Session"];
 
 const isAuthType = (value: unknown): value is AuthFlow["type"] =>
   value === "JWT" || value === "OAuth" || value === "Session";
+
+const emptyRecord = () => ({}) as Record<string, string>;
 
 const toStringRecord = (value: unknown): Record<string, string> => {
   if (!value || typeof value !== "object") return {};
@@ -126,14 +150,11 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
             method: sourceRoute.method as HttpMethod,
             path: sourceRoute.path,
             description: sourceRoute.description,
-            request:
-              sourceRoute.request && typeof sourceRoute.request === "object"
-                ? {
-                    body: toStringRecord(sourceRoute.request.body),
-                    params: toStringRecord(sourceRoute.request.params),
-                    query: toStringRecord(sourceRoute.request.query),
-                  }
-                : undefined,
+            request: {
+              body: toStringRecord(sourceRoute.request?.body),
+              params: toStringRecord(sourceRoute.request?.params),
+              query: toStringRecord(sourceRoute.request?.query),
+            },
             response: {
               success: toStringRecord(sourceRoute.response?.success),
             },
@@ -185,14 +206,101 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
+const createEmptyRoute = (): ApiRoute => ({
+  id: uid(),
+  name: "",
+  method: "GET",
+  path: "",
+  description: "",
+  request: {
+    body: emptyRecord(),
+    params: emptyRecord(),
+    query: emptyRecord(),
+  },
+  response: { success: emptyRecord() },
+  authRequired: false,
+});
+
+const createEmptyEvent = (): WebSocketEvent => ({
+  id: uid(),
+  name: "",
+  description: "",
+  payload: emptyRecord(),
+});
+
 // Mock data
 const MOCK: ApiSectionContent = {
   rest: [
-    { id: "1", name: "List Users",     method: "GET",    path: "/api/v1/users",          description: "Paginated user list",          request: { query:  { page: "number", limit: "number" } }, response: { success: { users: "User[]", total: "number" } }, authRequired: true  },
-    { id: "2", name: "Register",       method: "POST",   path: "/api/v1/users/register", description: "Create a new user account",    request: { body:   { email: "string", password: "string" } }, response: { success: { user: "User", token: "string" } }, authRequired: false },
-    { id: "3", name: "Get User",       method: "GET",    path: "/api/v1/users/:id",      description: "Fetch user by ID",             request: { params: { id: "string" } }, response: { success: { user: "User" } }, authRequired: true  },
-    { id: "4", name: "Update User",    method: "PUT",    path: "/api/v1/users/:id",      description: "Update user profile fields",   request: { params: { id: "string" }, body: { name: "string?" } }, response: { success: { user: "User" } }, authRequired: true  },
-    { id: "5", name: "Delete Project", method: "DELETE", path: "/api/v1/projects/:id",   description: "Delete project and cascade",   request: { params: { id: "string" } }, response: { success: { deleted: "boolean" } }, authRequired: true  },
+    {
+      id: "1",
+      name: "List Users",
+      method: "GET",
+      path: "/api/v1/users",
+      description: "Paginated user list",
+      request: {
+        body: {},
+        params: {},
+        query: { page: "number", limit: "number" },
+      },
+      response: { success: { users: "User[]", total: "number" } },
+      authRequired: true,
+    },
+    {
+      id: "2",
+      name: "Register",
+      method: "POST",
+      path: "/api/v1/users/register",
+      description: "Create a new user account",
+      request: {
+        body: { email: "string", password: "string" },
+        params: {},
+        query: {},
+      },
+      response: { success: { user: "User", token: "string" } },
+      authRequired: false,
+    },
+    {
+      id: "3",
+      name: "Get User",
+      method: "GET",
+      path: "/api/v1/users/:id",
+      description: "Fetch user by ID",
+      request: {
+        body: {},
+        params: { id: "string" },
+        query: {},
+      },
+      response: { success: { user: "User" } },
+      authRequired: true,
+    },
+    {
+      id: "4",
+      name: "Update User",
+      method: "PUT",
+      path: "/api/v1/users/:id",
+      description: "Update user profile fields",
+      request: {
+        body: { name: "string?" },
+        params: { id: "string" },
+        query: {},
+      },
+      response: { success: { user: "User" } },
+      authRequired: true,
+    },
+    {
+      id: "5",
+      name: "Delete Project",
+      method: "DELETE",
+      path: "/api/v1/projects/:id",
+      description: "Delete project and cascade",
+      request: {
+        body: {},
+        params: { id: "string" },
+        query: {},
+      },
+      response: { success: { deleted: "boolean" } },
+      authRequired: true,
+    },
   ],
   realtime: [
     { id: "w1", name: "project:update", description: "Fires on any project field change", payload: { projectId: "string", field: "string", userId: "string" } },
@@ -239,6 +347,100 @@ function EditField({ value, onChange, placeholder = "", mono = false, className 
   );
 }
 
+function KeyValueEditor({
+  title,
+  value,
+  onChange,
+  emptyLabel,
+}: {
+  title: string;
+  value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void;
+  emptyLabel: string;
+}) {
+  const [keyInput, setKeyInput] = useState("");
+  const [valueInput, setValueInput] = useState("");
+
+  const addItem = () => {
+    const nextKey = keyInput.trim();
+
+    if (!nextKey) return;
+
+    onChange({
+      ...value,
+      [nextKey]: valueInput.trim() || "string",
+    });
+    setKeyInput("");
+    setValueInput("");
+  };
+
+  return (
+    <div className="rounded-md border border-white/8 bg-[#0f1520] p-3">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p
+          className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35"
+          style={{ fontFamily: "'Roboto', sans-serif" }}
+        >
+          {title}
+        </p>
+        <p className="text-[10px] text-white/25">{emptyLabel}</p>
+      </div>
+
+      <div className="mb-3 space-y-2">
+        {Object.entries(value).length === 0 ? (
+          <p className="text-xs text-white/25">No fields yet.</p>
+        ) : (
+          Object.entries(value).map(([key, fieldType]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between gap-2 rounded-sm border border-white/5 bg-[#0b1019] px-2.5 py-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-mono text-purple-300">{key}</span>
+                <span className="text-white/15">:</span>
+                <span className="ml-1 text-xs font-mono text-white/45">{fieldType}</span>
+              </div>
+              <button
+                onClick={() => {
+                  const next = { ...value };
+                  delete next[key];
+                  onChange(next);
+                }}
+                className="text-white/20 transition hover:text-red-400"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <input
+          value={keyInput}
+          onChange={(e) => setKeyInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addItem()}
+          placeholder="Field name"
+          className="rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 font-mono text-xs text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30"
+        />
+        <input
+          value={valueInput}
+          onChange={(e) => setValueInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addItem()}
+          placeholder="Type"
+          className="rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 font-mono text-xs text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30"
+        />
+        <button
+          onClick={addItem}
+          className="rounded-md border border-orange-500/35 bg-orange-500/12 px-3 py-2 text-orange-400 transition hover:bg-orange-500/20"
+        >
+          <Plus size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Modal: Add/Edit Route
 function RouteModal({ route, isOpen, onClose, onSave }: {
   route?: ApiRoute | null;
@@ -246,16 +448,13 @@ function RouteModal({ route, isOpen, onClose, onSave }: {
   onClose: () => void;
   onSave: (route: ApiRoute) => void;
 }) {
-  const [form, setForm] = useState<ApiRoute>(route || {
-    id: uid(),
-    name: "",
-    method: "GET" as HttpMethod,
-    path: "",
-    description: "",
-    request: {},
-    response: { success: {} },
-    authRequired: false,
-  });
+  const [form, setForm] = useState<ApiRoute>(route ? route : createEmptyRoute());
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setForm(route ? route : createEmptyRoute());
+  }, [isOpen, route]);
 
   const methods: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -279,7 +478,10 @@ function RouteModal({ route, isOpen, onClose, onSave }: {
           >
             <div className="w-full max-w-2xl rounded-xl border border-white/8 bg-[#0b1019] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
+                <h2
+                  className="text-xl font-bold text-white"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
                   {route ? "Edit Endpoint" : "Add Endpoint"}
                 </h2>
                 <button
@@ -337,7 +539,10 @@ function RouteModal({ route, isOpen, onClose, onSave }: {
 
                 {/* Description */}
                 <div>
-                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
+                  <label
+                    className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40"
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                  >
                     Description
                   </label>
                   <textarea
@@ -346,6 +551,53 @@ function RouteModal({ route, isOpen, onClose, onSave }: {
                     placeholder="Describe what this endpoint does..."
                     rows={2}
                     className="w-full resize-none rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
+                  />
+                </div>
+
+                <div className="grid gap-3">
+                  <KeyValueEditor
+                    title="Request Body"
+                    value={form.request.body}
+                    onChange={(body) =>
+                      setForm({
+                        ...form,
+                        request: { ...form.request, body },
+                      })
+                    }
+                    emptyLabel="saved as body"
+                  />
+                  <KeyValueEditor
+                    title="Request Params"
+                    value={form.request.params}
+                    onChange={(params) =>
+                      setForm({
+                        ...form,
+                        request: { ...form.request, params },
+                      })
+                    }
+                    emptyLabel="saved as params"
+                  />
+                  <KeyValueEditor
+                    title="Request Query"
+                    value={form.request.query}
+                    onChange={(query) =>
+                      setForm({
+                        ...form,
+                        request: { ...form.request, query },
+                      })
+                    }
+                    emptyLabel="saved as query"
+                  />
+                  <KeyValueEditor
+                    title="Response Success"
+                    value={form.response.success}
+                    onChange={(success) =>
+                      setForm({
+                        ...form,
+                        response: { success },
+                      })
+                    }
+                    emptyLabel="saved as response"
                   />
                 </div>
 
@@ -398,14 +650,17 @@ function WsModal({ event, isOpen, onClose, onSave }: {
   onClose: () => void;
   onSave: (event: WebSocketEvent) => void;
 }) {
-  const [form, setForm] = useState<WebSocketEvent>(event || {
-    id: uid(),
-    name: "",
-    description: "",
-    payload: {},
-  });
+  const [form, setForm] = useState<WebSocketEvent>(event || createEmptyEvent());
   const [kvKey, setKvKey] = useState("");
   const [kvValue, setKvValue] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setForm(event || createEmptyEvent());
+    setKvKey("");
+    setKvValue("");
+  }, [event, isOpen]);
 
   const addPayloadField = () => {
     if (kvKey.trim()) {
@@ -438,7 +693,10 @@ function WsModal({ event, isOpen, onClose, onSave }: {
           >
             <div className="w-full max-w-xl rounded-xl border border-white/8 bg-[#0b1019] p-6 shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
+                <h2
+                  className="text-xl font-bold text-white"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
                   {event ? "Edit Event" : "Add Event"}
                 </h2>
                 <button
@@ -582,6 +840,7 @@ const fadeUp = (i: number) => ({
 
 export default function ApiDesignPage() {
   const params = useParams();
+  const router = useRouter();
   const rawProjectId = params?.projectId;
   const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
   const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
@@ -597,18 +856,11 @@ export default function ApiDesignPage() {
   const [aiOpen, setAiOpen] = useState(true);
   const [tab, setTab] = useState<"rest" | "realtime" | "auth">("rest");
   const [status, setStatus] = useState<string | null>(null);
-  
-  // Route modal state
+
   const [routeModalOpen, setRouteModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<ApiRoute | null>(null);
-  
-  // WebSocket modal state
   const [wsModalOpen, setWsModalOpen] = useState(false);
   const [editingWs, setEditingWs] = useState<WebSocketEvent | null>(null);
-  
-  // Auth route modal state
-  const [authRouteModalOpen, setAuthRouteModalOpen] = useState(false);
-  const [authRouteInput, setAuthRouteInput] = useState("");
 
   const isFetching = Boolean(apiSectionState?.fetch.loading);
   const isSaving = Boolean(apiSectionState?.save.loading);
@@ -641,6 +893,16 @@ export default function ApiDesignPage() {
     fetchApi();
   }, [fetchApi]);
 
+  useEffect(() => {
+    if (!status) return;
+
+    const timer = window.setTimeout(() => {
+      setStatus(null);
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
   const handleSaveDraft = async () => {
     if (!resolvedProjectId) {
       setStatus("Select a project before saving the API section.");
@@ -671,13 +933,17 @@ export default function ApiDesignPage() {
   };
 
   const show = () => {
-    setApi((current) => (hasApiContent(current) ? current : MOCK));
     setShown(true);
+    setStatus("Sample reference opened.");
   };
-  const reset = () => {
-    setApi(EMPTY);
-    setShown(false);
-    setStatus("API draft reset locally.");
+
+  const openFolder = () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before opening the folder section.");
+      return;
+    }
+
+    router.push(`/projects/${resolvedProjectId}/folder`);
   };
 
   const upRoute  = (r: ApiRoute) => setApi((p) => ({ ...p, rest: p.rest.map((x) => x.id === r.id ? r : x) }));
@@ -718,7 +984,7 @@ export default function ApiDesignPage() {
     <div
       ref={scrollRef}
       className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
-      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+      style={{ fontFamily: "'Inter', sans-serif" }}
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
@@ -733,7 +999,10 @@ export default function ApiDesignPage() {
             variants={fadeUp(0)}
             className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/8 bg-[#0b1019] px-4 py-3"
           >
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35">
+            <div
+              className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35"
+              style={{ fontFamily: "'Roboto', sans-serif" }}
+            >
               <span>Planex</span>
               <span>/</span>
               <span>API</span>
@@ -782,9 +1051,15 @@ export default function ApiDesignPage() {
           )}
 
           {status && (
-            <div className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -8 }}
+              transition={{ duration: 0.3 }}
+              className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90"
+            >
               {status}
-            </div>
+            </motion.div>
           )}
 
           <motion.div variants={fadeUp(1)} className="mb-7">
@@ -794,8 +1069,16 @@ export default function ApiDesignPage() {
                   <Code2 size={20} className="text-orange-500" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold uppercase text-white">API</h1>
-                  <p className="mt-1 text-sm text-white/45">
+                  <h1
+                    className="text-3xl font-bold uppercase text-white"
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                  >
+                    API
+                  </h1>
+                  <p
+                    className="mt-1 text-sm text-white/45"
+                    style={{ fontFamily: "'Roboto', sans-serif" }}
+                  >
                     Define REST, WebSocket, and authentication layers.
                   </p>
                 </div>
@@ -834,6 +1117,50 @@ export default function ApiDesignPage() {
                 exit="hidden"
                 className="flex flex-col gap-6"
               >
+                {!hasApiContent(api) && (
+                  <div className="rounded-md border border-dashed border-white/10 bg-white/2 p-4">
+                    <div className="flex items-center gap-2 text-orange-400">
+                      <Sparkles size={14} />
+                      <p
+                        className="text-[10px] uppercase tracking-[0.2em]"
+                        style={{ fontFamily: "'Roboto', sans-serif" }}
+                      >
+                        Sample Reference Only
+                      </p>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-white/45">
+                      The example structure below is for reference only. It is not written into the saved API section.
+                    </p>
+                    <button
+                      onClick={openFolder}
+                      className="mt-4 flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                    >
+                      <ArrowRight size={12} />
+                      Show your folder
+                    </button>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {MOCK.rest.slice(0, 2).map((route) => (
+                        <div key={route.id} className="rounded-md border border-white/8 bg-[#0f1520] p-3">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="rounded-sm px-2 py-1 text-[10px] font-bold tracking-[0.08em]"
+                              style={{
+                                background: METHOD_STYLE[route.method].bg,
+                                border: `1px solid ${METHOD_STYLE[route.method].border}`,
+                                color: METHOD_STYLE[route.method].color,
+                              }}
+                            >
+                              {route.method}
+                            </span>
+                            <span className="font-mono text-xs text-white/70">{route.path}</span>
+                          </div>
+                          <p className="mt-2 text-xs text-white/45">{route.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Tabs */}
                 <div className="flex gap-1 bg-white/2 border border-white/8 rounded-md p-1 w-fit flex-wrap">
                   {([
@@ -869,7 +1196,10 @@ export default function ApiDesignPage() {
                       className="flex flex-col gap-4"
                     >
                       <div className="flex items-center justify-between">
-                        <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                        <p
+                          className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
+                        >
                           REST Endpoints
                         </p>
                         <button
@@ -947,7 +1277,10 @@ export default function ApiDesignPage() {
                       className="flex flex-col gap-4"
                     >
                       <div className="flex items-center justify-between">
-                        <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                        <p
+                          className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                          style={{ fontFamily: "'Roboto', sans-serif" }}
+                        >
                           WebSocket Events
                         </p>
                         <button
@@ -1029,13 +1362,19 @@ export default function ApiDesignPage() {
                       transition={{ duration: 0.2 }}
                       className="flex flex-col gap-4"
                     >
-                      <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                      <p
+                        className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                        style={{ fontFamily: "'Roboto', sans-serif" }}
+                      >
                         Authentication Flow
                       </p>
                       <div className="rounded-md border border-white/8 bg-white/2 p-5 flex flex-col gap-5">
                         {/* Type */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                          <p
+                            className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                            style={{ fontFamily: "'Roboto', sans-serif" }}
+                          >
                             Auth Type
                           </p>
                           <div className="flex gap-2 flex-wrap">
@@ -1076,7 +1415,10 @@ export default function ApiDesignPage() {
 
                         {/* Description */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                          <p
+                            className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                            style={{ fontFamily: "'Roboto', sans-serif" }}
+                          >
                             Description
                           </p>
                           <div className="rounded-md border border-white/8 bg-[#0b1019] p-3">
@@ -1096,7 +1438,10 @@ export default function ApiDesignPage() {
 
                         {/* Protected routes */}
                         <div className="flex flex-col gap-2">
-                          <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25">
+                          <p
+                            className="text-[9px] font-mono uppercase tracking-[0.2em] text-white/25"
+                            style={{ fontFamily: "'Roboto', sans-serif" }}
+                          >
                             Protected Routes
                           </p>
                           <div className="space-y-1.5">
@@ -1170,7 +1515,12 @@ export default function ApiDesignPage() {
                 <Code2 size={20} className="text-orange-500/40" />
               </div>
               <div className="flex flex-col gap-1">
-                <p className="text-sm font-bold text-white/40">No API defined yet</p>
+                <p
+                  className="text-sm font-bold text-white/40"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
+                  No API defined yet
+                </p>
                 <p className="text-xs text-white/25 max-w-xs leading-relaxed">
                   Click "Show API Fields" above or use the AI Copilot to generate your API structure.
                 </p>
