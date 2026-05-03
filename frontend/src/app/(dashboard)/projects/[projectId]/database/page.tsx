@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, type Variants } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   Database,
   Plus,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "next/navigation";
+import AIRightSidebar from "@/src/components/layout/project-section/AIRightSidebar";
 import {
   fetchSectionByType,
   upsertSection,
@@ -100,25 +101,9 @@ const createEmptyField = (): DatabaseField => ({
 });
 
 const createEmptyEntity = (): DatabaseEntity => ({
-  name: "Entity",
+  name: "",
   description: "",
-  fields: [
-    { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
-    {
-      name: "createdAt",
-      type: "datetime",
-      required: true,
-      unique: false,
-      description: "Created timestamp",
-    },
-    {
-      name: "updatedAt",
-      type: "datetime",
-      required: true,
-      unique: false,
-      description: "Updated timestamp",
-    },
-  ],
+  fields: [],
 });
 
 const FIELD_PRESETS: Array<{
@@ -319,10 +304,17 @@ export default function DatabasePage() {
     (state: RootState) => state.section.projects[resolvedProjectId]?.database,
   );
 
-  const [schema, setSchema] = useState<DatabaseSectionContent>(SAMPLE_SCHEMA);
+  const [schema, setSchema] = useState<DatabaseSectionContent>({
+    entities: [],
+    relationships: [],
+    indexes: [],
+  });
+  const [aiOpen, setAiOpen] = useState(false);
+  const [isSampleView, setIsSampleView] = useState(false);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const draftSnapshotRef = useRef<DatabaseSectionContent | null>(null);
 
   const entityNames = useMemo(
     () => schema.entities.map((entity) => entity.name.trim()).filter(Boolean),
@@ -333,9 +325,26 @@ export default function DatabasePage() {
     databaseSectionState?.fetch.loading || databaseSectionState?.save.loading,
   );
 
+  useEffect(() => {
+    if (isSampleView) return;
+
+    const normalized = normalizeSchema(databaseSectionState?.content);
+    if (normalized) {
+      setSchema(normalized);
+      draftSnapshotRef.current = normalized;
+    }
+  }, [databaseSectionState?.content, isSampleView]);
+
   const fetchDatabaseSection = useCallback(async () => {
     if (!resolvedProjectId) {
-      setSchema(SAMPLE_SCHEMA);
+      setSchema({ entities: [], relationships: [], indexes: [] });
+      return;
+    }
+
+    const normalizedState = normalizeSchema(databaseSectionState?.content);
+    if (normalizedState) {
+      setSchema(normalizedState);
+      draftSnapshotRef.current = normalizedState;
       return;
     }
 
@@ -347,15 +356,22 @@ export default function DatabasePage() {
       const normalized = normalizeSchema(result.section?.content);
       if (normalized) {
         setSchema(normalized);
+        draftSnapshotRef.current = normalized;
       }
     } catch {
-      setSchema(SAMPLE_SCHEMA);
+      setSchema({ entities: [], relationships: [], indexes: [] });
     }
-  }, [dispatch, resolvedProjectId]);
+  }, [databaseSectionState?.content, dispatch, resolvedProjectId]);
 
   useEffect(() => {
     fetchDatabaseSection();
   }, [fetchDatabaseSection]);
+
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setStatus(null), 3500);
+    return () => clearTimeout(timer);
+  }, [status]);
 
   const addEntity = () => {
     setSchema((current) => ({
@@ -513,6 +529,12 @@ export default function DatabasePage() {
       return;
     }
 
+    const hasEditableContent = schema.entities.length > 0;
+    if (!hasEditableContent) {
+      setStatus("All fields are empty. At least one entity must be added.");
+      return;
+    }
+
     try {
       const result = await dispatch(
         upsertSection({
@@ -525,6 +547,7 @@ export default function DatabasePage() {
       const normalized = normalizeSchema(result.section.content);
       if (normalized) {
         setSchema(normalized);
+        draftSnapshotRef.current = normalized;
       }
 
       setStatus("Database section saved.");
@@ -533,9 +556,25 @@ export default function DatabasePage() {
     }
   };
 
-  const handleRegenerate = () => {
+  const handleToggleSample = () => {
+    if (isSampleView) {
+      const restoredSchema =
+        draftSnapshotRef.current ?? normalizeSchema(databaseSectionState?.content) ?? {
+          entities: [],
+          relationships: [],
+          indexes: [],
+        };
+
+      setSchema(restoredSchema);
+      setIsSampleView(false);
+      setStatus("Restored your saved database draft.");
+      return;
+    }
+
+    draftSnapshotRef.current = schema;
     setSchema(SAMPLE_SCHEMA);
-    setStatus("Regenerated local database draft.");
+    setIsSampleView(true);
+    setStatus("Showing sample database. Click again to restore your saved draft.");
   };
 
   const schemaOverview = useMemo(
@@ -551,7 +590,7 @@ export default function DatabasePage() {
     <div
       ref={scrollRef}
       className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
-      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+      style={{ fontFamily: "'Inter', sans-serif" }}
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
@@ -572,11 +611,11 @@ export default function DatabasePage() {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={handleRegenerate}
+                onClick={handleToggleSample}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
               >
                 <RefreshCw size={12} />
-                Load sample
+                {isSampleView ? "Show my database" : "Show sample"}
               </button>
               <button
                 onClick={handleSaveDraft}
@@ -595,7 +634,7 @@ export default function DatabasePage() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300/90">
                   Manual Schema Builder
                 </p>
-                <h2 className="mt-2 text-2xl font-bold text-white">Design the database step by step</h2>
+                <h2 className="mt-2 text-2xl font-bold text-white" style={{ fontFamily: "'Roboto', sans-serif" }}>Design the database step by step</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">
                   Start with singular entities, add their columns, connect entities with relationships,
                   and finish by adding indexes for frequently queried fields.
@@ -639,26 +678,42 @@ export default function DatabasePage() {
             </div>
           </motion.div>
 
-          {loading && (
-            <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
+          <AnimatePresence>
+            {loading && (
               <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-                className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
-              />
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
-                {databaseSectionState?.save.loading
-                  ? "Saving database section"
-                  : "Loading database section"}
-              </p>
-            </div>
-          )}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                  className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
+                />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+                  {databaseSectionState?.save.loading
+                    ? "Saving database section"
+                    : "Loading database section"}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {status && (
-            <div className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90">
-              {status}
-            </div>
-          )}
+          <AnimatePresence>
+            {status && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90"
+              >
+                {status}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <motion.div variants={fadeUp(1)} className="mb-7">
             <div className="flex items-center justify-between gap-3">
@@ -667,7 +722,7 @@ export default function DatabasePage() {
                   <Database size={20} className="text-orange-500" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold uppercase text-white">DATABASE</h1>
+                  <h1 className="text-3xl font-bold uppercase text-white" style={{ fontFamily: "'Roboto', sans-serif" }}>DATABASE</h1>
                   <p className="mt-1 text-sm text-white/45">
                     Model entities, relationships, and indexes for your backend.
                   </p>
@@ -678,7 +733,7 @@ export default function DatabasePage() {
 
           <motion.div variants={fadeUp(2)} className="mb-8">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-white/90">Entities</h2>
+              <h2 className="text-xl font-bold text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>Entities</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={addEntity}
@@ -832,7 +887,7 @@ export default function DatabasePage() {
 
           <motion.div variants={fadeUp(3)} className="mb-8">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-bold text-white/90">
+              <h2 className="flex items-center gap-2 text-xl font-bold text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>
                 <Link2 size={16} className="text-orange-400" />
                 Relationships
               </h2>
@@ -920,6 +975,7 @@ export default function DatabasePage() {
               <button
                 onClick={() => setIndexExpanded((current) => !current)}
                 className="flex cursor-pointer items-center gap-2 text-xl font-bold text-white/90"
+                style={{ fontFamily: "'Roboto', sans-serif" }}
               >
                 {indexExpanded ? (
                   <ChevronDown size={16} className="text-orange-400" />
@@ -1020,6 +1076,8 @@ export default function DatabasePage() {
           </motion.div>
         </motion.div>
       </div>
+
+      <AIRightSidebar isOpen={aiOpen} onOpenChange={setAiOpen} />
     </div>
   );
 }
