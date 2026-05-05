@@ -34,6 +34,11 @@ import {
   fetchSectionByType,
   upsertSection,
 } from "@/src/store/slices/sectionSlice";
+import {
+  clearJobState,
+  generateIdea,
+  getJobStatusThunk,
+} from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 import AIRightSidebar, {
   type ApplySuggestion,
@@ -211,69 +216,6 @@ const normalizeIdea = (payload: unknown): IdeaSectionContent => {
   };
 };
 
-const buildGeneratedIdea = (
-  rawIdea: string,
-  current: IdeaSectionContent,
-): IdeaSectionContent => {
-  const clean = rawIdea.trim();
-  const topic = clean.split(/[.!?\n]/)[0]?.trim() || "the product";
-
-  const overview =
-    clean.length > 0
-      ? `${clean} This solution focuses on a clean workflow, reliable delivery, and strong usability for primary users. It should launch with a focused MVP and expand through iterative releases.`
-      : current.overview;
-
-  const keyFeatures: KeyFeature[] = [
-    {
-      name: "Core Workflow Management",
-      description: `Allow users to complete the main ${topic.toLowerCase()} journey with minimal steps.`,
-      priority: "must_have",
-    },
-    {
-      name: "Authentication and Access",
-      description:
-        "Secure account access with role-based permissions and protected resources.",
-      priority: "must_have",
-    },
-    {
-      name: "Analytics Dashboard",
-      description:
-        "Provide a visual dashboard for activity, KPIs, and operational insights.",
-      priority: "nice_to_have",
-    },
-    {
-      name: "Notifications",
-      description:
-        "Send contextual in-app and email notifications for critical events.",
-      priority: "nice_to_have",
-    },
-  ];
-
-  return {
-    ...current,
-    raw_idea: clean,
-    overview,
-    key_features: keyFeatures,
-    requirements: [
-      "User authentication and authorization",
-      "Role-based access control",
-      "Responsive interface for desktop and mobile",
-      "Validation and error handling across all forms",
-      "Audit logging for important actions",
-    ],
-    suggested_tech_stack: {
-      frontend: ["Next.js", "TypeScript", "Tailwind CSS"],
-      backend: ["Node.js", "Fastify", "Prisma"],
-      database: ["PostgreSQL", "Redis"],
-      infrastructure: ["Docker", "Vercel"],
-      ai: ["OpenAI API"],
-      frameworks: ["Framer Motion"],
-    },
-    estimated_complexity: clean.length > 180 ? "high" : "medium",
-    team_size: clean.length > 180 ? "4-6 developers" : "2-4 developers",
-  };
-};
-
 export default function IdeaPage() {
   const params = useParams();
   const rawProjectId = params?.projectId;
@@ -283,6 +225,7 @@ export default function IdeaPage() {
   const resolvedProjectId =
     projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
+  const jobState = useSelector((state: RootState) => state.job);
   const ideaSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.idea,
   );
@@ -338,9 +281,12 @@ export default function IdeaPage() {
 
   const isFetching = Boolean(ideaSectionState?.fetch.loading);
   const isSaving = Boolean(ideaSectionState?.save.loading);
-  const loading = isFetching || isSaving;
-  const error =
+  const isJobLoading =
+    jobState.status === "pending" || jobState.status === "processing";
+  const loading = isFetching || isSaving || isJobLoading;
+  const sectionError =
     ideaSectionState?.fetch.error ?? ideaSectionState?.save.error ?? null;
+  const error = sectionError ?? (jobState.status === "failed" ? jobState.error : null);
 
   const fetchIdea = useCallback(async () => {
     if (!resolvedProjectId) {
@@ -394,15 +340,76 @@ export default function IdeaPage() {
     setStatusType("success");
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!ideaData.raw_idea.trim()) {
       setStatus("Add a raw idea first to generate suggestions.");
+      setStatusType("error");
       return;
     }
 
-    setIdeaData((current) => buildGeneratedIdea(current.raw_idea, current));
-    setStatus("Generated suggestion fields from raw idea.");
+    if (!resolvedProjectId) {
+      setStatus("Select a project before generating idea suggestions.");
+      setStatusType("error");
+      return;
+    }
+
+    try {
+      dispatch(clearJobState());
+
+      await dispatch(
+        generateIdea({
+          projectId: resolvedProjectId,
+          idea: ideaData.raw_idea,
+        }),
+      ).unwrap();
+
+      setStatus("Idea generation queued. We are processing it now.");
+      setStatusType("success");
+    } catch (err: any) {
+      setStatus(err?.message ?? "Failed to queue idea generation.");
+      setStatusType("error");
+    }
   };
+
+  useEffect(() => {
+    if (!jobState.jobId) {
+      return;
+    }
+
+    if (jobState.status === "completed" || jobState.status === "failed") {
+      return;
+    }
+
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+
+    const pollTimer = window.setInterval(() => {
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+    }, 2500);
+
+    return () => {
+      window.clearInterval(pollTimer);
+    };
+  }, [dispatch, jobState.jobId, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "completed") {
+      return;
+    }
+
+    fetchIdea();
+    setStatus("Idea generation completed.");
+    setStatusType("success");
+    dispatch(clearJobState());
+  }, [dispatch, fetchIdea, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "failed") {
+      return;
+    }
+
+    setStatus(jobState.error || "Idea generation failed.");
+    setStatusType("error");
+  }, [jobState.error, jobState.status]);
 
   const handleManualSave = async () => {
     if (!resolvedProjectId) {
@@ -588,7 +595,11 @@ export default function IdeaPage() {
                 className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
               />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
-                {isSaving ? "Saving idea section" : "Loading idea section"}
+                {isJobLoading
+                  ? "Generating idea section"
+                  : isSaving
+                    ? "Saving idea section"
+                    : "Loading idea section"}
               </p>
             </div>
           )}
@@ -701,11 +712,11 @@ export default function IdeaPage() {
             </div>
             <button
               onClick={handleGenerate}
-              disabled={!ideaData.raw_idea.trim()}
+              disabled={!ideaData.raw_idea.trim() || isJobLoading}
               className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-500/15"
             >
               <Sparkles size={18} />
-              Generate Suggestions
+              {isJobLoading ? "Generating..." : "Generate Suggestions"}
             </button>
           </motion.div>
 
