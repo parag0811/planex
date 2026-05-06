@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
   Save,
+  Sparkles,
   X,
   ChevronDown,
   ChevronRight,
@@ -20,6 +21,11 @@ import { useParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/src/store/store";
 import { fetchSectionByType, upsertSection } from "@/src/store/slices/sectionSlice";
+import {
+  clearJobState,
+  generateFolder,
+  getJobStatusThunk,
+} from "@/src/store/slices/jobSlice";
 
 interface FolderNode {
   id: string;
@@ -336,6 +342,7 @@ export default function FolderStructurePage() {
   const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
 
   const dispatch = useDispatch<AppDispatch>();
+  const jobState = useSelector((state: RootState) => state.job);
   const folderSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.folder,
   );
@@ -427,8 +434,69 @@ export default function FolderStructurePage() {
 
   const isFetching = Boolean(folderSectionState?.fetch.loading);
   const isSaving = Boolean(folderSectionState?.save.loading);
-  const loading = isFetching || isSaving;
-  const error = folderSectionState?.fetch.error ?? folderSectionState?.save.error ?? null;
+  const isJobLoading =
+    jobState.status === "pending" || jobState.status === "processing";
+  const loading = isFetching || isSaving || isJobLoading;
+  const error =
+    folderSectionState?.fetch.error ??
+    folderSectionState?.save.error ??
+    (jobState.status === "failed" ? jobState.error : null);
+
+  const handleGenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before generating folder suggestions.");
+      return;
+    }
+
+    setStatus(null);
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(generateFolder({ projectId: resolvedProjectId })).unwrap();
+
+      setStatus("Folder generation queued. We are processing it now.");
+    } catch (err: any) {
+      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to queue folder generation.");
+    }
+  };
+
+  useEffect(() => {
+    if (!jobState.jobId) {
+      return;
+    }
+
+    if (jobState.status === "completed" || jobState.status === "failed") {
+      return;
+    }
+
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+
+    const pollTimer = window.setInterval(() => {
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+    }, 2500);
+
+    return () => {
+      window.clearInterval(pollTimer);
+    };
+  }, [dispatch, jobState.jobId, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "completed") {
+      return;
+    }
+
+    fetchFolder();
+    setStatus("Folder generation completed.");
+    dispatch(clearJobState());
+  }, [dispatch, fetchFolder, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "failed") {
+      return;
+    }
+
+    setStatus(jobState.error ?? "Folder generation failed.");
+  }, [jobState.error, jobState.status]);
 
   const applyAI = (s: ApplySuggestion) => {
     const payload = s.payload as unknown as FolderSectionContent;
@@ -516,6 +584,14 @@ export default function FolderStructurePage() {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={handleGenerate}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-300 transition hover:border-blue-500/50 hover:bg-blue-500/20 disabled:opacity-50"
+            >
+              <Sparkles size={14} />
+              {isJobLoading ? "Generating..." : "Generate"}
+            </button>
+            <button
               onClick={() => setFolder(EMPTY)}
               className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12"
             >
@@ -561,7 +637,11 @@ export default function FolderStructurePage() {
         )}
         {loading && (
           <div className="border-b border-blue-500/20 bg-blue-500/5 px-6 py-3 text-xs font-mono text-blue-400">
-            {isFetching ? "Loading folder structure..." : "Saving folder structure..."}
+            {isFetching
+              ? "Loading folder structure..."
+              : isSaving
+                ? "Saving folder structure..."
+                : "Generating folder structure..."}
           </div>
         )}
 

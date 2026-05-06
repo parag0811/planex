@@ -21,6 +21,11 @@ import {
   fetchSectionByType,
   upsertSection,
 } from "@/src/store/slices/sectionSlice";
+import {
+  clearJobState,
+  generateDatabase,
+  getJobStatusThunk,
+} from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 type DatabaseFieldType =
@@ -300,6 +305,7 @@ export default function DatabasePage() {
   const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
   const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
+  const jobState = useSelector((state: RootState) => state.job);
   const databaseSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.database,
   );
@@ -321,9 +327,15 @@ export default function DatabasePage() {
     [schema.entities],
   );
 
-  const loading = Boolean(
-    databaseSectionState?.fetch.loading || databaseSectionState?.save.loading,
-  );
+  const isFetching = Boolean(databaseSectionState?.fetch.loading);
+  const isSaving = Boolean(databaseSectionState?.save.loading);
+  const isJobLoading =
+    jobState.status === "pending" || jobState.status === "processing";
+  const loading = isFetching || isSaving || isJobLoading;
+  const error =
+    databaseSectionState?.fetch.error ??
+    databaseSectionState?.save.error ??
+    (jobState.status === "failed" ? jobState.error : null);
 
   useEffect(() => {
     if (isSampleView) return;
@@ -335,14 +347,14 @@ export default function DatabasePage() {
     }
   }, [databaseSectionState?.content, isSampleView]);
 
-  const fetchDatabaseSection = useCallback(async () => {
+  const fetchDatabaseSection = useCallback(async (force = false) => {
     if (!resolvedProjectId) {
       setSchema({ entities: [], relationships: [], indexes: [] });
       return;
     }
 
     const normalizedState = normalizeSchema(databaseSectionState?.content);
-    if (normalizedState) {
+    if (!force && normalizedState) {
       setSchema(normalizedState);
       draftSnapshotRef.current = normalizedState;
       return;
@@ -372,6 +384,62 @@ export default function DatabasePage() {
     const timer = setTimeout(() => setStatus(null), 3500);
     return () => clearTimeout(timer);
   }, [status]);
+
+  const handleGenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before generating database suggestions.");
+      return;
+    }
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(
+        generateDatabase({ projectId: resolvedProjectId }),
+      ).unwrap();
+
+      setStatus("Database generation queued. We are processing it now.");
+    } catch (err: any) {
+      setStatus(err?.message ?? "Failed to queue database generation.");
+    }
+  };
+
+  useEffect(() => {
+    if (!jobState.jobId) {
+      return;
+    }
+
+    if (jobState.status === "completed" || jobState.status === "failed") {
+      return;
+    }
+
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+
+    const pollTimer = window.setInterval(() => {
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+    }, 2500);
+
+    return () => {
+      window.clearInterval(pollTimer);
+    };
+  }, [dispatch, jobState.jobId, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "completed") {
+      return;
+    }
+
+    fetchDatabaseSection(true);
+    setStatus("Database generation completed.");
+    dispatch(clearJobState());
+  }, [dispatch, fetchDatabaseSection, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "failed") {
+      return;
+    }
+
+    setStatus(jobState.error ?? "Database generation failed.");
+  }, [jobState.error, jobState.status]);
 
   const addEntity = () => {
     setSchema((current) => ({
@@ -611,6 +679,14 @@ export default function DatabasePage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={handleGenerate}
+                disabled={loading}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200 transition hover:bg-blue-500/18 disabled:opacity-60"
+              >
+                <Sparkles size={12} />
+                {isJobLoading ? "Generating..." : "Generate"}
+              </button>
+              <button
                 onClick={handleToggleSample}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
               >
@@ -623,7 +699,7 @@ export default function DatabasePage() {
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
               >
                 <Save size={12} />
-                {databaseSectionState?.save.loading ? "Saving..." : "Save"}
+                {isSaving ? "Saving..." : "Save"}
               </button>
             </div>
           </motion.div>
@@ -693,16 +769,32 @@ export default function DatabasePage() {
                   className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
                 />
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
-                  {databaseSectionState?.save.loading
+                  {isSaving
                     ? "Saving database section"
-                    : "Loading database section"}
+                    : isJobLoading
+                      ? "Generating database section"
+                      : "Loading database section"}
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
           <AnimatePresence>
-            {status && (
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -8 }}
+                transition={{ duration: 0.3 }}
+                className="mb-4 rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-sm text-red-200/90"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {status && !error && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: -8 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}

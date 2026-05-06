@@ -20,6 +20,10 @@ interface GenerateIdeaParams {
   idea: string;
 }
 
+interface GenerateSectionParams {
+  projectId: string;
+}
+
 interface JobStatusResponse {
   status: JobStatusType;
   result: any | null;
@@ -70,6 +74,79 @@ export const generateIdea = createAsyncThunk(
   },
 );
 
+export const generateDatabase = createAsyncThunk(
+  "job/generateDatabase",
+  async (params: GenerateSectionParams, { rejectWithValue }) => {
+    try {
+      const { projectId } = params;
+
+      const res = await axiosInstance.post(
+        `/projects/${projectId}/ai/generate-database`,
+      );
+
+      const jobId: string | undefined = res.data?.jobId;
+
+      if (!jobId) {
+        return rejectWithValue("No jobId returned from server");
+      }
+
+      return jobId;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to queue database generation"),
+      );
+    }
+  },
+);
+
+export const generateApi = createAsyncThunk(
+  "job/generateApi",
+  async (params: GenerateSectionParams, { rejectWithValue }) => {
+    try {
+      const { projectId } = params;
+
+      const res = await axiosInstance.post(`/projects/${projectId}/ai/generate-api`);
+
+      const jobId: string | undefined = res.data?.jobId;
+
+      if (!jobId) {
+        return rejectWithValue("No jobId returned from server");
+      }
+
+      return jobId;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to queue API generation"),
+      );
+    }
+  },
+);
+
+export const generateFolder = createAsyncThunk(
+  "job/generateFolder",
+  async (params: GenerateSectionParams, { rejectWithValue }) => {
+    try {
+      const { projectId } = params;
+
+      const res = await axiosInstance.post(
+        `/projects/${projectId}/ai/generate-folders`,
+      );
+
+      const jobId: string | undefined = res.data?.jobId;
+
+      if (!jobId) {
+        return rejectWithValue("No jobId returned from server");
+      }
+
+      return jobId;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to queue folder generation"),
+      );
+    }
+  },
+);
+
 export const getJobStatusThunk = createAsyncThunk(
   "job/getJobStatus",
   async (params: JobParams, { rejectWithValue }) => {
@@ -110,22 +187,43 @@ const jobSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    const onGeneratePending = (state: JobState) => {
+      state.status = "pending";
+      state.result = null;
+      state.error = null;
+    };
+
+    const onGenerateFulfilled = (
+      state: JobState,
+      action: { payload: unknown },
+    ) => {
+      state.jobId = String(action.payload ?? "");
+      state.status = "pending";
+      state.result = null;
+      state.error = null;
+    };
+
+    const onGenerateRejected = (
+      state: JobState,
+      action: { payload?: unknown; error: { message?: string | null } },
+    ) => {
+      state.status = "failed";
+      state.error = (action.payload as string) ?? action.error.message ?? null;
+    };
+
     builder
-      .addCase(generateIdea.pending, (state) => {
-        state.status = "pending";
-        state.result = null;
-        state.error = null;
-      })
-      .addCase(generateIdea.fulfilled, (state, action) => {
-        state.jobId = action.payload;
-        state.status = "pending";
-        state.result = null;
-        state.error = null;
-      })
-      .addCase(generateIdea.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = (action.payload as string) ?? action.error.message ?? null;
-      })
+      .addCase(generateIdea.pending, onGeneratePending)
+      .addCase(generateIdea.fulfilled, onGenerateFulfilled)
+      .addCase(generateIdea.rejected, onGenerateRejected)
+      .addCase(generateDatabase.pending, onGeneratePending)
+      .addCase(generateDatabase.fulfilled, onGenerateFulfilled)
+      .addCase(generateDatabase.rejected, onGenerateRejected)
+      .addCase(generateApi.pending, onGeneratePending)
+      .addCase(generateApi.fulfilled, onGenerateFulfilled)
+      .addCase(generateApi.rejected, onGenerateRejected)
+      .addCase(generateFolder.pending, onGeneratePending)
+      .addCase(generateFolder.fulfilled, onGenerateFulfilled)
+      .addCase(generateFolder.rejected, onGenerateRejected)
       .addCase(getJobStatusThunk.pending, (state) => {
         state.error = null;
       })

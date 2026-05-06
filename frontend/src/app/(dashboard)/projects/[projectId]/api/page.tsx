@@ -26,6 +26,11 @@ import {
   fetchSectionByType,
   upsertSection,
 } from "@/src/store/slices/sectionSlice";
+import {
+  clearJobState,
+  generateApi,
+  getJobStatusThunk,
+} from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 // Types
@@ -847,6 +852,7 @@ export default function ApiDesignPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch<AppDispatch>();
+  const jobState = useSelector((state: RootState) => state.job);
   const apiSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.api,
   );
@@ -864,8 +870,13 @@ export default function ApiDesignPage() {
 
   const isFetching = Boolean(apiSectionState?.fetch.loading);
   const isSaving = Boolean(apiSectionState?.save.loading);
-  const loading = isFetching || isSaving;
-  const error = apiSectionState?.fetch.error ?? apiSectionState?.save.error ?? null;
+  const isJobLoading =
+    jobState.status === "pending" || jobState.status === "processing";
+  const loading = isFetching || isSaving || isJobLoading;
+  const error =
+    apiSectionState?.fetch.error ??
+    apiSectionState?.save.error ??
+    (jobState.status === "failed" ? jobState.error : null);
   const authTypes = AUTH_TYPES;
 
   const fetchApi = useCallback(async () => {
@@ -902,6 +913,60 @@ export default function ApiDesignPage() {
 
     return () => window.clearTimeout(timer);
   }, [status]);
+
+  const handleGenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before generating API suggestions.");
+      return;
+    }
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(generateApi({ projectId: resolvedProjectId })).unwrap();
+
+      setStatus("API generation queued. We are processing it now.");
+    } catch (err: any) {
+      setStatus(err?.message ?? "Failed to queue API generation.");
+    }
+  };
+
+  useEffect(() => {
+    if (!jobState.jobId) {
+      return;
+    }
+
+    if (jobState.status === "completed" || jobState.status === "failed") {
+      return;
+    }
+
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+
+    const pollTimer = window.setInterval(() => {
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+    }, 2500);
+
+    return () => {
+      window.clearInterval(pollTimer);
+    };
+  }, [dispatch, jobState.jobId, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "completed") {
+      return;
+    }
+
+    fetchApi();
+    setStatus("API generation completed.");
+    dispatch(clearJobState());
+  }, [dispatch, fetchApi, jobState.status]);
+
+  useEffect(() => {
+    if (jobState.status !== "failed") {
+      return;
+    }
+
+    setStatus(jobState.error ?? "API generation failed.");
+  }, [jobState.error, jobState.status]);
 
   const handleSaveDraft = async () => {
     if (!resolvedProjectId) {
@@ -1011,6 +1076,14 @@ export default function ApiDesignPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={handleGenerate}
+                disabled={loading}
+                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200 transition hover:bg-blue-500/18 disabled:opacity-60"
+              >
+                <Sparkles size={12} />
+                {isJobLoading ? "Generating..." : "Generate"}
+              </button>
+              <button
                 onClick={fetchApi}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
               >
@@ -1036,7 +1109,11 @@ export default function ApiDesignPage() {
                 className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
               />
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
-                {isSaving ? "Saving API section" : "Loading API section"}
+                {isSaving
+                  ? "Saving API section"
+                  : isJobLoading
+                    ? "Generating API section"
+                    : "Loading API section"}
               </p>
             </div>
           )}
