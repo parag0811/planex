@@ -10,65 +10,161 @@ import { DatabaseSectionContent } from "../ai/sections/db-section/dbPromptBuilde
 import { runFolderPipeline } from "../ai/sections/folder-section/folderPlannerPipeline";
 import { ApiSectionContent } from "../ai/sections/api-section/apiPromptBuilder";
 
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(`${label} exceeded ${timeoutMs}ms timeout`)), timeoutMs)
+    )
+  ]);
+};
+
 export const aiHandlers = {
   chat: async (data: any) => {
     const { projectId, message, context } = data;
 
-    return await chatService({ projectId, message, context });
+    try {
+      console.log(`🚀 [chat] Handler: Processing for project ${projectId}`);
+      const result = await withTimeout(
+        chatService({ projectId, message, context }),
+        300000,
+        "Chat service"
+      );
+      console.log(`✅ [chat] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [chat] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
+    }
   },
   regen: async (data: any) => {
     const { projectId, section, instruction } = data;
 
-    return await regenerateService({ projectId, section, instruction });
+    try {
+      console.log(`🚀 [regen] Handler: Processing section ${section} for project ${projectId}`);
+      const result = await withTimeout(
+        regenerateService({ projectId, section, instruction }),
+        300000,
+        "Regenerate service"
+      );
+      console.log(`✅ [regen] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [regen] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
+    }
   },
 
   idea: async (data: any) => {
     const { idea } = data;
 
-    return await runPlannerPipeline(idea);
+    try {
+      console.log(`🚀 [idea] Handler: Processing idea: ${idea.substring(0, 50)}...`);
+      const result = await withTimeout(
+        runPlannerPipeline(idea),
+        300000,
+        "Idea pipeline"
+      );
+      console.log(`✅ [idea] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [idea] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
+    }
   },
   database: async (data: any) => {
     const { projectId } = data;
 
-    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
-    if (!ideaSection) throw new Error("Idea section missing");
+    try {
+      console.log(`🚀 [database] Handler: Processing for project ${projectId}`);
+      const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+      if (!ideaSection) throw new Error("Idea section missing");
 
-    return await runDatabasePipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-    );
+      console.log(`🚀 [database] Handler: Idea section loaded, calling pipeline...`);
+      const result = await withTimeout(
+        runDatabasePipeline(
+          ideaSection.content as unknown as IdeaSectionContent,
+        ),
+        300000,
+        "Database pipeline"
+      );
+      console.log(`✅ [database] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [database] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
+    }
   },
 
   api: async (data: any) => {
     const { projectId } = data;
 
-    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
-    const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
+    try {
+      console.log(`🚀 [api] Handler: Processing for project ${projectId}`);
+      const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+      const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
 
-    if (!ideaSection || !dbSection) {
-      throw new Error("Idea and Database must exist first");
+      if (!ideaSection || !dbSection) {
+        throw new Error("Idea and Database must exist first");
+      }
+
+      console.log(`🚀 [api] Handler: Sections loaded, calling pipeline...`);
+      const result = await withTimeout(
+        runApiPipeline(
+          ideaSection.content as unknown as IdeaSectionContent,
+          dbSection.content as unknown as DatabaseSectionContent,
+        ),
+        300000,
+        "API pipeline"
+      );
+      console.log(`✅ [api] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [api] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
     }
-
-    return await runApiPipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-      dbSection.content as unknown as DatabaseSectionContent,
-    );
   },
 
   folder: async (data: any) => {
     const { projectId } = data;
 
-    const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
-    const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
-    const apiSection = await getSectionByTypeService(projectId, TYPES.API);
+    try {
+      console.log(`🚀 [folder] Handler: Processing for project ${projectId}`);
+      const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
+      const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
+      const apiSection = await getSectionByTypeService(projectId, TYPES.API);
 
-    if (!ideaSection || !dbSection || !apiSection) {
-      throw new Error("Idea, Database, and API must exist first");
+      if (!ideaSection || !dbSection || !apiSection) {
+        throw new Error("Idea, Database, and API must exist first");
+      }
+
+      console.log(`🚀 [folder] Handler: All sections loaded, calling pipeline...`);
+      const result = await withTimeout(
+        runFolderPipeline(
+          ideaSection.content as unknown as IdeaSectionContent,
+          dbSection.content as unknown as DatabaseSectionContent,
+          apiSection.content as unknown as ApiSectionContent,
+        ),
+        300000,
+        "Folder pipeline"
+      );
+      console.log(`✅ [folder] Handler: Completed successfully`);
+      return result;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [folder] Handler Error:`, errorMsg);
+      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      throw error;
     }
-
-    return await runFolderPipeline(
-      ideaSection.content as unknown as IdeaSectionContent,
-      dbSection.content as unknown as DatabaseSectionContent,
-      apiSection.content as unknown as ApiSectionContent,
-    );
   },
 };

@@ -14,24 +14,40 @@ export const runApiPipeline = async (
   idea: IdeaSectionContent,
   database: DatabaseSectionContent,
 ): Promise<ApiSectionContent> => {
-  const ideaContent = JSON.stringify(idea);
-  const dbContent = JSON.stringify(database);
+  try {
+    console.log(`🔌 runApiPipeline: Starting API generation...`);
+    
+    const ideaContent = JSON.stringify(idea);
+    const dbContent = JSON.stringify(database);
 
-  const hash = crypto
-    .createHash("sha256")
-    .update(`${ideaContent}::${dbContent}`)
-    .digest("hex");
-  const cacheKey = `api:${hash}`;
-  const cachedData = await redis.get(cacheKey);
+    const hash = crypto
+      .createHash("sha256")
+      .update(`${ideaContent}::${dbContent}`)
+      .digest("hex");
+    const cacheKey = `api:${hash}`;
+    const cachedData = await redis.get(cacheKey);
 
-  if (cachedData) {
-    const apiSection = JSON.parse(cachedData);
+    if (cachedData) {
+      console.log(`🔌 runApiPipeline: Using cached result`);
+      const apiSection = JSON.parse(cachedData);
+      return apiSection;
+    }
+
+    console.log(`🔌 runApiPipeline: Building prompt...`);
+    const prompt = buildApiPrompt(idea, database);
+    console.log(`🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`);
+    
+    const apiSection = await generateSection(prompt);
+
+    console.log(`🔌 runApiPipeline: Caching result...`);
+    await redis.set(cacheKey, JSON.stringify(apiSection), "EX", 3600);
+
+    console.log(`✅ runApiPipeline: Successfully completed`);
     return apiSection;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ runApiPipeline Error: ${errorMsg}`);
+    console.error(`Stack:`, error instanceof Error ? error.stack : "No stack trace");
+    throw error;
   }
-
-  const apiSection = await generateSection(buildApiPrompt(idea, database));
-
-  await redis.set(cacheKey, JSON.stringify(apiSection), "EX", 3600);
-
-  return apiSection;
 };
