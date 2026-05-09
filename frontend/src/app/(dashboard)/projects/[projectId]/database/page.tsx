@@ -299,6 +299,14 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
   };
 };
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallback;
+};
+
 export default function DatabasePage() {
   const params = useParams();
   const rawProjectId = params?.projectId;
@@ -316,6 +324,7 @@ export default function DatabasePage() {
     indexes: [],
   });
   const [aiOpen, setAiOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<DatabaseSectionContent | null>(null);
   const [isSampleView, setIsSampleView] = useState(false);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -398,8 +407,8 @@ export default function DatabasePage() {
       ).unwrap();
 
       setStatus("Database generation queued. We are processing it now.");
-    } catch (err: any) {
-      setStatus(err?.message ?? "Failed to queue database generation.");
+    } catch (error: unknown) {
+      setStatus(getErrorMessage(error, "Failed to queue database generation."));
     }
   };
 
@@ -428,10 +437,19 @@ export default function DatabasePage() {
       return;
     }
 
-    fetchDatabaseSection(true);
-    setStatus("Database generation completed.");
+    // Show preview modal instead of auto-saving
+    if (jobState.result) {
+      const normalized = normalizeSchema(jobState.result);
+      if (normalized) {
+        setPreviewData(normalized);
+        setStatus("Database generation completed. Review the preview below.");
+      } else {
+        setStatus("Database generation returned invalid schema.");
+      }
+    }
+
     dispatch(clearJobState());
-  }, [dispatch, fetchDatabaseSection, jobState.status]);
+  }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {
     if (jobState.status !== "failed") {
@@ -530,6 +548,20 @@ export default function DatabasePage() {
     }));
   };
 
+  const handleAcceptPreview = () => {
+    if (!previewData) return;
+
+    // Apply preview to form; do NOT auto-save — user should press Save
+    setSchema(previewData);
+    setPreviewData(null);
+    setStatus("Preview applied to form. Click Save to persist.");
+  };
+
+  const handleRejectPreview = () => {
+    setPreviewData(null);
+    setStatus(null);
+  };
+
   const addRelationship = () => {
     setSchema((current) => ({
       ...current,
@@ -619,8 +651,8 @@ export default function DatabasePage() {
       }
 
       setStatus("Database section saved.");
-    } catch (error: any) {
-      setStatus(error?.message || "Failed to save database section.");
+    } catch (error: unknown) {
+      setStatus(getErrorMessage(error, "Failed to save database section."));
     }
   };
 
@@ -1170,6 +1202,97 @@ export default function DatabasePage() {
       </div>
 
       <AIRightSidebar isOpen={aiOpen} onOpenChange={setAiOpen} />
+
+      <AnimatePresence>
+        {previewData && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectPreview}
+              className="fixed inset-0 z-40 bg-black/55"
+              aria-label="Close preview modal"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.08em] text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>
+                  Preview Generated Database Schema
+                </p>
+                <button onClick={handleRejectPreview} className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75">
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {(previewData.entities || []).length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Entities</p>
+                    <div className="space-y-2">
+                      {previewData.entities.map((entity, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="font-semibold text-white/90">{entity.name}</p>
+                            <p className="text-xs text-white/60">{entity.description}</p>
+                          </div>
+                          <div className="text-xs text-white/70 space-y-1">
+                            {entity.fields.map((f, i) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <div>{f.name} <span className="text-white/40">· {f.type}{f.required ? ' · required' : ''}</span></div>
+                                <div className="text-white/50">{f.unique ? 'unique' : ''}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(previewData.relationships || []).length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Relationships</p>
+                    <div className="space-y-2">
+                      {previewData.relationships.map((r, i) => (
+                        <div key={i} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                          <p className="text-sm text-white/85">{r.from} → {r.to} ({r.type})</p>
+                          {r.description && <p className="text-xs text-white/60">{r.description}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(previewData.indexes ?? []).length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Indexes</p>
+                    <div className="space-y-2">
+                      {(previewData.indexes ?? []).map((idx, i) => (
+                        <div key={i} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/80">
+                          <div>{idx.entity} · {idx.fields.join(", ")}{idx.unique ? ' · unique' : ''}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button onClick={handleRejectPreview} className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85">Reject</button>
+                <button onClick={handleAcceptPreview} className="rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20">Accept</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

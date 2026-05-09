@@ -858,6 +858,7 @@ export default function ApiDesignPage() {
   );
 
   const [api, setApi] = useState<ApiSectionContent>(EMPTY);
+  const [previewData, setPreviewData] = useState<ApiSectionContent | null>(null);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [tab, setTab] = useState<"rest" | "realtime" | "auth">("rest");
@@ -921,6 +922,7 @@ export default function ApiDesignPage() {
     }
 
     try {
+      setPreviewData(null);
       dispatch(clearJobState());
       await dispatch(generateApi({ projectId: resolvedProjectId })).unwrap();
 
@@ -955,10 +957,15 @@ export default function ApiDesignPage() {
       return;
     }
 
-    fetchApi();
-    setStatus("API generation completed.");
+    if (jobState.result) {
+      setPreviewData(normalizeApi(jobState.result));
+      setStatus("API generation completed. Review the preview below.");
+    } else {
+      setStatus("API generation completed, but no preview was returned.");
+    }
+
     dispatch(clearJobState());
-  }, [dispatch, fetchApi, jobState.status]);
+  }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {
     if (jobState.status !== "failed") {
@@ -1043,6 +1050,22 @@ export default function ApiDesignPage() {
     setApi((p) => normalizeApi({ ...p, ...s.payload }));
     setShown(true);
     setStatus("Applied suggestion locally.");
+  };
+
+  const handleAcceptPreview = () => {
+    if (!previewData) {
+      return;
+    }
+
+    setApi(previewData);
+    setShown(true);
+    setPreviewData(null);
+    setStatus("Preview applied to the builder. Click Save to persist.");
+  };
+
+  const handleRejectPreview = () => {
+    setPreviewData(null);
+    setStatus(null);
   };
 
   return (
@@ -1606,6 +1629,143 @@ export default function ApiDesignPage() {
           )}
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {previewData && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectPreview}
+              className="fixed inset-0 z-40 bg-black/55"
+              aria-label="Close preview modal"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
+                  Preview Generated API
+                </p>
+                <button
+                  onClick={handleRejectPreview}
+                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {previewData.rest.length > 0 ? (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      REST Endpoints
+                    </p>
+                    <div className="space-y-2">
+                      {previewData.rest.map((route) => {
+                        const style = METHOD_STYLE[route.method];
+
+                        return (
+                          <div key={route.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className="rounded-sm px-2 py-1 text-[10px] font-bold tracking-[0.08em]"
+                                style={{
+                                  background: style.bg,
+                                  border: `1px solid ${style.border}`,
+                                  color: style.color,
+                                }}
+                              >
+                                {route.method}
+                              </span>
+                              <span className="font-mono text-xs text-white/70">{route.path}</span>
+                              {route.authRequired && (
+                                <span className="rounded-sm bg-orange-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-orange-300">
+                                  Auth Required
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm text-white/75">{route.name}</p>
+                            <p className="mt-1 text-xs text-white/50">{route.description}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+                    No REST endpoints were generated.
+                  </div>
+                )}
+
+                {(previewData.realtime ?? []).length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      WebSocket Events
+                    </p>
+                    <div className="space-y-2">
+                      {(previewData.realtime ?? []).map((event) => (
+                        <div key={event.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                          <p className="text-sm font-semibold text-purple-300">{event.name}</p>
+                          <p className="mt-1 text-xs text-white/50">{event.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    Auth Flow
+                  </p>
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-sm bg-orange-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-orange-300">
+                        {previewData.auth.type}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-white/75">{previewData.auth.description || "No auth description provided."}</p>
+                    {previewData.auth.routes.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {previewData.auth.routes.map((route) => (
+                          <span key={route} className="rounded-md border border-white/10 bg-[#0b1019] px-2 py-1 font-mono text-xs text-white/60">
+                            {route}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button
+                  onClick={handleRejectPreview}
+                  className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAcceptPreview}
+                  className="rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20"
+                >
+                  Accept
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <AIRightSidebar
         onApplySuggestion={applyAI}

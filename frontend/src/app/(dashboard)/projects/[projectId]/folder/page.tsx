@@ -334,6 +334,29 @@ function TreeNode({
   );
 }
 
+function PreviewNode({ node, level = 0 }: { node: FolderNode; level?: number }) {
+  return (
+    <div className="space-y-1" style={{ marginLeft: `${level * 16}px` }}>
+      <div className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-white/80">
+        {node.type === "folder" ? (
+          <Folder size={14} className="text-amber-400/70" />
+        ) : (
+          <File size={14} className="text-blue-400/70" />
+        )}
+        <span>{node.name || "Untitled"}</span>
+      </div>
+
+      {node.children && node.children.length > 0 && (
+        <div className="border-l border-white/10 pl-3">
+          {node.children.map((child) => (
+            <PreviewNode key={child.id} node={child} level={level + 1} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FolderStructurePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const params = useParams();
@@ -349,6 +372,7 @@ export default function FolderStructurePage() {
 
   const [status, setStatus] = useState<string | null>(null);
   const [folder, setFolder] = useState<FolderSectionContent>(EMPTY);
+  const [previewData, setPreviewData] = useState<FolderSectionContent | null>(null);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -449,6 +473,7 @@ export default function FolderStructurePage() {
     }
 
     setStatus(null);
+    setPreviewData(null);
 
     try {
       dispatch(clearJobState());
@@ -485,8 +510,14 @@ export default function FolderStructurePage() {
       return;
     }
 
-    fetchFolder();
-    setStatus("Folder generation completed.");
+    if (jobState.result) {
+      const normalized = normalizeFolder(jobState.result);
+      setPreviewData(normalized);
+      setStatus("Folder generation completed. Review the preview below.");
+    } else {
+      setStatus("Folder generation completed, but no preview was returned.");
+    }
+
     dispatch(clearJobState());
   }, [dispatch, fetchFolder, jobState.status]);
 
@@ -505,6 +536,23 @@ export default function FolderStructurePage() {
       setShown(true);
       setExpanded(new Set());
     }
+  };
+
+  const handleAcceptPreview = () => {
+    if (!previewData) {
+      return;
+    }
+
+    setFolder(previewData);
+    setShown(true);
+    setExpanded(new Set());
+    setPreviewData(null);
+    setStatus("Preview applied to the builder. Click Save to persist.");
+  };
+
+  const handleRejectPreview = () => {
+    setPreviewData(null);
+    setStatus(null);
   };
 
   const openAddModal = (parentId: string | null) => {
@@ -732,6 +780,74 @@ export default function FolderStructurePage() {
           </motion.div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {previewData && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectPreview}
+              className="fixed inset-0 z-40 bg-black/55"
+              aria-label="Close preview modal"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
+                  Preview Generated Folder Structure
+                </p>
+                <button
+                  onClick={handleRejectPreview}
+                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {(previewData.root ?? []).length > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                    {(previewData.root ?? []).map((node) => (
+                      <PreviewNode key={node.id} node={node} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/60">
+                    The generated preview is empty.
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button
+                  onClick={handleRejectPreview}
+                  className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAcceptPreview}
+                  className="rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20"
+                >
+                  Accept
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* AI Sidebar */}
       <AIRightSidebar
