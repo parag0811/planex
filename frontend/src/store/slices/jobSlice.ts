@@ -18,6 +18,7 @@ interface JobState {
 interface GenerateIdeaParams {
   projectId: string;
   idea: string;
+  forceRegenerate?: boolean;
 }
 
 interface GenerateSectionParams {
@@ -52,11 +53,11 @@ export const generateIdea = createAsyncThunk(
   "job/generateIdea",
   async (params: GenerateIdeaParams, { rejectWithValue }) => {
     try {
-      const { projectId, idea } = params;
+      const { projectId, idea, forceRegenerate = false } = params;
 
       const res = await axiosInstance.post(
         `/projects/${projectId}/ai/generate-idea`,
-        { idea, forceRegenerate: true },
+        { idea, forceRegenerate },
       );
 
       const jobId: string | undefined = res.data?.jobId;

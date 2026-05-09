@@ -282,6 +282,8 @@ export default function IdeaPage() {
     [ideaData],
   );
 
+  const canRegenerate = hasAnyContent || Boolean(previewData);
+
   const isFetching = Boolean(ideaSectionState?.fetch.loading);
   const isSaving = Boolean(ideaSectionState?.save.loading);
   const isJobLoading =
@@ -343,7 +345,7 @@ export default function IdeaPage() {
     setStatusType("success");
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (forceRegenerate = false) => {
     if (!ideaData.raw_idea.trim()) {
       setStatus("Add a raw idea first to generate suggestions.");
       setStatusType("error");
@@ -363,13 +365,23 @@ export default function IdeaPage() {
         generateIdea({
           projectId: resolvedProjectId,
           idea: ideaData.raw_idea,
+          forceRegenerate,
         }),
       ).unwrap();
 
-      setStatus("Idea generation queued. We are processing it now.");
+      setStatus(
+        forceRegenerate
+          ? "Idea regeneration queued. We are processing it now."
+          : "Idea generation queued. We are processing it now.",
+      );
       setStatusType("success");
     } catch (err: any) {
-      setStatus(err?.message ?? "Failed to queue idea generation.");
+      setStatus(
+        err?.message ??
+          (forceRegenerate
+            ? "Failed to queue idea regeneration."
+            : "Failed to queue idea generation."),
+      );
       setStatusType("error");
     }
   };
@@ -685,7 +697,7 @@ export default function IdeaPage() {
                     : "border-amber-500/30 bg-amber-500/10"
                 }`}
               >
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   {statusType === "success" ? (
                     <motion.div
                       initial={{ scale: 0 }}
@@ -762,13 +774,23 @@ export default function IdeaPage() {
               />
             </div>
             <button
-              onClick={handleGenerate}
+              onClick={() => handleGenerate(false)}
               disabled={!ideaData.raw_idea.trim() || isJobLoading}
               className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-500/15"
             >
               <Sparkles size={18} />
               {isJobLoading ? "Generating..." : "Generate Suggestions"}
             </button>
+            {canRegenerate && (
+              <button
+                onClick={() => handleGenerate(true)}
+                disabled={!ideaData.raw_idea.trim() || isJobLoading}
+                className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-blue-500/35 bg-blue-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/15"
+              >
+                <Sparkles size={18} />
+                {isJobLoading ? "Regenerating..." : "Regenerate Suggestions"}
+              </button>
+            )}
           </motion.div>
 
           <motion.div variants={fadeUp(3)} className="mb-8">
