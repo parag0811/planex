@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,39 +7,59 @@ datasource db {
   provider = "postgresql"
 }
 
-enum PROVIDER {
-  GOOGLE
-  GITHUB
-}
-
 model User {
-  id         String    @id @default(uuid())
-  name       String?
-  email      String    @unique
-  password   String?
-  avatarUrl  String?
-  provider   PROVIDER?
-  providerId String?
-  created_at DateTime  @default(now())
-
+  id             String          @id @default(uuid())
+  name           String?
+  email          String          @unique
+  password       String?
+  avatarUrl      String?
+  provider       PROVIDER?
+  providerId     String?
+  created_at     DateTime        @default(now())
   projects_owned Project[]
   memberships    ProjectMember[]
 }
 
 model Project {
-  id   String @id @default(uuid())
-  name String
-
-  owner    User   @relation(fields: [owner_id], references: [id]) // relation
-  owner_id String // foreign key
-
-  members ProjectMember[]
-
-  inviteToken       String?   @unique
+  id                String           @id @default(uuid())
+  name              String
+  owner_id          String
+  inviteToken       String?          @unique
   inviteTokenExpiry DateTime?
+  createdAt         DateTime         @default(now())
+  owner             User             @relation(fields: [owner_id], references: [id])
+  members           ProjectMember[]
+  projectSections   ProjectSection[]
+}
 
-  createdAt       DateTime         @default(now())
-  projectSections ProjectSection[]
+model ProjectMember {
+  id         String   @id @default(uuid())
+  user_id    String?
+  project_id String
+  role       Role     @default(VIEWER)
+  joinedAt   DateTime @default(now())
+  project    Project  @relation(fields: [project_id], references: [id])
+  user       User?    @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, project_id])
+  @@index([project_id])
+}
+
+model ProjectSection {
+  id         String   @id @default(uuid())
+  project_id String
+  type       TYPES
+  content    Json
+  version    Int      @default(1)
+  updatedAt  DateTime @updatedAt
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, type])
+}
+
+enum PROVIDER {
+  GOOGLE
+  GITHUB
 }
 
 enum Role {
@@ -53,42 +67,9 @@ enum Role {
   VIEWER
 }
 
-model ProjectMember {
-  id String @id @default(uuid())
-
-  user    User?   @relation(fields: [user_id], references: [id])
-  user_id String?
-
-  project    Project @relation(fields: [project_id], references: [id])
-  project_id String
-
-  role Role @default(VIEWER)
-
-  joinedAt DateTime @default(now())
-
-  @@unique([user_id, project_id])
-  @@index([project_id])
-}
-
 enum TYPES {
   IDEA
   API
   DATABASE
   FOLDER
-}
-
-model ProjectSection {
-  id String @id @default(uuid())
-
-  project    Project @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  project_id String
-
-  type    TYPES
-  content Json
-
-  version Int @default(1)
-
-  updatedAt DateTime @updatedAt
-
-  @@unique([project_id, type])
 }

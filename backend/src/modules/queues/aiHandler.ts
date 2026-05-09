@@ -60,12 +60,12 @@ export const aiHandlers = {
   },
 
   idea: async (data: any) => {
-    const { idea } = data;
+    const { idea, isRegenerating = false } = data;
 
     try {
-      console.log(`🚀 [idea] Handler: Processing idea: ${idea.substring(0, 50)}...`);
+      console.log(`🚀 [idea] Handler: Processing idea: ${idea.substring(0, 50)}...${isRegenerating ? ' (regenerating)' : ''}`);
       const result = await withTimeout(
-        runPlannerPipeline(idea),
+        runPlannerPipeline(idea, isRegenerating),
         300000,
         "Idea pipeline"
       );

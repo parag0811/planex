@@ -9,6 +9,7 @@ import {
   getSectionByType,
   regenerateSection,
   upsertSection,
+  acceptIdeaPreview,
 } from "./section.controller";
 import { projectAccess } from "../../middleware/project-middleware/projectAccess";
 import { memberAccess } from "../../middleware/project-middleware/memberAccess";
@@ -93,6 +94,14 @@ router.post(
   projectAccess,
   editorAccess,
   regenerateSection
+)
+
+router.post(
+  "/:projectId/ai/accept-idea-preview",
+  isAuth,
+  projectAccess,
+  editorAccess,
+  acceptIdeaPreview
 )
 
 export default router;

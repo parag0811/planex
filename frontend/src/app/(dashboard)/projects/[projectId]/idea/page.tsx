@@ -29,6 +29,7 @@ import {
   RefreshCw,
   Save,
   X,
+  Check,
 } from "lucide-react";
 import {
   fetchSectionByType,
@@ -234,6 +235,8 @@ export default function IdeaPage() {
   const [aiOpen, setAiOpen] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
+  const [previewData, setPreviewData] = useState<IdeaSectionContent | null>(null);
+  const [acceptingPreview, setAcceptingPreview] = useState(false);
 
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [featureForm, setFeatureForm] = useState<KeyFeature>({
@@ -396,11 +399,16 @@ export default function IdeaPage() {
       return;
     }
 
-    fetchIdea();
-    setStatus("Idea generation completed.");
-    setStatusType("success");
+    // Show preview instead of auto-saving
+    if (jobState.result?.idea) {
+      const generatedIdea = normalizeIdea(jobState.result.idea);
+      setPreviewData(generatedIdea);
+      setStatus("Idea generation completed. Review and accept below.");
+      setStatusType("success");
+    }
+    
     dispatch(clearJobState());
-  }, [dispatch, fetchIdea, jobState.status]);
+  }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {
     if (jobState.status !== "failed") {
@@ -438,6 +446,49 @@ export default function IdeaPage() {
       setStatus(err?.message || "Failed to save idea section.");
       setStatusType("error");
     }
+  };
+
+  const handleAcceptPreview = async () => {
+    if (!resolvedProjectId || !previewData) {
+      return;
+    }
+
+    setAcceptingPreview(true);
+    try {
+      // 1. Fill the form with preview data
+      setIdeaData(previewData);
+      
+      // 2. Close the preview modal
+      setPreviewData(null);
+
+      // 3. Auto-save to database using the existing logic
+      const result = await dispatch(
+        upsertSection({
+          projectId: resolvedProjectId,
+          type: "idea",
+          content: previewData,
+        }),
+      ).unwrap();
+
+      // 4. Update the form with saved data
+      setIdeaData(normalizeIdea(result.section));
+      setStatus("Idea preview accepted and saved successfully.");
+      setStatusType("success");
+    } catch (err: any) {
+      // If auto-save fails, just populate the form and let user save manually
+      setIdeaData(previewData);
+      setPreviewData(null);
+      setStatus("Preview filled. Click Save button to save to database.");
+      setStatusType("success");
+    } finally {
+      setAcceptingPreview(false);
+    }
+  };
+
+  const handleRejectPreview = () => {
+    setPreviewData(null);
+    setStatus(null);
+    setStatusType(null);
   };
 
   const openFeatureModal = () => {
@@ -1289,6 +1340,228 @@ export default function IdeaPage() {
                   </div>
                 </form>
               )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {previewData && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectPreview}
+              className="fixed inset-0 z-40 bg-black/55"
+              aria-label="Close preview modal"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
+                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                >
+                  Preview Generated Idea
+                </p>
+                <button
+                  onClick={handleRejectPreview}
+                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Raw Idea */}
+                {previewData.raw_idea && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      Raw Idea
+                    </p>
+                    <p className="text-sm text-white/80">{previewData.raw_idea}</p>
+                  </div>
+                )}
+
+                {/* Overview */}
+                {previewData.overview && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      Overview
+                    </p>
+                    <p className="text-sm text-white/80">{previewData.overview}</p>
+                  </div>
+                )}
+
+                {/* Key Features */}
+                {previewData.key_features.length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      Key Features
+                    </p>
+                    <div className="space-y-2">
+                      {previewData.key_features.map((feature, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-lg border border-white/10 bg-white/5 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="font-semibold text-white/90">{feature.name}</p>
+                            <span
+                              className="whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold"
+                              style={{
+                                background: `${PRIORITY_COLORS[feature.priority]}15`,
+                                color: PRIORITY_COLORS[feature.priority],
+                              }}
+                            >
+                              {PRIORITY_LABELS[feature.priority]}
+                            </span>
+                          </div>
+                          <p className="text-xs text-white/65">{feature.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Requirements */}
+                {previewData.requirements.length > 0 && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      Requirements
+                    </p>
+                    <div className="space-y-2">
+                      {previewData.requirements.map((req, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 text-sm text-white/75"
+                        >
+                          <div className="h-1.5 w-1.5 rounded-full bg-white/40" />
+                          {req}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tech Stack */}
+                {STACK_KEYS.some((key) => (previewData.suggested_tech_stack[key] ?? []).length > 0) && (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      Suggested Tech Stack
+                    </p>
+                    <div className="space-y-3">
+                      {STACK_KEYS.map((category) => {
+                        const items = previewData.suggested_tech_stack[category] ?? [];
+                        if (items.length === 0) return null;
+
+                        const Icon = STACK_ICONS[category];
+                        const color = STACK_COLORS[category];
+
+                        return (
+                          <div key={category}>
+                            <div className="mb-2 flex items-center gap-2">
+                              <div
+                                className="flex items-center justify-center rounded"
+                                style={{
+                                  background: `${color}15`,
+                                  border: `1px solid ${color}30`,
+                                  color,
+                                  width: 24,
+                                  height: 24,
+                                }}
+                              >
+                                <Icon size={14} />
+                              </div>
+                              <p
+                                className="text-xs font-bold uppercase tracking-widest"
+                                style={{ color }}
+                              >
+                                {category}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {items.map((item, i) => (
+                                <span
+                                  key={`${item}-${i}`}
+                                  className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold"
+                                  style={{
+                                    background: `${color}12`,
+                                    border: `1px solid ${color}22`,
+                                    color,
+                                  }}
+                                >
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Complexity & Team Size */}
+                <div className="grid grid-cols-2 gap-4">
+                  {previewData.estimated_complexity && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                        Estimated Complexity
+                      </p>
+                      <p className="capitalize text-sm font-semibold text-white/85">
+                        {previewData.estimated_complexity}
+                      </p>
+                    </div>
+                  )}
+                  {previewData.team_size && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                        Team Size
+                      </p>
+                      <p className="text-sm font-semibold text-white/85">
+                        {previewData.team_size}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button
+                  onClick={handleRejectPreview}
+                  disabled={acceptingPreview}
+                  className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85 disabled:opacity-50"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAcceptPreview}
+                  disabled={acceptingPreview}
+                  className="flex items-center gap-2 rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20 disabled:opacity-50"
+                >
+                  {acceptingPreview ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-green-300/30 border-t-green-300" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      Accept & Save
+                    </>
+                  )}
+                </button>
+              </div>
             </motion.div>
           </>
         )}

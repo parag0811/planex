@@ -100,26 +100,30 @@ export const upsertSection = async (
 // Controller → Queue → Redis (pending) → Worker → Redis (updates)
 
 export const generateIdeaSection = async (
-  req: Request<{ projectId: string }, {}, { idea: string }>,
+  req: Request<{ projectId: string }, {}, { idea: string; forceRegenerate?: boolean }>,
   res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
     const { projectId } = req.params;
-    const { idea } = req.body;
+    const { idea, forceRegenerate = false } = req.body;
 
     const hash = crypto.createHash("sha256").update(idea).digest("hex");
 
     const cacheKey = `idea:${hash}`;
-    const cachedData = await redis.get(cacheKey);
+    
+    // Skip cache check if forceRegenerate is true (preview mode)
+    if (!forceRegenerate) {
+      const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-      const ideaSection = JSON.parse(cachedData);
+      if (cachedData) {
+        const ideaSection = JSON.parse(cachedData);
 
-      return res.status(200).json({
-        status: "cached",
-        data: ideaSection,
-      });
+        return res.status(200).json({
+          status: "cached",
+          data: ideaSection,
+        });
+      }
     }
 
     const ideaJob = await aiQueue.add(
@@ -127,6 +131,7 @@ export const generateIdeaSection = async (
       {
         projectId,
         idea,
+        isRegenerating: forceRegenerate,
       },
       {
         attempts: 3,
@@ -460,6 +465,42 @@ export const regenerateSection = async (
     return res.status(200).json({
       status: "queued",
       jobId,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Accept preview endpoint - saves generated content to database
+export const acceptIdeaPreview = async (
+  req: Request<{ projectId: string }, {}, { generatedContent: any }>,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { projectId } = req.params;
+    const { generatedContent } = req.body;
+
+    if (!generatedContent) {
+      const error = new Error("Generated content is required") as AppError;
+      error.status = 400;
+      throw error;
+    }
+
+    // Save to database using upsert
+    const section = await upsertSectionService(
+      projectId,
+      TYPES.IDEA,
+      generatedContent,
+    );
+
+    // Cache the accepted section
+    const cacheKey = `section:${projectId}:${TYPES.IDEA}`;
+    await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+
+    return res.status(200).json({
+      data: section,
+      message: "Idea section accepted and saved",
     });
   } catch (error) {
     next(error);

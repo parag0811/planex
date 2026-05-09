@@ -56,7 +56,7 @@ export const generateIdea = createAsyncThunk(
 
       const res = await axiosInstance.post(
         `/projects/${projectId}/ai/generate-idea`,
-        { idea },
+        { idea, forceRegenerate: true },
       );
 
       const jobId: string | undefined = res.data?.jobId;
