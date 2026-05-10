@@ -25,6 +25,12 @@ interface GenerateSectionParams {
   projectId: string;
 }
 
+interface RegenerateSectionParams {
+  projectId: string;
+  section: string;
+  instruction?: string;
+}
+
 interface JobStatusResponse {
   status: JobStatusType;
   result: any | null;
@@ -148,6 +154,32 @@ export const generateFolder = createAsyncThunk(
   },
 );
 
+export const regenerateSection = createAsyncThunk(
+  "job/regenerateSection",
+  async (params: RegenerateSectionParams, { rejectWithValue }) => {
+    try {
+      const { projectId, section, instruction } = params;
+
+      const res = await axiosInstance.post(
+        `/projects/${projectId}/ai/regenerate/${section}`,
+        { section, instruction },
+      );
+
+      const jobId: string | undefined = res.data?.jobId;
+
+      if (!jobId) {
+        return rejectWithValue("No jobId returned from server");
+      }
+
+      return jobId;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to queue section regeneration"),
+      );
+    }
+  },
+);
+
 export const getJobStatusThunk = createAsyncThunk(
   "job/getJobStatus",
   async (params: JobParams, { rejectWithValue }) => {
@@ -225,6 +257,9 @@ const jobSlice = createSlice({
       .addCase(generateFolder.pending, onGeneratePending)
       .addCase(generateFolder.fulfilled, onGenerateFulfilled)
       .addCase(generateFolder.rejected, onGenerateRejected)
+      .addCase(regenerateSection.pending, onGeneratePending)
+      .addCase(regenerateSection.fulfilled, onGenerateFulfilled)
+      .addCase(regenerateSection.rejected, onGenerateRejected)
       .addCase(getJobStatusThunk.pending, (state) => {
         state.error = null;
       })

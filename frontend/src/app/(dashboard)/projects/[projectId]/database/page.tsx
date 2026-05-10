@@ -25,6 +25,7 @@ import {
   clearJobState,
   generateDatabase,
   getJobStatusThunk,
+  regenerateSection,
 } from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
@@ -336,6 +337,12 @@ export default function DatabasePage() {
     [schema.entities],
   );
 
+  const canRegenerate =
+    Boolean(previewData) ||
+    schema.entities.length > 0 ||
+    schema.relationships.length > 0 ||
+    Boolean(schema.indexes?.length);
+
   const isFetching = Boolean(databaseSectionState?.fetch.loading);
   const isSaving = Boolean(databaseSectionState?.save.loading);
   const isJobLoading =
@@ -409,6 +416,30 @@ export default function DatabasePage() {
       setStatus("Database generation queued. We are processing it now.");
     } catch (error: unknown) {
       setStatus(getErrorMessage(error, "Failed to queue database generation."));
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before regenerating the database section.");
+      return;
+    }
+
+    setStatus(null);
+    setPreviewData(null);
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(
+        regenerateSection({
+          projectId: resolvedProjectId,
+          section: "database",
+        }),
+      ).unwrap();
+
+      setStatus("Database regeneration queued. We are processing it now.");
+    } catch (error: unknown) {
+      setStatus(getErrorMessage(error, "Failed to queue database regeneration."));
     }
   };
 
@@ -852,6 +883,16 @@ export default function DatabasePage() {
                   </p>
                 </div>
               </div>
+              {canRegenerate && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Sparkles size={12} />
+                  {isJobLoading ? "Regenerating..." : "Regenerate"}
+                </button>
+              )}
             </div>
           </motion.div>
 

@@ -39,6 +39,7 @@ import {
   clearJobState,
   generateIdea,
   getJobStatusThunk,
+  regenerateSection,
 } from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 import AIRightSidebar, {
@@ -382,6 +383,37 @@ export default function IdeaPage() {
             ? "Failed to queue idea regeneration."
             : "Failed to queue idea generation."),
       );
+      setStatusType("error");
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!ideaData.raw_idea.trim()) {
+      setStatus("Add a raw idea first to regenerate suggestions.");
+      setStatusType("error");
+      return;
+    }
+
+    if (!resolvedProjectId) {
+      setStatus("Select a project before regenerating idea suggestions.");
+      setStatusType("error");
+      return;
+    }
+
+    try {
+      dispatch(clearJobState());
+
+      await dispatch(
+        regenerateSection({
+          projectId: resolvedProjectId,
+          section: "idea",
+        }),
+      ).unwrap();
+
+      setStatus("Idea regeneration queued. We are processing it now.");
+      setStatusType("success");
+    } catch (err: any) {
+      setStatus(err?.message ?? "Failed to queue idea regeneration.");
       setStatusType("error");
     }
   };
@@ -783,7 +815,7 @@ export default function IdeaPage() {
             </button>
             {canRegenerate && (
               <button
-                onClick={() => handleGenerate(true)}
+                onClick={handleRegenerate}
                 disabled={!ideaData.raw_idea.trim() || isJobLoading}
                 className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-blue-500/35 bg-blue-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/15"
               >

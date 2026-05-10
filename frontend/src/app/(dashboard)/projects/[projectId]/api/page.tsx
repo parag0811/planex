@@ -30,6 +30,7 @@ import {
   clearJobState,
   generateApi,
   getJobStatusThunk,
+  regenerateSection,
 } from "@/src/store/slices/jobSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
@@ -879,6 +880,7 @@ export default function ApiDesignPage() {
     apiSectionState?.save.error ??
     (jobState.status === "failed" ? jobState.error : null);
   const authTypes = AUTH_TYPES;
+  const canRegenerate = Boolean(previewData) || hasApiContent(api);
 
   const fetchApi = useCallback(async () => {
     if (!resolvedProjectId) {
@@ -929,6 +931,30 @@ export default function ApiDesignPage() {
       setStatus("API generation queued. We are processing it now.");
     } catch (err: any) {
       setStatus(err?.message ?? "Failed to queue API generation.");
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before regenerating the API section.");
+      return;
+    }
+
+    setStatus(null);
+    setPreviewData(null);
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(
+        regenerateSection({
+          projectId: resolvedProjectId,
+          section: "api",
+        }),
+      ).unwrap();
+
+      setStatus("API regeneration queued. We are processing it now.");
+    } catch (err: any) {
+      setStatus(err?.message ?? "Failed to queue API regeneration.");
     }
   };
 
@@ -1106,6 +1132,16 @@ export default function ApiDesignPage() {
                 <Sparkles size={12} />
                 {isJobLoading ? "Generating..." : "Generate"}
               </button>
+              {canRegenerate && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-cyan-500/35 bg-cyan-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-cyan-200 transition hover:bg-cyan-500/18 disabled:opacity-60"
+                >
+                  <RotateCcw size={12} />
+                  {isJobLoading ? "Regenerating..." : "Regenerate"}
+                </button>
+              )}
               <button
                 onClick={fetchApi}
                 className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"

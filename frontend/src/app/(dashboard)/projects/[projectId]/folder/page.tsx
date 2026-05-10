@@ -25,6 +25,7 @@ import {
   clearJobState,
   generateFolder,
   getJobStatusThunk,
+  regenerateSection,
 } from "@/src/store/slices/jobSlice";
 
 interface FolderNode {
@@ -465,6 +466,7 @@ export default function FolderStructurePage() {
     folderSectionState?.fetch.error ??
     folderSectionState?.save.error ??
     (jobState.status === "failed" ? jobState.error : null);
+  const canRegenerate = Boolean(previewData) || folder.root.length > 0 || shown;
 
   const handleGenerate = async () => {
     if (!resolvedProjectId) {
@@ -482,6 +484,30 @@ export default function FolderStructurePage() {
       setStatus("Folder generation queued. We are processing it now.");
     } catch (err: any) {
       setStatus(typeof err === "string" ? err : err?.message ?? "Failed to queue folder generation.");
+    }
+  };
+
+  const handleRegenerate = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before regenerating the folder structure.");
+      return;
+    }
+
+    setStatus(null);
+    setPreviewData(null);
+
+    try {
+      dispatch(clearJobState());
+      await dispatch(
+        regenerateSection({
+          projectId: resolvedProjectId,
+          section: "folder",
+        }),
+      ).unwrap();
+
+      setStatus("Folder regeneration queued. We are processing it now.");
+    } catch (err: any) {
+      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to queue folder regeneration.");
     }
   };
 
@@ -639,6 +665,16 @@ export default function FolderStructurePage() {
               <Sparkles size={14} />
               {isJobLoading ? "Generating..." : "Generate"}
             </button>
+            {canRegenerate && (
+              <button
+                onClick={handleRegenerate}
+                disabled={loading}
+                className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:border-cyan-500/50 hover:bg-cyan-500/20 disabled:opacity-50"
+              >
+                <Sparkles size={14} />
+                {isJobLoading ? "Regenerating..." : "Regenerate"}
+              </button>
+            )}
             <button
               onClick={() => setFolder(EMPTY)}
               className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12"
