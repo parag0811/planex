@@ -1,28 +1,74 @@
 const validSections = ["idea", "database", "api", "folder"];
 
-export const parseAiResponse = (raw: string) => {
-  try {
-    const json = JSON.parse(raw);
+export interface AiUpdateResponse {
+  type: "update";
+  section: string;
+  explanation: string;
+  content: any;
+}
 
-    // if (!json.type) {
-    //   const error = new Error("Invalid AI response.") as ApiError;
-    //   error.status = 422;
-    //   throw error;
-    // }
+export interface AiSuggestionResponse {
+  type: "suggestion";
+  message: string;
+}
+
+export type AiResponse = AiUpdateResponse | AiSuggestionResponse;
+
+export const parseAiResponse = (raw: string): AiResponse => {
+  try {
+    const json = JSON.parse(raw) as any;
+
+    if (!json.type) {
+      return {
+        type: "suggestion",
+        message: "Invalid response format. Please try again.",
+      };
+    }
 
     if (json.type === "update") {
       if (!validSections.includes(json.section)) {
-        const error = new Error("Invalid update structure") as AppError;
-        error.status = 422;
-        throw error;
+        return {
+          type: "suggestion",
+          message: `Invalid section: ${json.section}. Please specify: idea, database, api, or folder.`,
+        };
       }
+
+      if (!json.content) {
+        return {
+          type: "suggestion",
+          message: "Update response missing content. Please try again.",
+        };
+      }
+
+      if (!json.explanation) {
+        return {
+          type: "suggestion",
+          message: "Update response missing explanation. Please try again.",
+        };
+      }
+
+      return json as AiUpdateResponse;
     }
 
-    return json;
-  } catch (error) {
+    if (json.type === "suggestion") {
+      if (!json.message) {
+        return {
+          type: "suggestion",
+          message: "AI response parsing failed. Please try again.",
+        };
+      }
+      return json as AiSuggestionResponse;
+    }
+
     return {
       type: "suggestion",
-      message: "AI response parsing failed. Please try again.",
+      message: "Unknown response type. Please try again.",
+    };
+  } catch (error) {
+    console.error("JSON parse error:", error);
+    return {
+      type: "suggestion",
+      message: "Failed to parse AI response. Please try again.",
     };
   }
 };

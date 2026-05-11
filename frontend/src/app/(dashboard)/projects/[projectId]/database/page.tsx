@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "next/navigation";
-import AIRightSidebar from "@/src/components/layout/project-section/AIRightSidebar";
+import AIRightSidebar, {
+  type ApplySuggestion,
+} from "@/src/components/layout/project-section/AIRightSidebar";
 import {
   fetchSectionByType,
   upsertSection,
@@ -591,6 +593,28 @@ export default function DatabasePage() {
   const handleRejectPreview = () => {
     setPreviewData(null);
     setStatus(null);
+  };
+
+  const handleAISuggestion = (suggestion: ApplySuggestion) => {
+    if (suggestion.section !== "database" || !suggestion.payload) {
+      setStatus("Invalid suggestion received.");
+      return;
+    }
+
+    try {
+      // Apply the AI suggestion to the current schema
+      const merged: DatabaseSectionContent = {
+        entities: (suggestion.payload.entities as DatabaseEntity[] | undefined) ?? schema.entities,
+        relationships: (suggestion.payload.relationships as DatabaseRelation[] | undefined) ?? schema.relationships,
+        indexes: (suggestion.payload.indexes as DatabaseIndex[] | undefined) ?? schema.indexes,
+      };
+
+      setSchema(merged);
+      setStatus("AI suggestion applied. Click Save to persist changes.");
+    } catch (error) {
+      setStatus("Failed to apply AI suggestion. Please review the changes manually.");
+      console.error("Error applying suggestion:", error);
+    }
   };
 
   const addRelationship = () => {
@@ -1242,7 +1266,11 @@ export default function DatabasePage() {
         </motion.div>
       </div>
 
-      <AIRightSidebar isOpen={aiOpen} onOpenChange={setAiOpen} />
+      <AIRightSidebar 
+        isOpen={aiOpen} 
+        onOpenChange={setAiOpen}
+        onApplySuggestion={handleAISuggestion}
+      />
 
       <AnimatePresence>
         {previewData && (

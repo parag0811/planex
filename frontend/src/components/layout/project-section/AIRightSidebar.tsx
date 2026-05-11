@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
+import axiosInstance from "@/src/lib/axios";
 import {
   Sparkles,
   Send,
@@ -14,18 +15,22 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  explanation?: string;
   suggestion?: ApplySuggestion;
+  error?: string;
 }
 
 export interface ApplySuggestion {
-  label: string;
+  label?: string;
   payload: Record<string, unknown>;
+  section?: string;
 }
 
 interface AISidebarProps {
@@ -43,72 +48,29 @@ const fadeUp = (delay = 0) => ({
 });
 
 const STARTER_PROMPTS = [
-  "Suggest a tech stack for this section",
-  "What are the core features I should build?",
-  "Estimate complexity and team size",
-  "What are potential risks in this plan?",
+  "Make this field required",
+  "Add more fields to this entity",
+  "Suggest improvements for scalability",
+  "Check for missing relationships",
 ];
 
-const MOCK_RESPONSES: Record<string, { content: string; suggestion?: ApplySuggestion }> = {
-  default: {
-    content: "I've analyzed your project description. Here are my initial thoughts:\n\n• The scope looks well-defined for a startup-scale product\n• Consider starting with an MVP focusing on core features\n• A microservices approach may add unnecessary complexity early on\n\nWould you like me to generate full project requirements?",
-  },
-  tech: {
-    content: "Based on your idea, here's a recommended tech stack:\n\n**Frontend:** Next.js 14, TypeScript, Tailwind CSS\n**Backend:** Node.js with Fastify, tRPC\n**Database:** PostgreSQL + Redis for caching\n**Infrastructure:** Vercel + Railway\n**AI:** OpenAI API\n\nThis stack balances developer velocity with production readiness.",
-    suggestion: {
-      label: "Apply Tech Stack",
-      payload: {
-        suggested_tech_stack: {
-          frontend: ["Next.js 14", "TypeScript", "Tailwind CSS"],
-          backend: ["Node.js", "Fastify", "tRPC"],
-          database: ["PostgreSQL", "Redis"],
-          infrastructure: ["Vercel", "Railway"],
-          ai: ["OpenAI API"],
-        },
-      },
-    },
-  },
-  features: {
-    content: "Here are the core features I'd recommend:\n\n1. **User Authentication** — OAuth + email, critical for trust\n2. **Project Dashboard** — Central hub for all activity\n3. **Real-time Collaboration** — WebSocket-based live updates\n4. **AI Integration** — Inline suggestions and auto-completion\n5. **Export & Sharing** — PDF, markdown, and link sharing\n\nPriority order: Auth → Dashboard → Export → Collab → AI",
-    suggestion: {
-      label: "Apply Features",
-      payload: {
-        key_features: [
-          { name: "User Authentication", description: "OAuth + email authentication", priority: "critical" },
-          { name: "Project Dashboard", description: "Central hub for all activity", priority: "high" },
-          { name: "Real-time Collaboration", description: "WebSocket-based live updates", priority: "medium" },
-          { name: "AI Integration", description: "Inline suggestions and auto-completion", priority: "medium" },
-          { name: "Export & Sharing", description: "PDF, markdown, and link sharing", priority: "low" },
-        ],
-      },
-    },
-  },
-  complexity: {
-    content: "Based on the feature set and tech choices:\n\n**Complexity:** Medium-High\n**Team Size:** 3-5 developers\n**Timeline Estimate:** 4-6 months for v1\n\n⚠️ Key risks:\n• Real-time sync adds significant backend complexity\n• AI integration requires careful rate limiting\n• Auth edge cases often underestimated\n\nRecommend splitting into 2-week sprints with clear milestones.",
-    suggestion: {
-      label: "Apply Complexity & Team",
-      payload: {
-        estimated_complexity: "medium",
-        team_size: "3-5 developers",
-      },
-    },
-  },
+const getSectionContext = (pathname: string): "idea" | "database" | "api" | "folder" | "none" => {
+  if (pathname.includes("/idea")) return "idea";
+  if (pathname.includes("/database")) return "database";
+  if (pathname.includes("/api")) return "api";
+  if (pathname.includes("/folder")) return "folder";
+  return "none";
 };
 
-function getResponse(input: string) {
-  const lower = input.toLowerCase();
-  if (lower.includes("tech") || lower.includes("stack")) return MOCK_RESPONSES.tech;
-  if (lower.includes("feature") || lower.includes("build")) return MOCK_RESPONSES.features;
-  if (lower.includes("complex") || lower.includes("team") || lower.includes("risk")) return MOCK_RESPONSES.complexity;
-  return MOCK_RESPONSES.default;
-}
-
-const getSectionContext = (pathname: string): string => {
-  if (pathname.includes("/idea")) return "IDEA SECTION";
-  if (pathname.includes("/database")) return "DATABASE SECTION";
-  if (pathname.includes("/api")) return "API SECTION";
-  if (pathname.includes("/folder")) return "FOLDER SECTION";
-  return "PROJECT SECTION";
+const getSectionDisplayName = (section: string): string => {
+  const names: Record<string, string> = {
+    idea: "IDEA SECTION",
+    database: "DATABASE SECTION",
+    api: "API SECTION",
+    folder: "FOLDER SECTION",
+    none: "PROJECT SECTION",
+  };
+  return names[section] || "PROJECT SECTION";
 };
 
 export default function AIRightSidebar({
@@ -118,21 +80,29 @@ export default function AIRightSidebar({
   onOpenChange,
 }: AISidebarProps) {
   const pathname = usePathname();
+  const params = useParams();
+  const projectId = Array.isArray(params?.projectId) 
+    ? params.projectId[0] 
+    : params?.projectId || "";
+  
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hey! I'm your AI Scout for this project. Describe your idea and I'll help you build out requirements, suggest a tech stack, estimate complexity, and more.",
+      content: "Hey! I'm your AI Copilot. Describe what you need and I'll help you refine this section. Ask me to add fields, improve the design, or suggest best practices.",
     },
   ]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  
   const sectionContext = getSectionContext(pathname);
+  const sectionDisplayName = getSectionDisplayName(sectionContext);
 
   const setSidebarOpen = (open: boolean) => {
     if (controlledIsOpen === undefined) {
@@ -147,30 +117,122 @@ export default function AIRightSidebar({
 
   const sendMessage = async (text?: string) => {
     const content = (text ?? input).trim();
-    if (!content || isThinking) return;
+    if (!content || isThinking || !projectId) return;
 
     const userMsg: Message = { id: Date.now().toString(), role: "user", content };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsThinking(true);
+    setError(null);
 
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
+    try {
+      const response = await axiosInstance.post(
+        `/projects/${projectId}/ai/chat`,
+        {
+          message: content,
+          context: { section: sectionContext },
+        },
+      );
 
-    const response = getResponse(content);
-    const aiMsg: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: response.content,
-      suggestion: response.suggestion,
-    };
-    setMessages((prev) => [...prev, aiMsg]);
-    setIsThinking(false);
+      // Poll for job result
+      if (response.data?.jobId) {
+        let jobResult = null;
+        let attempts = 0;
+        const maxAttempts = 30; // 30 * 2 seconds = 60 seconds max
+
+        while (attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 2000));
+          
+          try {
+            const statusResponse = await axiosInstance.get(
+              `/ai/job/${response.data.jobId}`,
+            );
+            
+            if (
+              statusResponse.data?.status === "completed" ||
+              statusResponse.data?.status === "failed"
+            ) {
+              jobResult = statusResponse.data;
+              break;
+            }
+          } catch (e) {
+            // Continue polling
+          }
+          
+          attempts++;
+        }
+
+        if (jobResult) {
+          let aiResponse = jobResult.result;
+          
+          if (typeof aiResponse === "string") {
+            try {
+              aiResponse = JSON.parse(aiResponse);
+            } catch (e) {
+              console.error("Failed to parse AI response:", e);
+              aiResponse = {
+                type: "suggestion",
+                message: "Failed to process response. Please try again.",
+              };
+            }
+          }
+
+          const aiMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: 
+              aiResponse.type === "update"
+                ? aiResponse.explanation || "Applied changes to your section."
+                : aiResponse.message || "No response",
+          };
+
+          if (aiResponse.type === "update" && aiResponse.content) {
+            aiMsg.explanation = aiResponse.explanation;
+            aiMsg.suggestion = {
+              label: `Apply ${sectionContext} changes`,
+              payload: aiResponse.content,
+              section: aiResponse.section || sectionContext,
+            };
+          }
+
+          if (aiResponse.type === "suggestion" && !aiResponse.message) {
+            aiMsg.error = "Invalid response format";
+          }
+
+          setMessages((prev) => [...prev, aiMsg]);
+        } else {
+          const errorMsg: Message = {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: "Request timed out. Please try again.",
+            error: "timeout",
+          };
+          setMessages((prev) => [...prev, errorMsg]);
+        }
+      }
+    } catch (err: any) {
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content:
+          err?.response?.data?.message ||
+          "Failed to process your request. Please try again.",
+        error: "request_failed",
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setIsThinking(false);
+    }
   };
 
   const handleApply = (msg: Message) => {
     if (!msg.suggestion || !onApplySuggestion) return;
-    onApplySuggestion(msg.suggestion);
-    setApplied((prev) => new Set([...prev, msg.id]));
+    try {
+      onApplySuggestion(msg.suggestion);
+      setApplied((prev) => new Set([...prev, msg.id]));
+    } catch (err) {
+      setError("Failed to apply changes. Please try again.");
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -245,7 +307,7 @@ export default function AIRightSidebar({
               </div>
 
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6e7688]">
-                Context : {sectionContext}
+                Context: {sectionDisplayName}
               </p>
 
               <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-2.5">
@@ -266,17 +328,31 @@ export default function AIRightSidebar({
                 </p>
                 <div className="flex flex-col gap-1.5">
                   {STARTER_PROMPTS.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => sendMessage(p)}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-white/6 bg-[#0d111a] px-2.5 py-2 text-left text-[13px] text-white/45 transition-all duration-200 hover:border-orange-500/30 hover:text-white/70"
-                  >
-                    <ChevronRight size={11} className="text-orange-500/40 shrink-0" />
-                    {p}
-                  </button>
-                ))}
+                    <button
+                      key={p}
+                      onClick={() => sendMessage(p)}
+                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-white/6 bg-[#0d111a] px-2.5 py-2 text-left text-[13px] text-white/45 transition-all duration-200 hover:border-orange-500/30 hover:text-white/70"
+                    >
+                      <ChevronRight size={11} className="text-orange-500/40 shrink-0" />
+                      {p}
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
+
+            {/* Error banner */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2.5"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-red-300">{error}</p>
+                </div>
+              </motion.div>
             )}
 
             {/* Messages */}
@@ -293,13 +369,14 @@ export default function AIRightSidebar({
                       className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
                         msg.role === "assistant"
                           ? "bg-orange-500/12 border border-orange-500/22"
-                            : "bg-white/[0.07] border border-white/12"
+                          : "bg-white/[0.07] border border-white/12"
                       }`}
                     >
-                      {msg.role === "assistant"
-                        ? <Bot size={11} className="text-orange-500" />
-                        : <User size={11} className="text-white/50" />
-                      }
+                      {msg.role === "assistant" ? (
+                        <Bot size={11} className="text-orange-500" />
+                      ) : (
+                        <User size={11} className="text-white/50" />
+                      )}
                     </div>
                     <span className="text-[9px] text-white/22 font-mono tracking-[0.08em]">
                       {msg.role === "assistant" ? "AI" : "You"}
@@ -311,41 +388,66 @@ export default function AIRightSidebar({
                     className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-[1.72] ${
                       msg.role === "user"
                         ? "rounded-tr-sm border border-orange-500/20 bg-orange-500/12 text-white/75"
-                        : "rounded-tl-sm border border-white/7 bg-[#121722] text-white/60"
+                        : `rounded-tl-sm border text-white/60 ${
+                            msg.error
+                              ? "border-red-500/20 bg-red-500/8"
+                              : "border-white/7 bg-[#121722]"
+                          }`
                     }`}
                   >
                     {msg.content.split("\n").map((line, li) => (
                       <span key={li}>
                         {line.split(/(\*\*.*?\*\*)/).map((part, pi) =>
-                          part.startsWith("**") && part.endsWith("**")
-                            ? <strong key={pi} className="text-white/80 font-bold">{part.slice(2, -2)}</strong>
-                            : <span key={pi}>{part}</span>
+                          part.startsWith("**") && part.endsWith("**") ? (
+                            <strong key={pi} className="text-white/80 font-bold">
+                              {part.slice(2, -2)}
+                            </strong>
+                          ) : (
+                            <span key={pi}>{part}</span>
+                          ),
                         )}
                         {li < msg.content.split("\n").length - 1 && <br />}
                       </span>
                     ))}
                   </div>
 
-                  {/* Apply suggestion button */}
-                  {msg.suggestion && (
+                  {/* Apply suggestion button and controls */}
+                  {msg.suggestion && !applied.has(msg.id) && (
                     <motion.div
                       {...fadeUp(0.1)}
                       className="w-full max-w-[88%] rounded-md border border-orange-500/25 bg-[#140f0b] p-3"
                     >
-                      <p className="text-[12px] font-semibold text-white/80">Add "{msg.suggestion.label}"</p>
-                      <p className="mt-0.5 text-[10px] text-white/35">Automatic monthly invoice generation.</p>
+                      {msg.explanation && (
+                        <p className="text-[11px] text-white/60 mb-2.5 italic">
+                          💡 {msg.explanation}
+                        </p>
+                      )}
 
-                      <motion.button
-                        onClick={() => handleApply(msg)}
-                        disabled={applied.has(msg.id)}
-                        className={`mt-2.5 w-full rounded-sm border px-2 py-2 text-[12px] font-bold uppercase tracking-widest transition-all duration-200 ${
-                          applied.has(msg.id)
-                            ? "cursor-default border-green-500/35 bg-green-500/12 text-green-400"
-                            : "cursor-pointer border-orange-500/30 bg-[#0c1019] text-orange-400 hover:bg-orange-500/20"
-                        }`}
-                      >
-                        {applied.has(msg.id) ? "Applied" : "Apply Change"}
-                      </motion.button>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleApply(msg)}
+                          className="flex-1 rounded-sm border border-green-500/30 bg-green-500/12 px-2 py-2 text-[12px] font-bold uppercase tracking-widest text-green-400 transition-all duration-200 hover:bg-green-500/20"
+                        >
+                          ✓ Accept
+                        </button>
+                        <button
+                          onClick={() => setApplied((prev) => new Set([...prev, msg.id]))}
+                          className="flex-1 rounded-sm border border-white/20 bg-white/5 px-2 py-2 text-[12px] font-bold uppercase tracking-widest text-white/50 transition-all duration-200 hover:bg-white/10"
+                        >
+                          ✕ Deny
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {msg.suggestion && applied.has(msg.id) && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="w-full max-w-[88%] rounded-md border border-green-500/35 bg-green-500/12 px-3 py-2.5 flex items-center gap-2"
+                    >
+                      <CheckCheck size={12} className="text-green-400 shrink-0" />
+                      <span className="text-[12px] text-green-400 font-semibold">Applied</span>
                     </motion.div>
                   )}
                 </motion.div>
@@ -376,14 +478,15 @@ export default function AIRightSidebar({
                   onKeyDown={handleKey}
                   placeholder="Ask AI..."
                   rows={1}
-                  className="flex-1 bg-transparent border-none outline-none resize-none text-[13.5px] text-white/65 placeholder:text-white/22 leading-relaxed max-h-24 overflow-y-auto"
+                  disabled={isThinking}
+                  className="flex-1 bg-transparent border-none outline-none resize-none text-[13.5px] text-white/65 placeholder:text-white/22 leading-relaxed max-h-24 overflow-y-auto disabled:opacity-50"
                 />
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={() => sendMessage()}
-                  disabled={!input.trim() || isThinking}
+                  disabled={!input.trim() || isThinking || !projectId}
                   className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 transition-all duration-200 ${
-                    input.trim() && !isThinking
+                    input.trim() && !isThinking && projectId
                       ? "bg-orange-500 text-[#0f0800] cursor-pointer hover:bg-orange-400"
                       : "bg-white/6 text-white/20 cursor-not-allowed"
                   }`}
@@ -393,8 +496,8 @@ export default function AIRightSidebar({
               </div>
 
               <div className="mt-2 flex items-center justify-between px-0.5 text-[9px] font-mono uppercase tracking-widest text-white/18">
-                <span>Model: Geist-7B</span>
-                <span>Press Enter to send</span>
+                <span>Model: Claude AI</span>
+                <span>Enter to send</span>
               </div>
             </div>
           </motion.aside>
