@@ -1120,15 +1120,7 @@ export default function ApiDesignPage() {
               <span className="text-white/80">API</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200 transition hover:bg-blue-500/18 disabled:opacity-60"
-              >
-                <Sparkles size={12} />
-                {isJobLoading ? "Generating..." : "Generate"}
-              </button>
-              {canRegenerate && (
+              {canRegenerate ? (
                 <button
                   onClick={handleRegenerate}
                   disabled={loading}
@@ -1136,6 +1128,15 @@ export default function ApiDesignPage() {
                 >
                   <RotateCcw size={12} />
                   {isJobLoading ? "Regenerating..." : "Regenerate"}
+                </button>
+              ) : (
+                <button
+                  onClick={handleGenerate}
+                  disabled={loading}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200 transition hover:bg-blue-500/18 disabled:opacity-60"
+                >
+                  <Sparkles size={12} />
+                  {isJobLoading ? "Generating..." : "Generate"}
                 </button>
               )}
               <button

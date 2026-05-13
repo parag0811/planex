@@ -41,6 +41,11 @@ interface JobParams {
   jobId: string;
 }
 
+interface GenerateJobResult {
+  jobId?: string;
+  cachedData?: unknown;
+}
+
 const getErrorMessage = (error: any, fallback: string) => {
   const responseData = error?.response?.data;
 
@@ -67,12 +72,17 @@ export const generateIdea = createAsyncThunk(
       );
 
       const jobId: string | undefined = res.data?.jobId;
+      const cachedData = res.data?.status === "cached" ? res.data?.data : undefined;
 
-      if (!jobId) {
+      if (!jobId && cachedData === undefined) {
         return rejectWithValue("No jobId returned from server");
       }
 
-      return jobId;
+      if (cachedData !== undefined) {
+        return { cachedData: { idea: cachedData } } satisfies GenerateJobResult;
+      }
+
+      return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to queue idea"),
@@ -92,12 +102,17 @@ export const generateDatabase = createAsyncThunk(
       );
 
       const jobId: string | undefined = res.data?.jobId;
+      const cachedData = res.data?.status === "cached" ? res.data?.data : undefined;
 
-      if (!jobId) {
+      if (!jobId && cachedData === undefined) {
         return rejectWithValue("No jobId returned from server");
       }
 
-      return jobId;
+      if (cachedData !== undefined) {
+        return { cachedData } satisfies GenerateJobResult;
+      }
+
+      return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to queue database generation"),
@@ -115,12 +130,17 @@ export const generateApi = createAsyncThunk(
       const res = await axiosInstance.post(`/projects/${projectId}/ai/generate-api`);
 
       const jobId: string | undefined = res.data?.jobId;
+      const cachedData = res.data?.status === "cached" ? res.data?.data : undefined;
 
-      if (!jobId) {
+      if (!jobId && cachedData === undefined) {
         return rejectWithValue("No jobId returned from server");
       }
 
-      return jobId;
+      if (cachedData !== undefined) {
+        return { cachedData } satisfies GenerateJobResult;
+      }
+
+      return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to queue API generation"),
@@ -140,12 +160,17 @@ export const generateFolder = createAsyncThunk(
       );
 
       const jobId: string | undefined = res.data?.jobId;
+      const cachedData = res.data?.status === "cached" ? res.data?.data : undefined;
 
-      if (!jobId) {
+      if (!jobId && cachedData === undefined) {
         return rejectWithValue("No jobId returned from server");
       }
 
-      return jobId;
+      if (cachedData !== undefined) {
+        return { cachedData } satisfies GenerateJobResult;
+      }
+
+      return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to queue folder generation"),
@@ -230,7 +255,17 @@ const jobSlice = createSlice({
       state: JobState,
       action: { payload: unknown },
     ) => {
-      state.jobId = String(action.payload ?? "");
+      const payload = action.payload as GenerateJobResult | undefined;
+
+      if (payload?.cachedData !== undefined) {
+        state.jobId = null;
+        state.status = "completed";
+        state.result = payload.cachedData;
+        state.error = null;
+        return;
+      }
+
+      state.jobId = String(payload?.jobId ?? action.payload ?? "");
       state.status = "pending";
       state.result = null;
       state.error = null;

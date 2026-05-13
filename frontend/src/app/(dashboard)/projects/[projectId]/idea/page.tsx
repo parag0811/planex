@@ -238,6 +238,7 @@ export default function IdeaPage() {
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
   const [previewData, setPreviewData] = useState<IdeaSectionContent | null>(null);
   const [acceptingPreview, setAcceptingPreview] = useState(false);
+  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
 
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [featureForm, setFeatureForm] = useState<KeyFeature>({
@@ -305,6 +306,9 @@ export default function IdeaPage() {
         fetchSectionByType({ projectId: resolvedProjectId, type: "idea" }),
       ).unwrap();
       setIdeaData(normalizeIdea(result.section));
+      if (result.section?.content) {
+        setHasGeneratedOnce(true);
+      }
     } catch (err: any) {
       setIdeaData(EMPTY_IDEA);
     }
@@ -447,6 +451,7 @@ export default function IdeaPage() {
     if (jobState.result?.idea) {
       const generatedIdea = normalizeIdea(jobState.result.idea);
       setPreviewData(generatedIdea);
+      setHasGeneratedOnce(true);
       setStatus("Idea generation completed. Review and accept below.");
       setStatusType("success");
     }
@@ -805,22 +810,23 @@ export default function IdeaPage() {
                 className="w-full resize-y bg-transparent text-base leading-relaxed text-white/80 outline-none placeholder:text-white/35"
               />
             </div>
-            <button
-              onClick={() => handleGenerate(false)}
-              disabled={!ideaData.raw_idea.trim() || isJobLoading}
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-500/15"
-            >
-              <Sparkles size={18} />
-              {isJobLoading ? "Generating..." : "Generate Suggestions"}
-            </button>
-            {canRegenerate && (
+            {hasGeneratedOnce ? (
               <button
                 onClick={handleRegenerate}
                 disabled={!ideaData.raw_idea.trim() || isJobLoading}
-                className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-blue-500/35 bg-blue-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/15"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-blue-500/35 bg-blue-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/15"
               >
                 <Sparkles size={18} />
                 {isJobLoading ? "Regenerating..." : "Regenerate Suggestions"}
+              </button>
+            ) : (
+              <button
+                onClick={() => handleGenerate(false)}
+                disabled={!ideaData.raw_idea.trim() || isJobLoading}
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-500/15"
+              >
+                <Sparkles size={18} />
+                {isJobLoading ? "Generating..." : "Generate Suggestions"}
               </button>
             )}
           </motion.div>

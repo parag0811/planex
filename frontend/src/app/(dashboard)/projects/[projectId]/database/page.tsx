@@ -768,21 +768,16 @@ export default function DatabasePage() {
               <span className="text-white/80">DATABASE</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-200 transition hover:bg-blue-500/18 disabled:opacity-60"
-              >
-                <Sparkles size={12} />
-                {isJobLoading ? "Generating..." : "Generate"}
-              </button>
-              <button
-                onClick={handleToggleSample}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
-              >
-                <RefreshCw size={12} />
-                {isSampleView ? "Show my database" : "Show sample"}
-              </button>
+              {!canRegenerate && (
+                <button
+                  onClick={handleGenerate}
+                  disabled={loading}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Sparkles size={12} />
+                  {isJobLoading ? "Generating..." : "Generate"}
+                </button>
+              )}
               <button
                 onClick={handleSaveDraft}
                 disabled={loading}
