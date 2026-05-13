@@ -1592,6 +1592,13 @@ export default function IdeaPage() {
               {/* Action Buttons */}
               <div className="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
                 <button
+                  onClick={handleRegenerate}
+                  disabled={acceptingPreview || isJobLoading}
+                  className="rounded-md border border-blue-500/35 bg-blue-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+                <button
                   onClick={handleRejectPreview}
                   disabled={acceptingPreview}
                   className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85 disabled:opacity-50"

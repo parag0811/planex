@@ -374,6 +374,7 @@ export default function FolderStructurePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [folder, setFolder] = useState<FolderSectionContent>(EMPTY);
   const [previewData, setPreviewData] = useState<FolderSectionContent | null>(null);
+  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -466,7 +467,8 @@ export default function FolderStructurePage() {
     folderSectionState?.fetch.error ??
     folderSectionState?.save.error ??
     (jobState.status === "failed" ? jobState.error : null);
-  const canRegenerate = Boolean(previewData) || folder.root.length > 0 || shown;
+  const canRegenerate =
+    Boolean(previewData) || hasGeneratedOnce || folder.root.length > 0 || shown;
 
   const handleGenerate = async () => {
     if (!resolvedProjectId) {
@@ -539,6 +541,7 @@ export default function FolderStructurePage() {
     if (jobState.result) {
       const normalized = normalizeFolder(jobState.result);
       setPreviewData(normalized);
+      setHasGeneratedOnce(true);
       setStatus("Folder generation completed. Review the preview below.");
     } else {
       setStatus("Folder generation completed, but no preview was returned.");
@@ -867,6 +870,13 @@ export default function FolderStructurePage() {
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  className="rounded-md border border-cyan-500/35 bg-cyan-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
                 <button
                   onClick={handleRejectPreview}
                   className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"

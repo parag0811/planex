@@ -175,7 +175,7 @@ export const generateDatabaseSuggestion = async (
 ) => {
   try {
     const { projectId } = req.params;
-    const { forceRegenerate = false } = req.body;
+    const { forceRegenerate = false } = req.body ?? {};
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
 
@@ -251,7 +251,7 @@ export const generateApiSuggestion = async (
 ) => {
   try {
     const { projectId } = req.params;
-    const { forceRegenerate = false } = req.body;
+    const { forceRegenerate = false } = req.body ?? {};
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
     const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
@@ -328,7 +328,7 @@ export const generateFolderSuggestion = async (
 ) => {
   try {
     const { projectId } = req.params;
-    const { forceRegenerate = false } = req.body;
+    const { forceRegenerate = false } = req.body ?? {};
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
     const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);

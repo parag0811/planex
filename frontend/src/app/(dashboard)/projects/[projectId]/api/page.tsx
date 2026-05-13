@@ -140,10 +140,8 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
 
           const sourceRoute = route as Partial<ApiRoute>;
           if (
-            typeof sourceRoute.id !== "string" ||
             typeof sourceRoute.name !== "string" ||
             typeof sourceRoute.path !== "string" ||
-            typeof sourceRoute.description !== "string" ||
             !sourceRoute.method ||
             !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(sourceRoute.method)
           ) {
@@ -151,11 +149,11 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
           }
 
           return {
-            id: sourceRoute.id,
+            id: typeof sourceRoute.id === "string" && sourceRoute.id ? sourceRoute.id : uid(),
             name: sourceRoute.name,
             method: sourceRoute.method as HttpMethod,
             path: sourceRoute.path,
-            description: sourceRoute.description,
+            description: typeof sourceRoute.description === "string" ? sourceRoute.description : "",
             request: {
               body: toStringRecord(sourceRoute.request?.body),
               params: toStringRecord(sourceRoute.request?.params),
@@ -176,18 +174,14 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
           if (!event || typeof event !== "object") return null;
 
           const sourceEvent = event as Partial<WebSocketEvent>;
-          if (
-            typeof sourceEvent.id !== "string" ||
-            typeof sourceEvent.name !== "string" ||
-            typeof sourceEvent.description !== "string"
-          ) {
+          if (typeof sourceEvent.name !== "string") {
             return null;
           }
 
           return {
-            id: sourceEvent.id,
+            id: typeof sourceEvent.id === "string" && sourceEvent.id ? sourceEvent.id : uid(),
             name: sourceEvent.name,
-            description: sourceEvent.description,
+            description: typeof sourceEvent.description === "string" ? sourceEvent.description : "",
             payload: toStringRecord(sourceEvent.payload),
           } satisfies WebSocketEvent;
         })
@@ -860,6 +854,7 @@ export default function ApiDesignPage() {
 
   const [api, setApi] = useState<ApiSectionContent>(EMPTY);
   const [previewData, setPreviewData] = useState<ApiSectionContent | null>(null);
+  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [tab, setTab] = useState<"rest" | "realtime" | "auth">("rest");
@@ -880,7 +875,7 @@ export default function ApiDesignPage() {
     apiSectionState?.save.error ??
     (jobState.status === "failed" ? jobState.error : null);
   const authTypes = AUTH_TYPES;
-  const canRegenerate = Boolean(previewData) || hasApiContent(api);
+  const canRegenerate = Boolean(previewData) || hasGeneratedOnce || hasApiContent(api);
 
   const fetchApi = useCallback(async () => {
     if (!resolvedProjectId) {
@@ -985,6 +980,7 @@ export default function ApiDesignPage() {
 
     if (jobState.result) {
       setPreviewData(normalizeApi(jobState.result));
+      setHasGeneratedOnce(true);
       setStatus("API generation completed. Review the preview below.");
     } else {
       setStatus("API generation completed, but no preview was returned.");
@@ -1785,6 +1781,13 @@ export default function ApiDesignPage() {
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  className="rounded-md border border-cyan-500/35 bg-cyan-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
                 <button
                   onClick={handleRejectPreview}
                   className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
