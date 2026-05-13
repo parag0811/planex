@@ -37,9 +37,16 @@ export interface ApiSectionContent {
   auth: AuthFlow;
 }
 
+export interface ApiPromptOptions {
+  isRegenerating?: boolean;
+  regenerationSeed?: string;
+  instruction?: string;
+}
+
 export const buildApiPrompt = (
-    idea : IdeaSectionContent,
-    database : DatabaseSectionContent
+  idea: IdeaSectionContent,
+  database: DatabaseSectionContent,
+  options: ApiPromptOptions = {},
 ): string => `
 You are a senior backend architect.
 
@@ -72,6 +79,21 @@ Relationships:
 ${database.relationships
   .map((r) => `- ${r.from} → ${r.to} (${r.type})`)
   .join("\n")}
+
+${options.isRegenerating ? `
+REGENERATION MODE
+- Produce a fresh API design while keeping it consistent with the schema
+- Avoid reusing identical route groupings and descriptions where possible
+` : ""}
+
+${options.instruction ? `
+USER INSTRUCTION:
+${options.instruction}
+` : ""}
+
+${options.isRegenerating ? `
+REGENERATION_ID: ${options.regenerationSeed || "none"}
+` : ""}
 
 ========================
 

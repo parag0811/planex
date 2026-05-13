@@ -12,10 +12,17 @@ export interface FolderSectionContent {
   root: FolderNode[];
 }
 
+export interface FolderPromptOptions {
+  isRegenerating?: boolean;
+  regenerationSeed?: string;
+  instruction?: string;
+}
+
 export const buildFolderPrompt = (
   idea: IdeaSectionContent,
   database: DatabaseSectionContent,
   api: ApiSectionContent,
+  options: FolderPromptOptions = {},
 ): string => `
 You are a senior software architect.
 
@@ -39,6 +46,21 @@ API ROUTES
 ${api.rest.map(r => `- ${r.method} ${r.path}`).join("\n")}
 
 ========================
+
+${options.isRegenerating ? `
+REGENERATION MODE
+- Produce a different but equivalent folder structure
+- Avoid repeating the same nesting and naming patterns where possible
+` : ""}
+
+${options.instruction ? `
+USER INSTRUCTION:
+${options.instruction}
+` : ""}
+
+${options.isRegenerating ? `
+REGENERATION_ID: ${options.regenerationSeed || "none"}
+` : ""}
 
 Your task:
 

@@ -169,12 +169,13 @@ export const generateIdeaSection = async (
 };
 
 export const generateDatabaseSuggestion = async (
-  req: Request<{ projectId: string }>,
+  req: Request<{ projectId: string }, {}, { forceRegenerate?: boolean }>,
   res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
     const { projectId } = req.params;
+    const { forceRegenerate = false } = req.body;
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
 
@@ -189,21 +190,24 @@ export const generateDatabaseSuggestion = async (
     const hash = crypto.createHash("sha256").update(content).digest("hex");
 
     const cacheKey = `db:${hash}`;
-    const cachedData = await redis.get(cacheKey);
+    if (!forceRegenerate) {
+      const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-      const dbSection = JSON.parse(cachedData);
+      if (cachedData) {
+        const dbSection = JSON.parse(cachedData);
 
-      return res.status(200).json({
-        status: "cached",
-        data: dbSection,
-      });
+        return res.status(200).json({
+          status: "cached",
+          data: dbSection,
+        });
+      }
     }
 
     const databaseJob = await aiQueue.add(
       "database",
       {
         projectId,
+        isRegenerating: forceRegenerate,
       },
       {
         attempts: 3,
@@ -241,12 +245,13 @@ export const generateDatabaseSuggestion = async (
 };
 
 export const generateApiSuggestion = async (
-  req: Request<{ projectId: string }>,
+  req: Request<{ projectId: string }, {}, { forceRegenerate?: boolean }>,
   res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
     const { projectId } = req.params;
+    const { forceRegenerate = false } = req.body;
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
     const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
@@ -265,21 +270,24 @@ export const generateApiSuggestion = async (
       .update(`${ideaContent}::${dbContent}`)
       .digest("hex");
     const cacheKey = `api:${hash}`;
-    const cachedData = await redis.get(cacheKey);
+    if (!forceRegenerate) {
+      const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-      const apiSection = JSON.parse(cachedData);
+      if (cachedData) {
+        const apiSection = JSON.parse(cachedData);
 
-      return res.status(200).json({
-        status: "cached",
-        data: apiSection,
-      });
+        return res.status(200).json({
+          status: "cached",
+          data: apiSection,
+        });
+      }
     }
 
     const apiJob = await aiQueue.add(
       "api",
       {
         projectId,
+        isRegenerating: forceRegenerate,
       },
       {
         attempts: 3,
@@ -314,12 +322,13 @@ export const generateApiSuggestion = async (
 };
 
 export const generateFolderSuggestion = async (
-  req: Request<{ projectId: string }>,
+  req: Request<{ projectId: string }, {}, { forceRegenerate?: boolean }>,
   res: Response<QueueResponse>,
   next: NextFunction,
 ) => {
   try {
     const { projectId } = req.params;
+    const { forceRegenerate = false } = req.body;
 
     const ideaSection = await getSectionByTypeService(projectId, TYPES.IDEA);
     const dbSection = await getSectionByTypeService(projectId, TYPES.DATABASE);
@@ -342,21 +351,24 @@ export const generateFolderSuggestion = async (
       .update(`${ideaContent}::${dbContent}::${apiContent}`)
       .digest("hex");
     const cacheKey = `folder:${hash}`;
-    const cachedData = await redis.get(cacheKey);
+    if (!forceRegenerate) {
+      const cachedData = await redis.get(cacheKey);
 
-    if (cachedData) {
-      const folderSection = JSON.parse(cachedData);
+      if (cachedData) {
+        const folderSection = JSON.parse(cachedData);
 
-      return res.status(200).json({
-        status: "cached",
-        data: folderSection,
-      });
+        return res.status(200).json({
+          status: "cached",
+          data: folderSection,
+        });
+      }
     }
 
     const folderJob = await aiQueue.add(
       "folder",
       {
         projectId,
+        isRegenerating: forceRegenerate,
       },
       {
         attempts: 3,

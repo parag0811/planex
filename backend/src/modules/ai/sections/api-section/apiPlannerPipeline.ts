@@ -6,13 +6,25 @@
 import { DatabaseSectionContent } from "../db-section/dbPromptBuilder";
 import { IdeaSectionContent } from "../idea-section/ideaPromptBuilder";
 import { generateSection } from "../../plannerAgent";
-import { ApiSectionContent, buildApiPrompt } from "./apiPromptBuilder";
+import {
+  type ApiPromptOptions,
+  type ApiSectionContent,
+  buildApiPrompt,
+} from "./apiPromptBuilder";
 import crypto from "crypto";
 import redis from "../../../../db/redis";
+
+const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
+
+interface ApiPipelineOptions extends ApiPromptOptions {
+  useCache?: boolean;
+  cacheTtlSeconds?: number;
+}
 
 export const runApiPipeline = async (
   idea: IdeaSectionContent,
   database: DatabaseSectionContent,
+  options: ApiPipelineOptions = {},
 ): Promise<ApiSectionContent> => {
   try {
     console.log(`🔌 runApiPipeline: Starting API generation...`);
@@ -24,23 +36,41 @@ export const runApiPipeline = async (
       .createHash("sha256")
       .update(`${ideaContent}::${dbContent}`)
       .digest("hex");
-    const cacheKey = `api:${hash}`;
-    const cachedData = await redis.get(cacheKey);
+    const useCache = options.useCache !== false;
+    const cacheTtlSeconds = options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
 
-    if (cachedData) {
-      console.log(`🔌 runApiPipeline: Using cached result`);
-      const apiSection = JSON.parse(cachedData);
-      return apiSection;
+    const cacheKey = `api:${hash}`;
+
+    if (useCache) {
+      const cachedData = await redis.get(cacheKey);
+
+      if (cachedData) {
+        console.log(`🔌 runApiPipeline: Using cached result`);
+        const apiSection = JSON.parse(cachedData);
+        return apiSection;
+      }
     }
 
     console.log(`🔌 runApiPipeline: Building prompt...`);
-    const prompt = buildApiPrompt(idea, database);
+    const prompt = buildApiPrompt(idea, database, {
+      ...(options.isRegenerating !== undefined
+        ? { isRegenerating: options.isRegenerating }
+        : {}),
+      ...(options.regenerationSeed !== undefined
+        ? { regenerationSeed: options.regenerationSeed }
+        : {}),
+      ...(options.instruction !== undefined
+        ? { instruction: options.instruction }
+        : {}),
+    });
     console.log(`🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`);
     
     const apiSection = await generateSection(prompt);
 
-    console.log(`🔌 runApiPipeline: Caching result...`);
-    await redis.set(cacheKey, JSON.stringify(apiSection), "EX", 3600);
+    if (useCache) {
+      console.log(`🔌 runApiPipeline: Caching result...`);
+      await redis.set(cacheKey, JSON.stringify(apiSection), "EX", cacheTtlSeconds);
+    }
 
     console.log(`✅ runApiPipeline: Successfully completed`);
     return apiSection;

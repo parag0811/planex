@@ -25,14 +25,23 @@ export interface IdeaSectionContent {
   team_size: string;
 }
 
-export const buildIdeaPrompt = (rawIdea: string, isRegenerating: boolean = false): string => `
+export interface IdeaPromptOptions {
+  isRegenerating?: boolean;
+  regenerationSeed?: string;
+  instruction?: string;
+}
+
+export const buildIdeaPrompt = (
+  rawIdea: string,
+  options: IdeaPromptOptions = {},
+): string => `
 You are a senior software architect working on Planex, an AI system that helps developers turn ideas into complete project architectures.
 
 A user described their project idea:
 
 "${rawIdea}"
 
-${isRegenerating ? `
+${options.isRegenerating ? `
 IMPORTANT: This is a regeneration request. Generate a DIFFERENT and NOVEL interpretation of the idea.
 Focus on:
 - Alternative features and capabilities not explored before
@@ -40,6 +49,15 @@ Focus on:
 - Novel use cases and target users
 - Unique technical stack choices
 - Fresh prioritization of features
+` : ""}
+
+${options.instruction ? `
+USER INSTRUCTION:
+${options.instruction}
+` : ""}
+
+${options.isRegenerating ? `
+REGENERATION_ID: ${options.regenerationSeed || "none"}
 ` : ""}
 
 Your task is to expand this idea into structured product requirements.

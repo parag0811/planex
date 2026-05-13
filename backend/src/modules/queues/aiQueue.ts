@@ -1,5 +1,4 @@
 import { Queue } from "bullmq";
-import { Request, Response, NextFunction } from "express";
 
 export const aiQueue = new Queue("ai-queue", {
   connection: {

@@ -60,12 +60,16 @@ export const aiHandlers = {
   },
 
   idea: async (data: any) => {
-    const { idea, isRegenerating = false } = data;
+    const { idea, isRegenerating = false, instruction } = data;
 
     try {
       console.log(`🚀 [idea] Handler: Processing idea: ${idea.substring(0, 50)}...${isRegenerating ? ' (regenerating)' : ''}`);
       const result = await withTimeout(
-        runPlannerPipeline(idea, isRegenerating),
+        runPlannerPipeline(idea, {
+          isRegenerating,
+          useCache: !isRegenerating,
+          instruction,
+        }),
         300000,
         "Idea pipeline"
       );
@@ -79,7 +83,7 @@ export const aiHandlers = {
     }
   },
   database: async (data: any) => {
-    const { projectId } = data;
+    const { projectId, isRegenerating = false, instruction, regenerationSeed } = data;
 
     try {
       console.log(`🚀 [database] Handler: Processing for project ${projectId}`);
@@ -90,6 +94,12 @@ export const aiHandlers = {
       const result = await withTimeout(
         runDatabasePipeline(
           ideaSection.content as unknown as IdeaSectionContent,
+          {
+            isRegenerating,
+            useCache: !isRegenerating,
+            instruction,
+            regenerationSeed,
+          },
         ),
         300000,
         "Database pipeline"
@@ -105,7 +115,7 @@ export const aiHandlers = {
   },
 
   api: async (data: any) => {
-    const { projectId } = data;
+    const { projectId, isRegenerating = false, instruction, regenerationSeed } = data;
 
     try {
       console.log(`🚀 [api] Handler: Processing for project ${projectId}`);
@@ -121,6 +131,12 @@ export const aiHandlers = {
         runApiPipeline(
           ideaSection.content as unknown as IdeaSectionContent,
           dbSection.content as unknown as DatabaseSectionContent,
+          {
+            isRegenerating,
+            useCache: !isRegenerating,
+            instruction,
+            regenerationSeed,
+          },
         ),
         300000,
         "API pipeline"
@@ -136,7 +152,7 @@ export const aiHandlers = {
   },
 
   folder: async (data: any) => {
-    const { projectId } = data;
+    const { projectId, isRegenerating = false, instruction, regenerationSeed } = data;
 
     try {
       console.log(`🚀 [folder] Handler: Processing for project ${projectId}`);
@@ -154,6 +170,12 @@ export const aiHandlers = {
           ideaSection.content as unknown as IdeaSectionContent,
           dbSection.content as unknown as DatabaseSectionContent,
           apiSection.content as unknown as ApiSectionContent,
+          {
+            isRegenerating,
+            useCache: !isRegenerating,
+            instruction,
+            regenerationSeed,
+          },
         ),
         300000,
         "Folder pipeline"

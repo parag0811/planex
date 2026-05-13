@@ -45,7 +45,16 @@ export interface DatabaseSectionContent {
 
 import { IdeaSectionContent } from "../idea-section/ideaPromptBuilder";
 
-export const buildDatabasePrompt = (idea: IdeaSectionContent): string => `
+export interface DatabasePromptOptions {
+  isRegenerating?: boolean;
+  regenerationSeed?: string;
+  instruction?: string;
+}
+
+export const buildDatabasePrompt = (
+  idea: IdeaSectionContent,
+  options: DatabasePromptOptions = {},
+): string => `
 You are a senior backend architect.
 
 Using the following product specification, design a database schema.
@@ -63,6 +72,21 @@ ${idea.requirements.map((r) => `- ${r}`).join("\n")}
 
 SUGGESTED DATABASE TECHNOLOGIES
 ${idea.suggested_tech_stack.database.join(", ")}
+
+${options.isRegenerating ? `
+REGENERATION MODE
+- Produce a different schema while still satisfying the product requirements
+- Avoid reusing the exact same entity names and field groupings when possible
+` : ""}
+
+${options.instruction ? `
+USER INSTRUCTION:
+${options.instruction}
+` : ""}
+
+${options.isRegenerating ? `
+REGENERATION_ID: ${options.regenerationSeed || "none"}
+` : ""}
 
 Your task:
 Design a relational database schema suitable for a modern backend application.
