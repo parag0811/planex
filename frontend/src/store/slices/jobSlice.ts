@@ -31,6 +31,14 @@ interface RegenerateSectionParams {
   instruction?: string;
 }
 
+export type ChatSectionType = "idea" | "database" | "api" | "folder" | "none";
+
+interface ChatMessageParams {
+  projectId: string;
+  message: string;
+  section: ChatSectionType;
+}
+
 interface JobStatusResponse {
   status: JobStatusType;
   result: any | null;
@@ -44,6 +52,10 @@ interface JobParams {
 interface GenerateJobResult {
   jobId?: string;
   cachedData?: unknown;
+}
+
+interface ChatJobResult {
+  jobId: string;
 }
 
 const getErrorMessage = (error: any, fallback: string) => {
@@ -200,6 +212,56 @@ export const regenerateSection = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to queue section regeneration"),
+      );
+    }
+  },
+);
+
+export const sendChatMessage = createAsyncThunk(
+  "job/sendChatMessage",
+  async (params: ChatMessageParams, { rejectWithValue }) => {
+    try {
+      const { projectId, message, section } = params;
+
+      const res = await axiosInstance.post(
+        `/projects/${projectId}/ai/chat`,
+        {
+          message,
+          context: { section },
+        },
+      );
+
+      const jobId: string | undefined = res.data?.jobId;
+
+      if (!jobId) {
+        return rejectWithValue("No jobId returned from server");
+      }
+
+      return { jobId } satisfies ChatJobResult;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to queue chat message"),
+      );
+    }
+  },
+);
+
+export const getAiJobStatusThunk = createAsyncThunk(
+  "job/getAiJobStatus",
+  async (params: JobParams, { rejectWithValue }) => {
+    try {
+      const { jobId } = params;
+
+      const res = await axiosInstance.get(`/ai/job/${jobId}`);
+
+      return {
+        status: (res.data?.status ?? "idle") as JobStatusType,
+        result: res.data?.result ?? null,
+        error: res.data?.error ?? null,
+      } satisfies JobStatusResponse;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to get job status"),
       );
     }
   },

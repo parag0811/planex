@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, type Transition } from "framer-motion";
 import { usePathname, useParams } from "next/navigation";
-import axiosInstance from "@/src/lib/axios";
+import { useDispatch } from "react-redux";
 import {
   Sparkles,
   Send,
@@ -17,6 +17,12 @@ import {
   Zap,
   AlertCircle,
 } from "lucide-react";
+import {
+  getAiJobStatusThunk,
+  sendChatMessage,
+  type ChatSectionType,
+} from "@/src/store/slices/jobSlice";
+import type { AppDispatch } from "@/src/store/store";
 
 interface Message {
   id: string;
@@ -54,7 +60,7 @@ const STARTER_PROMPTS = [
   "Check for missing relationships",
 ];
 
-const getSectionContext = (pathname: string): "idea" | "database" | "api" | "folder" | "none" => {
+const getSectionContext = (pathname: string): ChatSectionType => {
   if (pathname.includes("/idea")) return "idea";
   if (pathname.includes("/database")) return "database";
   if (pathname.includes("/api")) return "api";
@@ -84,6 +90,7 @@ export default function AIRightSidebar({
   const projectId = Array.isArray(params?.projectId) 
     ? params.projectId[0] 
     : params?.projectId || "";
+  const dispatch = useDispatch<AppDispatch>();
   
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
@@ -126,97 +133,105 @@ export default function AIRightSidebar({
     setError(null);
 
     try {
-      const response = await axiosInstance.post(
-        `/projects/${projectId}/ai/chat`,
-        {
+      const queued = await dispatch(
+        sendChatMessage({
+          projectId,
           message: content,
-          context: { section: sectionContext },
-        },
-      );
+          section: sectionContext,
+        }),
+      ).unwrap();
 
-      // Poll for job result
-      if (response.data?.jobId) {
-        let jobResult = null;
-        let attempts = 0;
-        const maxAttempts = 30; // 30 * 2 seconds = 60 seconds max
+      const jobId = queued.jobId;
+      let jobResult = null;
+      let attempts = 0;
+      const maxAttempts = 30; // 30 * 2 seconds = 60 seconds max
 
-        while (attempts < maxAttempts) {
-          await new Promise((r) => setTimeout(r, 2000));
-          
-          try {
-            const statusResponse = await axiosInstance.get(
-              `/ai/job/${response.data.jobId}`,
-            );
-            
-            if (
-              statusResponse.data?.status === "completed" ||
-              statusResponse.data?.status === "failed"
-            ) {
-              jobResult = statusResponse.data;
-              break;
-            }
-          } catch (e) {
-            // Continue polling
+      while (attempts < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 2000));
+
+        try {
+          const statusResponse = await dispatch(
+            getAiJobStatusThunk({ jobId }),
+          ).unwrap();
+
+          if (
+            statusResponse.status === "completed" ||
+            statusResponse.status === "failed"
+          ) {
+            jobResult = statusResponse;
+            break;
           }
-          
-          attempts++;
+        } catch (e) {
+          // Continue polling
         }
 
-        if (jobResult) {
-          let aiResponse = jobResult.result;
-          
-          if (typeof aiResponse === "string") {
-            try {
-              aiResponse = JSON.parse(aiResponse);
-            } catch (e) {
-              console.error("Failed to parse AI response:", e);
-              aiResponse = {
-                type: "suggestion",
-                message: "Failed to process response. Please try again.",
-              };
-            }
-          }
+        attempts++;
+      }
 
-          const aiMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: 
-              aiResponse.type === "update"
-                ? aiResponse.explanation || "Applied changes to your section."
-                : aiResponse.message || "No response",
-          };
-
-          if (aiResponse.type === "update" && aiResponse.content) {
-            aiMsg.explanation = aiResponse.explanation;
-            aiMsg.suggestion = {
-              label: `Apply ${sectionContext} changes`,
-              payload: aiResponse.content,
-              section: aiResponse.section || sectionContext,
-            };
-          }
-
-          if (aiResponse.type === "suggestion" && !aiResponse.message) {
-            aiMsg.error = "Invalid response format";
-          }
-
-          setMessages((prev) => [...prev, aiMsg]);
-        } else {
+      if (jobResult) {
+        if (jobResult.status === "failed") {
           const errorMsg: Message = {
             id: (Date.now() + 1).toString(),
             role: "assistant",
-            content: "Request timed out. Please try again.",
-            error: "timeout",
+            content: jobResult.error || "Request failed. Please try again.",
+            error: "request_failed",
           };
           setMessages((prev) => [...prev, errorMsg]);
+          return;
         }
+
+        let aiResponse = jobResult.result;
+
+        if (typeof aiResponse === "string") {
+          try {
+            aiResponse = JSON.parse(aiResponse);
+          } catch (e) {
+            console.error("Failed to parse AI response:", e);
+            aiResponse = {
+              type: "suggestion",
+              message: "Failed to process response. Please try again.",
+            };
+          }
+        }
+
+        const aiMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content:
+            aiResponse.type === "update"
+              ? aiResponse.explanation || "Applied changes to your section."
+              : aiResponse.message || "No response",
+        };
+
+        if (aiResponse.type === "update" && aiResponse.content) {
+          aiMsg.explanation = aiResponse.explanation;
+          aiMsg.suggestion = {
+            label: `Apply ${sectionContext} changes`,
+            payload: aiResponse.content,
+            section: aiResponse.section || sectionContext,
+          };
+        }
+
+        if (aiResponse.type === "suggestion" && !aiResponse.message) {
+          aiMsg.error = "Invalid response format";
+        }
+
+        setMessages((prev) => [...prev, aiMsg]);
+      } else {
+        const errorMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: "Request timed out. Please try again.",
+          error: "timeout",
+        };
+        setMessages((prev) => [...prev, errorMsg]);
       }
     } catch (err: any) {
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content:
-          err?.response?.data?.message ||
-          "Failed to process your request. Please try again.",
+          err?.message || "Failed to process your request. Please try again.",
         error: "request_failed",
       };
       setMessages((prev) => [...prev, errorMsg]);
