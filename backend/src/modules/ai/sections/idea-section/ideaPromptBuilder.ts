@@ -1,35 +1,22 @@
-export type FeaturePriority = "must_have" | "nice_to_have";
+import { z } from "zod";
+import {
+  IdeaFeatureSchema,
+  IdeaPromptOptionsSchema,
+  IdeaSectionContentSchema,
+  SuggestedTechStackSchema,
+} from "../../../../schemas/idea.schema";
 
-export interface IdeaFeature {
-  name: string;
-  description: string;
-  priority: FeaturePriority;
-}
+export type IdeaFeature = z.infer<typeof IdeaFeatureSchema>;
 
-export interface SuggestedTechStack {
-  frontend: string[];
-  backend: string[];
-  database: string[];
-  infrastructure?: string[];
-  ai?: string[];
-  frameworks?: string[];
-}
 
-export interface IdeaSectionContent {
-  raw_idea: string;
-  overview: string;
-  key_features: IdeaFeature[];
-  requirements: string[];
-  suggested_tech_stack: SuggestedTechStack;
-  estimated_complexity: "low" | "medium" | "high";
-  team_size: string;
-}
+export type SuggestedTechStack = z.infer<typeof SuggestedTechStackSchema>;
 
-export interface IdeaPromptOptions {
-  isRegenerating?: boolean;
-  regenerationSeed?: string;
-  instruction?: string;
-}
+
+export type IdeaSectionContent = z.infer<typeof IdeaSectionContentSchema>;
+
+
+export type IdeaPromptOptions = z.infer<typeof IdeaPromptOptionsSchema>;
+
 
 export const buildIdeaPrompt = (
   rawIdea: string,
@@ -41,7 +28,9 @@ A user described their project idea:
 
 "${rawIdea}"
 
-${options.isRegenerating ? `
+${
+  options.isRegenerating
+    ? `
 IMPORTANT: This is a regeneration request. Generate a DIFFERENT and NOVEL interpretation of the idea.
 Focus on:
 - Alternative features and capabilities not explored before
@@ -49,16 +38,26 @@ Focus on:
 - Novel use cases and target users
 - Unique technical stack choices
 - Fresh prioritization of features
-` : ""}
+`
+    : ""
+}
 
-${options.instruction ? `
+${
+  options.instruction
+    ? `
 USER INSTRUCTION:
 ${options.instruction}
-` : ""}
+`
+    : ""
+}
 
-${options.isRegenerating ? `
+${
+  options.isRegenerating
+    ? `
 REGENERATION_ID: ${options.regenerationSeed || "none"}
-` : ""}
+`
+    : ""
+}
 
 Your task is to expand this idea into structured product requirements.
 

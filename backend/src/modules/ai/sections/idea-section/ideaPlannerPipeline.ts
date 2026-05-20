@@ -2,8 +2,18 @@ import crypto from "crypto";
 import redis from "../../../../db/redis";
 import { generateSection } from "../../plannerAgent";
 import { buildIdeaPrompt, type IdeaPromptOptions } from "./ideaPromptBuilder";
+import { IdeaSectionContentSchema } from "../../../../schemas/idea.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
+
+type AppError = Error & { status?: number; data?: unknown };
+
+const createAppError = (message: string, status: number, data?: unknown) => {
+  const error = new Error(message) as AppError;
+  error.status = status;
+  error.data = data;
+  return error;
+};
 
 interface IdeaPipelineOptions extends IdeaPromptOptions {
   useCache?: boolean;
@@ -16,7 +26,8 @@ export const runPlannerPipeline = async (
 ) => {
   const isRegenerating = options.isRegenerating ?? false;
   const useCache = options.useCache !== false && !isRegenerating;
-  const cacheTtlSeconds = options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
+  const cacheTtlSeconds =
+    options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
 
   const hash = crypto.createHash("sha256").update(idea).digest("hex");
 
@@ -26,10 +37,18 @@ export const runPlannerPipeline = async (
     const cachedData = await redis.get(cacheKey);
 
     if (cachedData) {
-      const ideaSection = JSON.parse(cachedData);
-      return {
-        idea: ideaSection,
-      };
+      const parsed = JSON.parse(cachedData);
+      const ideaSection = IdeaSectionContentSchema.safeParse(parsed);
+
+      if (!ideaSection.success) {
+        throw createAppError(
+          "Cached idea section failed validation",
+          422,
+          ideaSection.error.issues,
+        );
+      }
+
+      return { idea: ideaSection.data };
     }
   }
 
@@ -45,11 +64,24 @@ export const runPlannerPipeline = async (
     }),
   );
 
-  if (useCache) {
-    await redis.set(cacheKey, JSON.stringify(ideaSection), "EX", cacheTtlSeconds);
+  const validatedIdeaSection = IdeaSectionContentSchema.safeParse(ideaSection);
+
+  if (!validatedIdeaSection.success) {
+    throw createAppError(
+      "Idea section failed validation",
+      422,
+      validatedIdeaSection.error.issues,
+    );
   }
 
-  return {
-    idea: ideaSection,
-  };
+  if (useCache) {
+    await redis.set(
+      cacheKey,
+      JSON.stringify(validatedIdeaSection.data),
+      "EX",
+      cacheTtlSeconds,
+    );
+  }
+
+  return { idea: validatedIdeaSection.data };
 };
