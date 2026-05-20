@@ -1,50 +1,67 @@
-export type DatabaseFieldType =
-  | "uuid"
-  | "string"
-  | "text"
-  | "integer"
-  | "boolean"
-  | "datetime"
-  | "float"
-  | "json";
+import { z } from "zod";
 
-export interface DatabaseField {
-  name: string;
-  type: DatabaseFieldType;
-  required: boolean;
-  unique?: boolean;
-  description?: string;
-}
+const DatabaseFieldType = [
+  "uuid",
+  "string",
+  "text",
+  "integer",
+  "boolean",
+  "datetime",
+  "float",
+  "json",
+] as const;
 
-export interface DatabaseEntity {
-  name: string;
-  description: string;
-  fields: DatabaseField[];
-}
+const DatabaseFieldSchema = z.object({
+  name: z.string(),
+  type: z.enum(DatabaseFieldType),
+  required: z.boolean(),
+  unique: z.boolean().optional(),
+  description: z.string().optional(),
+});
 
-export type RelationType = "one-to-one" | "one-to-many" | "many-to-many";
 
-export interface DatabaseRelation {
-  from: string;
-  to: string;
-  type: RelationType;
-  description?: string;
-}
+const DatabaseEntitySchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  fields: z.array(DatabaseFieldSchema),
+});
 
-export interface DatabaseIndex {
-  entity: string;
-  fields: string[];
-  unique?: boolean;
-}
 
-export interface DatabaseSectionContent {
-  entities: DatabaseEntity[];
-  relationships: DatabaseRelation[];
-  indexes?: DatabaseIndex[];
-}
+const RelationType = ["one-to-one", "one-to-many", "many-to-many"] as const;
 
-export interface DatabasePromptOptions {
-  isRegenerating?: boolean;
-  regenerationSeed?: string;
-  instruction?: string;
-}
+const DatabaseRelationSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  type: z.enum(RelationType),
+  description: z.string().optional(),
+});
+
+
+const DatabaseIndexSchema = z.object({
+  entity: z.string(),
+  fields: z.array(z.string()),
+  unique: z.boolean().optional(),
+});
+
+const DatabaseSectionContentSchema = z.object({
+  entities: z.array(DatabaseEntitySchema),
+  relationships: z.array(DatabaseRelationSchema),
+  indexes: z.array(DatabaseIndexSchema).optional(),
+});
+
+
+const DatabasePromptOptionsSchema = z.object({
+  isRegenerating: z.boolean().optional(),
+  regenerationSeed: z.string().optional(),
+  instruction: z.string().optional(),
+});
+
+
+export {
+  DatabaseFieldSchema,
+  DatabaseEntitySchema,
+  DatabaseRelationSchema,
+  DatabaseIndexSchema,
+  DatabaseSectionContentSchema,
+  DatabasePromptOptionsSchema,
+};

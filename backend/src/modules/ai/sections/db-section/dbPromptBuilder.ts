@@ -1,55 +1,31 @@
-export type DatabaseFieldType =
-  | "uuid"
-  | "string"
-  | "text"
-  | "integer"
-  | "boolean"
-  | "datetime"
-  | "float"
-  | "json";
+import { z } from "zod";
+import {
+  DatabaseEntitySchema,
+  DatabaseFieldSchema, 
+  DatabaseIndexSchema, 
+  DatabasePromptOptionsSchema, 
+  DatabaseRelationSchema,
+  DatabaseSectionContentSchema
+} from "../../../../schemas/database.schema"
 
-export interface DatabaseField {
-  name: string;
-  type: DatabaseFieldType;
-  required: boolean;
-  unique?: boolean;
-  description?: string;
-}
 
-export interface DatabaseEntity {
-  name: string;
-  description: string;
-  fields: DatabaseField[];
-}
+export type DatabaseField = z.infer<typeof DatabaseFieldSchema>
 
-export type RelationType = "one-to-one" | "one-to-many" | "many-to-many";
 
-export interface DatabaseRelation {
-  from: string;
-  to: string;
-  type: RelationType;
-  description?: string;
-}
+export type DatabaseEntity = z.infer<typeof DatabaseEntitySchema>
 
-export interface DatabaseIndex {
-  entity: string;
-  fields: string[];
-  unique?: boolean;
-}
+export type DatabaseRelation = z.infer<typeof DatabaseRelationSchema>
 
-export interface DatabaseSectionContent {
-  entities: DatabaseEntity[];
-  relationships: DatabaseRelation[];
-  indexes?: DatabaseIndex[];
-}
+
+export type DatabaseIndex = z.infer<typeof DatabaseIndexSchema>
+
+
+export type DatabaseSectionContent = z.infer<typeof DatabaseSectionContentSchema>
+
 
 import { IdeaSectionContent } from "../idea-section/ideaPromptBuilder";
 
-export interface DatabasePromptOptions {
-  isRegenerating?: boolean;
-  regenerationSeed?: string;
-  instruction?: string;
-}
+export type DatabasePromptOptions = z.infer<typeof DatabasePromptOptionsSchema>
 
 export const buildDatabasePrompt = (
   idea: IdeaSectionContent,
