@@ -1,22 +1,18 @@
 import { ApiSectionContent } from "../api-section/apiPromptBuilder";
 import { DatabaseSectionContent } from "../db-section/dbPromptBuilder";
 import { IdeaSectionContent } from "../idea-section/ideaPromptBuilder";
+import { z } from "zod";
+import {
+  FolderNodeSchema,
+  FolderPromptOptionsSchema,
+  FolderSectionContentSchema,
+} from "../../../../schemas/folder.schema";
 
-export interface FolderNode {
-  name: string;
-  type: "folder" | "file";
-  children?: FolderNode[];
-}
+export type FolderNode = z.infer<typeof FolderNodeSchema>;
 
-export interface FolderSectionContent {
-  root: FolderNode[];
-}
+export type FolderSectionContent = z.infer<typeof FolderSectionContentSchema>;
 
-export interface FolderPromptOptions {
-  isRegenerating?: boolean;
-  regenerationSeed?: string;
-  instruction?: string;
-}
+export type FolderPromptOptions = z.infer<typeof FolderPromptOptionsSchema>;
 
 export const buildFolderPrompt = (
   idea: IdeaSectionContent,

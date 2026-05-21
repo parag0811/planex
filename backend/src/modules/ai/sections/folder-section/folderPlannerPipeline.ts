@@ -9,8 +9,18 @@ import {
 } from "./folderPromptBuilder";
 import crypto from "crypto";
 import redis from "../../../../db/redis";
+import { FolderSectionContentSchema } from "../../../../schemas/folder.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
+
+type AppError = Error & { status?: number; data?: unknown };
+
+const createAppError = (message: string, status: number, data?: unknown) => {
+  const error = new Error(message) as AppError;
+  error.status = status;
+  error.data = data;
+  return error;
+};
 
 interface FolderPipelineOptions extends FolderPromptOptions {
   useCache?: boolean;
@@ -39,8 +49,18 @@ export const runFolderPipeline = async (
     const cachedData = await redis.get(cacheKey);
 
     if (cachedData) {
-      const folderStructure = JSON.parse(cachedData);
-      return folderStructure;
+      const parsed = JSON.parse(cachedData);
+      const folderStructure = FolderSectionContentSchema.safeParse(parsed);
+
+      if (!folderStructure.success) {
+        throw createAppError(
+          "Cached folder section failed validation",
+          422,
+          folderStructure.error.issues,
+        );
+      }
+
+      return folderStructure.data;
     }
   }
 
@@ -58,9 +78,25 @@ export const runFolderPipeline = async (
     }),
   );
 
-  if (useCache) {
-    await redis.set(cacheKey, JSON.stringify(folderStructure), "EX", cacheTtlSeconds);
+  const validatedFolderStructure =
+    FolderSectionContentSchema.safeParse(folderStructure);
+
+  if (!validatedFolderStructure.success) {
+    throw createAppError(
+      "Folder section failed validation",
+      422,
+      validatedFolderStructure.error.issues,
+    );
   }
 
-  return folderStructure;
+  if (useCache) {
+    await redis.set(
+      cacheKey,
+      JSON.stringify(validatedFolderStructure.data),
+      "EX",
+      cacheTtlSeconds,
+    );
+  }
+
+  return validatedFolderStructure.data;
 };
