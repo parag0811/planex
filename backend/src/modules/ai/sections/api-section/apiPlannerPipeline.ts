@@ -13,8 +13,18 @@ import {
 } from "./apiPromptBuilder";
 import crypto from "crypto";
 import redis from "../../../../db/redis";
+import { ApiSectionContentSchema } from "../../../../schemas/api.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
+
+type AppError = Error & { status?: number; data?: unknown };
+
+const createAppError = (message: string, status: number, data?: unknown) => {
+  const error = new Error(message) as AppError;
+  error.status = status;
+  error.data = data;
+  return error;
+};
 
 interface ApiPipelineOptions extends ApiPromptOptions {
   useCache?: boolean;
@@ -26,9 +36,8 @@ export const runApiPipeline = async (
   database: DatabaseSectionContent,
   options: ApiPipelineOptions = {},
 ): Promise<ApiSectionContent> => {
-  try {
-    console.log(`🔌 runApiPipeline: Starting API generation...`);
-    
+  console.log(`🔌 runApiPipeline: Starting API generation...`);
+
     const ideaContent = JSON.stringify(idea);
     const dbContent = JSON.stringify(database);
 
@@ -36,8 +45,10 @@ export const runApiPipeline = async (
       .createHash("sha256")
       .update(`${ideaContent}::${dbContent}`)
       .digest("hex");
+
     const useCache = options.useCache !== false;
-    const cacheTtlSeconds = options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
+    const cacheTtlSeconds =
+      options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
 
     const cacheKey = `api:${hash}`;
 
@@ -45,9 +56,18 @@ export const runApiPipeline = async (
       const cachedData = await redis.get(cacheKey);
 
       if (cachedData) {
-        console.log(`🔌 runApiPipeline: Using cached result`);
-        const apiSection = JSON.parse(cachedData);
-        return apiSection;
+        const parsed = JSON.parse(cachedData);
+        const apiSection = ApiSectionContentSchema.safeParse(parsed);
+
+        if (!apiSection.success) {
+          throw createAppError(
+            "Cached api section failed validation",
+            422,
+            apiSection.error.issues,
+          );
+        }
+
+        return apiSection.data;
       }
     }
 
@@ -63,21 +83,31 @@ export const runApiPipeline = async (
         ? { instruction: options.instruction }
         : {}),
     });
-    console.log(`🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`);
-    
+    console.log(
+      `🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`,
+    );
+
     const apiSection = await generateSection(prompt);
+    const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
+
+    if (!validatedApiSection.success) {
+      throw createAppError(
+        "Api section failed validation",
+        422,
+        validatedApiSection.error.issues,
+      );
+    }
 
     if (useCache) {
       console.log(`🔌 runApiPipeline: Caching result...`);
-      await redis.set(cacheKey, JSON.stringify(apiSection), "EX", cacheTtlSeconds);
+      await redis.set(
+        cacheKey,
+        JSON.stringify(validatedApiSection.data),
+        "EX",
+        cacheTtlSeconds,
+      );
     }
 
     console.log(`✅ runApiPipeline: Successfully completed`);
-    return apiSection;
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error(`❌ runApiPipeline Error: ${errorMsg}`);
-    console.error(`Stack:`, error instanceof Error ? error.stack : "No stack trace");
-    throw error;
-  }
+    return validatedApiSection.data;
 };

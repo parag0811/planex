@@ -1,47 +1,23 @@
+import { z } from "zod";
 import { IdeaSectionContent } from "../idea-section/ideaPromptBuilder";
 import { DatabaseSectionContent } from "../db-section/dbPromptBuilder";
+import {
+  ApiPromptOptionsSchema,
+  ApiRouteSchema,
+  ApiSectionContentSchema,
+  AuthFlowSchema,
+  WebSocketEventSchema,
+} from "../../../../schemas/api.schema";
 
-export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+export type ApiRoute = z.infer<typeof ApiRouteSchema>;
 
-export interface ApiRoute {
-  name: string;
-  method: HttpMethod;
-  path: string;
-  description: string;
-  request?: {
-    body?: Record<string, string>;
-    params?: Record<string, string>;
-    query?: Record<string, string>;
-  };
-  response: {
-    success: Record<string, string>;
-  };
-  authRequired: boolean;
-}
+export type WebSocketEvent = z.infer<typeof WebSocketEventSchema>;
 
-export interface WebSocketEvent {
-  name: string;
-  description: string;
-  payload: Record<string, string>;
-}
+export type AuthFlow = z.infer<typeof AuthFlowSchema>;
 
-export interface AuthFlow {
-  type: "JWT" | "OAuth" | "Session";
-  description: string;
-  routes: string[];
-}
+export type ApiSectionContent = z.infer<typeof ApiSectionContentSchema>;
 
-export interface ApiSectionContent {
-  rest: ApiRoute[];
-  realtime?: WebSocketEvent[];
-  auth: AuthFlow;
-}
-
-export interface ApiPromptOptions {
-  isRegenerating?: boolean;
-  regenerationSeed?: string;
-  instruction?: string;
-}
+export type ApiPromptOptions = z.infer<typeof ApiPromptOptionsSchema>;
 
 export const buildApiPrompt = (
   idea: IdeaSectionContent,
@@ -57,10 +33,10 @@ PRODUCT OVERVIEW
 ${idea.overview}
 
 KEY FEATURES
-${idea.key_features.map(f => `- ${f.name}`).join("\n")}
+${idea.key_features.map((f) => `- ${f.name}`).join("\n")}
 
 REQUIREMENTS
-${idea.requirements.map(r => `- ${r}`).join("\n")}
+${idea.requirements.map((r) => `- ${r}`).join("\n")}
 
 ========================
 DATABASE SCHEMA
@@ -80,20 +56,32 @@ ${database.relationships
   .map((r) => `- ${r.from} → ${r.to} (${r.type})`)
   .join("\n")}
 
-${options.isRegenerating ? `
+${
+  options.isRegenerating
+    ? `
 REGENERATION MODE
 - Produce a fresh API design while keeping it consistent with the schema
 - Avoid reusing identical route groupings and descriptions where possible
-` : ""}
+`
+    : ""
+}
 
-${options.instruction ? `
+${
+  options.instruction
+    ? `
 USER INSTRUCTION:
 ${options.instruction}
-` : ""}
+`
+    : ""
+}
 
-${options.isRegenerating ? `
+${
+  options.isRegenerating
+    ? `
 REGENERATION_ID: ${options.regenerationSeed || "none"}
-` : ""}
+`
+    : ""
+}
 
 ========================
 
@@ -155,4 +143,4 @@ Realtime
 - include only if relevant (notifications, updates)
 
 Return ONLY JSON.
-` 
+`;
