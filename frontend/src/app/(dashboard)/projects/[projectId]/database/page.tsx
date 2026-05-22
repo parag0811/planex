@@ -13,6 +13,9 @@ import {
   Rows3,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "next/navigation";
@@ -332,6 +335,8 @@ export default function DatabasePage() {
   const [isSampleView, setIsSampleView] = useState(false);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
+  const [editingEntityIndex, setEditingEntityIndex] = useState<number | null>(null);
+  const [entityNameDraft, setEntityNameDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const draftSnapshotRef = useRef<DatabaseSectionContent | null>(null);
 
@@ -510,6 +515,29 @@ export default function DatabasePage() {
         entityIndex === index ? { ...entity, ...patch } : entity,
       ),
     }));
+  };
+
+  const startEditEntityName = (index: number) => {
+    const currentName = schema.entities[index]?.name ?? "";
+    setEditingEntityIndex(index);
+    setEntityNameDraft(currentName);
+  };
+
+  const cancelEditEntityName = () => {
+    setEditingEntityIndex(null);
+    setEntityNameDraft("");
+  };
+
+  const saveEditEntityName = () => {
+    if (editingEntityIndex === null) return;
+    const nextName = entityNameDraft.trim();
+    if (!nextName) {
+      setStatus("Entity name is required.");
+      return;
+    }
+    updateEntity(editingEntityIndex, { name: nextName });
+    setEditingEntityIndex(null);
+    setEntityNameDraft("");
   };
 
   const removeEntity = (index: number) => {
@@ -752,7 +780,7 @@ export default function DatabasePage() {
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
-          className="mx-auto w-full px-4 py-5 sm:px-6 lg:px-8"
+          className="mx-auto w-full px-6 py-7 sm:px-8 lg:px-12"
           initial="hidden"
           animate="show"
         >
@@ -778,6 +806,16 @@ export default function DatabasePage() {
                   {isJobLoading ? "Generating..." : "Generate"}
                 </button>
               )}
+              {canRegenerate && (
+                <button
+                  onClick={handleRegenerate}
+                  disabled={loading}
+                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Sparkles size={12} />
+                  {isJobLoading ? "Regenerating..." : "Regenerate"}
+                </button>
+              )}
               <button
                 onClick={handleSaveDraft}
                 disabled={loading}
@@ -789,7 +827,7 @@ export default function DatabasePage() {
             </div>
           </motion.div>
 
-          <motion.div variants={fadeUp(1)} className="mb-6 rounded-xl border border-white/8 bg-[#090e17] p-5">
+          <motion.div variants={fadeUp(1)} className="mb-7 rounded-2xl border border-white/8 bg-[#090e17] p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300/90">
@@ -817,7 +855,7 @@ export default function DatabasePage() {
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-lg border border-white/8 bg-white/2 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">1. Entities</p>
                 <p className="mt-2 text-sm text-white/60">
@@ -905,20 +943,10 @@ export default function DatabasePage() {
                   </p>
                 </div>
               </div>
-              {canRegenerate && (
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Sparkles size={12} />
-                  {isJobLoading ? "Regenerating..." : "Regenerate"}
-                </button>
-              )}
             </div>
           </motion.div>
 
-          <motion.div variants={fadeUp(2)} className="mb-8">
+          <motion.div variants={fadeUp(2)} className="mb-10">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-bold text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>Entities</h2>
               <div className="flex flex-wrap items-center gap-2">
@@ -935,32 +963,74 @@ export default function DatabasePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
               {schema.entities.map((entity, entityIndex) => (
                 <div
                   key={entityIndex}
-                  className="overflow-hidden rounded-md border border-white/8 bg-[#090e17]"
+                  className="overflow-hidden rounded-xl border border-white/8 bg-[#0b1019] shadow-[0_12px_30px_rgba(0,0,0,0.25)]"
                 >
-                  <div className="border-b border-white/6 bg-white/4 px-4 py-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <input
-                        value={entity.name}
-                        onChange={(e) => updateEntity(entityIndex, { name: e.target.value })}
-                        className="w-full bg-transparent text-lg font-bold text-white outline-none"
-                        placeholder="Entity name"
-                      />
-                      <button
-                        onClick={() => removeEntity(entityIndex)}
-                        className="rounded-md p-1.5 text-white/35 transition hover:bg-white/8 hover:text-red-400"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                  <div className="border-b border-white/6 bg-white/4 px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                      {editingEntityIndex === entityIndex ? (
+                        <div className="flex w-full items-center gap-2">
+                          <input
+                            value={entityNameDraft}
+                            onChange={(e) => setEntityNameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditEntityName();
+                              if (e.key === "Escape") cancelEditEntityName();
+                            }}
+                            className="w-full rounded-md border border-white/10 bg-[#0b1019] px-3 py-2 text-base font-semibold text-white outline-none"
+                            placeholder="Entity name"
+                          />
+                          <button
+                            onClick={saveEditEntityName}
+                            className="rounded-md border border-green-500/30 bg-green-500/10 p-2 text-green-300 transition hover:bg-green-500/20"
+                            aria-label="Save entity name"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={cancelEditEntityName}
+                            className="rounded-md border border-white/10 bg-white/5 p-2 text-white/50 transition hover:bg-white/10 hover:text-white/80"
+                            aria-label="Cancel entity name edit"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex w-full items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xl font-semibold text-white/95">
+                              {entity.name || "Untitled Entity"}
+                            </p>
+                            <p className="text-xs text-white/40">Schema entity</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => startEditEntityName(entityIndex)}
+                              className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:bg-white/10 hover:text-white"
+                              aria-label="Edit entity name"
+                            >
+                              <Pencil size={12} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => removeEntity(entityIndex)}
+                              className="rounded-md border border-white/10 bg-white/5 p-2 text-white/35 transition hover:bg-white/10 hover:text-red-400"
+                              aria-label="Remove entity"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <input
                       value={entity.description}
                       onChange={(e) => updateEntity(entityIndex, { description: e.target.value })}
-                      className="mt-2 w-full bg-transparent text-xs text-white/45 outline-none"
-                      placeholder="What does this entity represent?"
+                      className="mt-3 w-full rounded-md border border-white/10 bg-[#0b1019] px-3 py-2 text-sm text-white/70 outline-none"
+                      placeholder="Describe what this entity represents..."
                     />
 
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -986,20 +1056,20 @@ export default function DatabasePage() {
                     </p>
                   </div>
 
-                  <div className="p-3">
-                    <div className="space-y-2">
+                  <div className="p-4">
+                    <div className="space-y-3">
                       {entity.fields.map((field, fieldIndex) => (
                         <div
                           key={fieldIndex}
-                          className="rounded-md border border-white/6 bg-white/2 p-2.5"
+                          className="rounded-lg border border-white/6 bg-white/2 p-3"
                         >
-                          <div className="grid grid-cols-12 gap-2">
+                          <div className="grid grid-cols-12 gap-3">
                             <input
                               value={field.name}
                               onChange={(e) =>
                                 updateField(entityIndex, fieldIndex, { name: e.target.value })
                               }
-                              className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-3"
+                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-white/85 outline-none md:col-span-3"
                               placeholder="column_name"
                             />
 
@@ -1010,7 +1080,7 @@ export default function DatabasePage() {
                                   type: e.target.value as DatabaseFieldType,
                                 })
                               }
-                              className="col-span-6 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-blue-300 outline-none md:col-span-3"
+                              className="col-span-6 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-blue-300 outline-none md:col-span-3"
                             >
                               {FIELD_TYPES.map((type) => (
                                 <option key={type} value={type}>
@@ -1019,7 +1089,7 @@ export default function DatabasePage() {
                               ))}
                             </select>
 
-                            <label className="col-span-3 inline-flex items-center gap-1.5 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-[11px] text-white/70 md:col-span-2">
+                            <label className="col-span-3 inline-flex items-center gap-2 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-[12px] text-white/70 md:col-span-2">
                               <input
                                 type="checkbox"
                                 checked={field.required}
@@ -1032,7 +1102,7 @@ export default function DatabasePage() {
                               req
                             </label>
 
-                            <label className="col-span-3 inline-flex items-center gap-1.5 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-[11px] text-white/70 md:col-span-2">
+                            <label className="col-span-3 inline-flex items-center gap-2 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-[12px] text-white/70 md:col-span-2">
                               <input
                                 type="checkbox"
                                 checked={Boolean(field.unique)}
@@ -1047,7 +1117,7 @@ export default function DatabasePage() {
 
                             <button
                               onClick={() => removeField(entityIndex, fieldIndex)}
-                              className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/45 transition hover:text-red-400 md:col-span-2"
+                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-xs text-white/45 transition hover:text-red-400 md:col-span-2"
                             >
                               remove
                             </button>
@@ -1059,8 +1129,8 @@ export default function DatabasePage() {
                                   description: e.target.value,
                                 })
                               }
-                              className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/55 outline-none"
-                              placeholder="Why does this field exist?"
+                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-white/65 outline-none"
+                              placeholder="What is this field used for?"
                             />
                           </div>
                         </div>
