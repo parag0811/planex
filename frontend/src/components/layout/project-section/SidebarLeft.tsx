@@ -29,6 +29,17 @@ interface SidebarProps {
   projectStatus?: string;
 }
 
+interface SidebarContentProps {
+  projectId: string;
+  projectName: string;
+  projectStatus: string;
+  displayName: string;
+  displayEmail: string;
+  avatarInitials: string;
+  pathname: string;
+  onNavigate: (href: string) => void;
+}
+
 const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType; href: (projectId: string) => string }[] = [
   { id: "dashboard", label: "DASHBOARD", icon: LayoutDashboard, href: (projectId) => `/projects/${projectId}` },
   { id: "idea", label: "IDEA", icon: Lightbulb, href: (projectId) => `/projects/${projectId}/idea` },
@@ -37,26 +48,16 @@ const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType; href
   { id: "folder", label: "FOLDER", icon: FolderTree, href: (projectId) => `/projects/${projectId}/folder` },
 ];
 
-export default function Sidebar({
+function SidebarContent({
   projectId,
-  projectName = "Project Forge",
-  projectStatus = "Active",
-}: SidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-  const { user } = useSelector((state: RootState) => state.auth);
-
-  const displayName = user?.name || user?.fullName || user?.username || "Logged In User";
-  const displayEmail = user?.email || "No email linked";
-  const avatarInitials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0])
-    .join("")
-    .toUpperCase();
-
+  projectName,
+  projectStatus,
+  displayName,
+  displayEmail,
+  avatarInitials,
+  pathname,
+  onNavigate,
+}: SidebarContentProps) {
   const isActiveRoute = (item: (typeof NAV_ITEMS)[number]) => {
     const href = item.href(projectId);
 
@@ -67,7 +68,7 @@ export default function Sidebar({
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const SidebarContent = () => (
+  return (
     <div className="flex h-full flex-col overflow-hidden bg-[#06070c]">
       {/* Brand */}
       <div className="border-b border-white/5 px-3 py-4 shrink-0">
@@ -99,10 +100,7 @@ export default function Sidebar({
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.03 * i + 0.05 }}
-              onClick={() => {
-                router.push(href);
-                setMobileOpen(false);
-              }}
+              onClick={() => onNavigate(href)}
               className={`
                 mb-1 flex w-full cursor-pointer items-center gap-2 rounded-sm border-l-2 px-3 py-2.5 text-left
                 text-[10px] font-bold tracking-[0.18em] transition-colors duration-150
@@ -136,12 +134,47 @@ export default function Sidebar({
       </div>
     </div>
   );
+}
+
+export default function Sidebar({
+  projectId,
+  projectName = "Project Forge",
+  projectStatus = "Active",
+}: SidebarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  const displayName = user?.name || user?.fullName || user?.username || "Logged In User";
+  const displayEmail = user?.email || "No email linked";
+  const avatarInitials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part: string) => part[0])
+    .join("")
+    .toUpperCase();
+
+  const handleNavigate = (href: string) => {
+    router.push(href);
+    setMobileOpen(false);
+  };
 
   return (
     <>
       {/* Desktop */}
       <aside className="hidden md:block w-64 shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-white/5 z-20">
-        <SidebarContent />
+        <SidebarContent
+          projectId={projectId}
+          projectName={projectName}
+          projectStatus={projectStatus}
+          displayName={displayName}
+          displayEmail={displayEmail}
+          avatarInitials={avatarInitials}
+          pathname={pathname}
+          onNavigate={handleNavigate}
+        />
       </aside>
 
       {/* Mobile toggle */}
@@ -175,7 +208,16 @@ export default function Sidebar({
               >
                 <X size={16} />
               </button>
-              <SidebarContent />
+              <SidebarContent
+                projectId={projectId}
+                projectName={projectName}
+                projectStatus={projectStatus}
+                displayName={displayName}
+                displayEmail={displayEmail}
+                avatarInitials={avatarInitials}
+                pathname={pathname}
+                onNavigate={handleNavigate}
+              />
             </motion.aside>
           </>
         )}

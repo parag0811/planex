@@ -262,50 +262,50 @@ function TreeNode({
     <div key={node.id} className="flex flex-col">
       <motion.div
         layout
-        className="group flex items-center gap-2 rounded-md py-2 px-3 hover:bg-white/4 transition"
+        className="group flex items-center gap-3 rounded-md py-2.5 px-3.5 hover:bg-white/4 transition"
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
         {node.type === "folder" && (
           <button
             onClick={() => onToggle(node.id)}
-            className="flex items-center justify-center w-5 h-5 text-white/35 hover:text-white/55 transition"
+            className="flex items-center justify-center w-6 h-6 text-white/35 hover:text-white/55 transition"
           >
             <ChevronRight
-              size={16}
+              size={18}
               className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
             />
           </button>
         )}
         {node.type === "folder" ? (
-          <Folder size={14} className="text-amber-400/70 shrink-0" />
+          <Folder size={16} className="text-amber-400/70 shrink-0" />
         ) : (
-          <File size={14} className="text-blue-400/70 shrink-0" />
+          <File size={16} className="text-blue-400/70 shrink-0" />
         )}
-        <span className="flex-1 text-sm text-white/75 truncate">{node.name}</span>
+        <span className="flex-1 text-base text-white/80 truncate">{node.name}</span>
 
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {node.type === "folder" && (
             <button
               onClick={() => onAddChild(node.id)}
-              className="rounded p-1 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
+              className="rounded-md p-2 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
               title="Add child"
             >
-              <Plus size={12} />
+              <Plus size={16} />
             </button>
           )}
           <button
             onClick={() => onEdit(node)}
-            className="rounded p-1 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
+            className="rounded-md p-2 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
             title="Edit"
           >
-            <Edit2 size={12} />
+            <Edit2 size={16} />
           </button>
           <button
             onClick={() => onDelete(node.id)}
-            className="rounded p-1 text-white/35 hover:bg-red-500/20 hover:text-red-400 transition"
+            className="rounded-md p-2 text-white/35 hover:bg-red-500/20 hover:text-red-400 transition"
             title="Delete"
           >
-            <Trash2 size={12} />
+            <Trash2 size={16} />
           </button>
         </div>
       </motion.div>
