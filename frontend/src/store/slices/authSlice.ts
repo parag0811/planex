@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "@/src/lib/axios";
+import { updateProfile } from "@/src/services/auth.service";
 
 // dispatch login
 export const loginUser = createAsyncThunk(
@@ -39,6 +40,24 @@ export const fetchUser = createAsyncThunk(
       return res.data.user;
     } catch (error: any) {
       return rejectWithValue("Failed to fetch user");
+    }
+  },
+);
+
+// Update user profile (name, avatar)
+export const updateUserProfile = createAsyncThunk(
+  "auth/updateUserProfile",
+  async (data: FormData, { rejectWithValue, dispatch }) => {
+    try {
+      await updateProfile(data);
+      const user = await dispatch(fetchUser()).unwrap();
+      return user;
+    } catch (error: any) {
+      return rejectWithValue(
+        typeof error === "string"
+          ? error
+          : error.response?.data?.message || "Update failed",
+      );
     }
   },
 );
@@ -106,6 +125,20 @@ const authSlice = createSlice({
         state.user = null;
         state.isAuth = false;
         state.token = null;
+      })
+
+      // UPDATE PROFILE
+      .addCase(updateUserProfile.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
