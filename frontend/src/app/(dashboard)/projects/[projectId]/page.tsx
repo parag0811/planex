@@ -12,9 +12,11 @@ import {
   removeMember,
   showInviteLink,
   updateMemberRole,
+  updateProject,
 } from "@/src/store/slices/projectSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
+import { useState } from "react";
 
 const stats = [
   { label: "Cluster Uptime", value: "99.982%" },
@@ -42,6 +44,8 @@ export default function ProjectOverviewPage() {
   );
   const { update, remove, inviteLink, inviteLinkVisible, inviteLinkState } =
     useSelector((state: RootState) => state.project);
+  const [projectNameDraft, setProjectNameDraft] = useState("");
+  const [projectNameMessage, setProjectNameMessage] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -50,10 +54,47 @@ export default function ProjectOverviewPage() {
     }
   }, [dispatch, projectId]);
 
+  useEffect(() => {
+    if (currentProject?.name) {
+      setProjectNameDraft(currentProject.name);
+    }
+  }, [currentProject?.name]);
+
   const members = currentProject?.members ?? [];
   const projectName = currentProject?.name ?? "Project";
   const projectDescription =
     String(currentProject?.description ?? "Project details are loading.");
+
+  const handleUpdateProjectName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setProjectNameMessage(null);
+
+    if (!projectId) return;
+
+    const trimmedName = projectNameDraft.trim();
+    if (!trimmedName || trimmedName.length < 3) {
+      setProjectNameMessage("Name must be at least 3 characters.");
+      return;
+    }
+
+    if (trimmedName === currentProject?.name) {
+      setProjectNameMessage("No changes to save yet.");
+      return;
+    }
+
+    try {
+      await dispatch(
+        updateProject({ projectId, name: trimmedName }),
+      ).unwrap();
+      setProjectNameMessage("Project name updated.");
+    } catch (updateError: any) {
+      setProjectNameMessage(
+        typeof updateError === "string"
+          ? updateError
+          : "Unable to update project.",
+      );
+    }
+  };
 
   const handleRoleChange = (
     memberId: string,
@@ -121,9 +162,38 @@ export default function ProjectOverviewPage() {
               </p>
             </div>
 
-            <div className="rounded-sm border border-green-500/40 bg-green-500/8 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.12em] text-green-400">
-              System_Health:
-              <div>Stable</div>
+            <div className="flex flex-col items-end gap-3">
+              <div className="rounded-sm border border-green-500/40 bg-green-500/8 px-3 py-2 text-[9px] font-bold uppercase tracking-[0.12em] text-green-400">
+                System_Health:
+                <div>Stable</div>
+              </div>
+              <form
+                onSubmit={handleUpdateProjectName}
+                className="w-full max-w-[240px] space-y-2"
+              >
+                <label className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#6f778a]">
+                  Edit project name
+                </label>
+                <input
+                  type="text"
+                  value={projectNameDraft}
+                  onChange={(event) => setProjectNameDraft(event.target.value)}
+                  className="w-full rounded-sm border border-white/10 bg-black/30 px-2.5 py-1.5 text-[11px] font-semibold text-white outline-none transition-colors focus:border-orange-500/70"
+                  placeholder="Project name"
+                />
+                <button
+                  type="submit"
+                  disabled={update.loading}
+                  className="w-full rounded-sm border border-orange-500/40 bg-orange-500/15 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-orange-200 transition-colors hover:bg-orange-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {update.loading ? "Updating..." : "Update"}
+                </button>
+                {projectNameMessage && (
+                  <p className="text-[10px] text-[#f3b48f]">
+                    {projectNameMessage}
+                  </p>
+                )}
+              </form>
             </div>
           </div>
 
