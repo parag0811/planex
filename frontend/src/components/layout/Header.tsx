@@ -127,14 +127,13 @@ export default function Header() {
 
           {isAuth && (
             <>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((current) => !current)}
-                className="flex items-center gap-2 rounded-full border border-white/10 bg-[#141b28] px-1.5 py-1.5 text-left transition-colors hover:border-[#f97316]/45"
-                aria-expanded={menuOpen}
-                aria-haspopup="menu"
-              >
-                <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#1a2130] text-[10px] font-bold text-[#f97316]">
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#141b28] px-1.5 py-1.5">
+                <Link
+                  href="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#1a2130] text-[10px] font-bold text-[#f97316] transition-colors hover:border-[#f97316]/45"
+                  aria-label="Go to profile"
+                >
                   {avatarSrc ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -145,14 +144,23 @@ export default function Header() {
                   ) : (
                     <span>{avatarInitials}</span>
                   )}
-                </div>
-                <ChevronDown
-                  size={14}
-                  className={`mr-1 text-[#8b93a6] transition-transform ${
-                    menuOpen ? "rotate-180" : "rotate-0"
-                  }`}
-                />
-              </button>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((current) => !current)}
+                  className="flex items-center justify-center rounded-full border border-transparent bg-transparent p-1 text-left transition-colors hover:border-[#f97316]/45"
+                  aria-expanded={menuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Open account menu"
+                >
+                  <ChevronDown
+                    size={14}
+                    className={`text-[#8b93a6] transition-transform ${
+                      menuOpen ? "rotate-180" : "rotate-0"
+                    }`}
+                  />
+                </button>
+              </div>
 
               <AnimatePresence>
                 {menuOpen && (
