@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { register } from "@/src/services/auth.service";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const makeFadeUp = (i: number): Variants => ({
   hidden: { opacity: 0, y: 20 },
@@ -73,6 +74,10 @@ export default function RegisterPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleOAuth = (provider: "github" | "google") => {
+    window.location.href = `${API_BASE_URL}/auth/${provider}`;
   };
 
   return (
@@ -170,6 +175,7 @@ export default function RegisterPage() {
             <div className="flex flex-col gap-3 mb-6">
               <motion.button
                 whileTap={{ scale: 0.98 }}
+                onClick={() => handleOAuth("github")}
                 className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#141a25] hover:bg-[#1a2231] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
                 <Github size={17} />
@@ -177,6 +183,7 @@ export default function RegisterPage() {
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.98 }}
+                onClick={() => handleOAuth("google")}
                 className="cursor-pointer w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/8 border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
               >
                 <Chrome size={17} className="text-[#f97316]" />

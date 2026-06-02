@@ -17,6 +17,13 @@ interface UserResponse<T = undefined> {
   user?: T;
 }
 
+const getFrontendBaseUrl = (req: Request) => {
+  return (
+    process.env.FRONTEND_URL?.trim().replace(/\/$/, "") ||
+    "http://localhost:3000"
+  );
+};
+
 export const registerUser = async (
   req: Request<{}, {}, UserRequest>,
   res: Response<UserResponse>,
@@ -210,6 +217,12 @@ export const githubAuthController = (
       expiresIn: "1d",
     });
 
+    const frontendBaseUrl = getFrontendBaseUrl(req);
+    if (req.accepts("html")) {
+      const redirectUrl = `${frontendBaseUrl}/oauth-callback?token=${encodeURIComponent(token)}&provider=github`;
+      return res.redirect(redirectUrl);
+    }
+
     return res.status(201).json({
       token,
       message: "Github login successfull.",
@@ -236,6 +249,12 @@ export const googleAuthController = (
     const token = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
       expiresIn: "1d",
     });
+
+    const frontendBaseUrl = getFrontendBaseUrl(req);
+    if (req.accepts("html")) {
+      const redirectUrl = `${frontendBaseUrl}/oauth-callback?token=${encodeURIComponent(token)}&provider=google`;
+      return res.redirect(redirectUrl);
+    }
 
     return res.status(201).json({
       token,

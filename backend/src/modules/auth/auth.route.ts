@@ -70,13 +70,13 @@ router.get(
   "/github",
   passport.authenticate("github", {
     scope: ["user:email"],
-    session: false,
+    session: false, // Start OAuth redirect (no server session, JWT only).
   }),
 );
 
 router.get(
   "/github/callback",
-  passport.authenticate("github", { session: false }),
+  passport.authenticate("github", { session: false }), // Handle provider callback.
   githubAuthController,
   (err: AppError, req: Request, res: Response, next: NextFunction) => {
     next(err);
@@ -93,7 +93,7 @@ router.get(
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", { session: false }),
+  passport.authenticate("google", { session: false }), // Handle provider callback.
   googleAuthController,
    (err: AppError, req: Request, res: Response, next: NextFunction) => {
     next(err);
