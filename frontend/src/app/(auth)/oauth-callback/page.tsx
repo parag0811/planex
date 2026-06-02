@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useDispatch } from "react-redux";
 import FullPageLoader from "@/src/components/common/FullPageLoader";
 import { fetchUser } from "@/src/store/slices/authSlice";
@@ -15,7 +16,13 @@ export default function OAuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const errorMessage = searchParams.get("error");
     const token = searchParams.get("token");
+
+    if (errorMessage) {
+      setError(errorMessage);
+      return;
+    }
 
     if (!token) {
       setError("Missing token. Please try logging in again.");
@@ -42,6 +49,20 @@ export default function OAuthCallbackPage() {
             OAuth Error
           </p>
           <p className="mt-2 text-sm text-[#8b93a6]">{error}</p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href="/login"
+              className="w-full rounded-xl bg-[#f97316] py-2.5 text-sm font-bold uppercase tracking-widest text-black transition-colors hover:bg-[#ea6c0a]"
+            >
+              Go to Login
+            </Link>
+            <Link
+              href="/register"
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
+            >
+              Create Account
+            </Link>
+          </div>
         </div>
       </div>
     );

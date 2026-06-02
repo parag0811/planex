@@ -11,6 +11,10 @@ interface ErrorResponse {
   data? : unknown
 }
 
+const getFrontendBaseUrl = () => {
+  return process.env.FRONTEND_URL?.trim().replace(/\/$/, "") || "http://localhost:3000";
+};
+
 const errorHandler = (
   error: AppError,
   req: Request,
@@ -31,6 +35,12 @@ const errorHandler = (
     message = "Authentication failed! Login Again.";
   } else {
     message = error.message || "Something went wrong";
+  }
+
+  if (req.accepts("html") && req.originalUrl.startsWith("/auth/")) {
+    const frontendBaseUrl = getFrontendBaseUrl();
+    const redirectUrl = `${frontendBaseUrl}/oauth-callback?error=${encodeURIComponent(message)}`;
+    return res.redirect(redirectUrl);
   }
 
   return res.status(status).json({ status, message , data: error.data});

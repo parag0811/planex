@@ -24,11 +24,16 @@ passport.use(
       done: (error: Error | null, user?: unknown) => void, // callback to finish auth
     ) => {
       try {
+        const makeAuthError = (message: string, status: number) => {
+          const error = new Error(message) as AppError;
+          error.status = status;
+          return error;
+        };
         const email = profile.emails?.[0]?.value;
         const providerId = profile.id;
 
         if (!email) {
-          return done(new Error("No email from github."));
+          return done(makeAuthError("No email from github.", 400));
         }
 
         let user = await prisma.user.findUnique({
@@ -49,14 +54,16 @@ passport.use(
           });
         } else if (user.password) {
           return done(
-            new Error(
+            makeAuthError(
               "Email already exists with local account. Please login with email and password.",
+              409,
             ),
           );
         } else if (user.provider !== "GITHUB") {
           return done(
-            new Error(
+            makeAuthError(
               "Email already exists with another social account. Please use the original provider.",
+              409,
             ),
           );
         }
