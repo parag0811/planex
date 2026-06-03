@@ -12,6 +12,7 @@ import {
 import isAuth from "../../middleware/auth.middleware";
 import { handleValidationErrors } from "../../utils/validationErrors";
 import { uploadAvatar } from "../../middleware/upload";
+import { authLimiter } from "../../middleware/rateLimit.middleware";
 import passport from "passport";
 
 const router = Router();
@@ -60,7 +61,9 @@ router.post(
   registerUser,
 );
 
-router.post("/login", loginValidation, handleValidationErrors, loginUser);
+// If limit exceed controller never runs tho
+
+router.post("/login", authLimiter, loginValidation, handleValidationErrors, loginUser);
 
 router.get("/me", isAuth, getUser);
 
@@ -68,6 +71,7 @@ router.put("/me", isAuth, uploadAvatar, updateUser);
 
 router.get(
   "/github",
+  authLimiter,
   passport.authenticate("github", {
     scope: ["user:email"],
     session: false, // Start OAuth redirect (no server session, JWT only).
@@ -85,6 +89,7 @@ router.get(
 
 router.get(
   "/google",
+  authLimiter,
   passport.authenticate("google", {
     scope: ["profile", "email"],
     session: false,

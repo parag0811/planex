@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+// AI
+// ↓
+// Security Guard (Zod)
+// ↓
+// DB
+
 const FeaturePriority = ["must_have", "nice_to_have"] as const; // It becomes read only
 
 const IdeaFeatureSchema = z.object({

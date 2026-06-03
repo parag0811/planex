@@ -7,8 +7,13 @@ import sectionRoutes from "./modules/project-sections/section.routes";
 import jobsRoutes from "./modules/jobs/jobs.route";
 import errorHandler from "./middleware/error.middleware";
 import { aiWorker } from "./modules/queues/aiWorker";
+import { globalLimiter } from "./middleware/rateLimit.middleware";
 
 const app = express();
+
+app.set("trust proxy", 1); // Gives real user IP
+app.use(globalLimiter)
+
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
