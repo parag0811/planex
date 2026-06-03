@@ -16,6 +16,7 @@ import { memberAccess } from "../../middleware/project-middleware/memberAccess";
 import { editorAccess } from "../../middleware/project-middleware/editorAccess";
 import { body } from "express-validator";
 import { handleValidationErrors } from "../../utils/validationErrors";
+import { aiLimiter } from "../../middleware/rateLimit.middleware";
 
 const router = Router();
 
@@ -56,17 +57,19 @@ const ideaValidation = [
 
 router.post(
   "/:projectId/ai/generate-idea",
-  isAuth,
+  isAuth, // attack req.user
+  aiLimiter, // reads req.user.id for the key
   projectAccess,
   editorAccess,
   ideaValidation,
   handleValidationErrors,
-  generateIdeaSection,
+  generateIdeaSection, // runs last → only if limit not exceeded
 );
 
 router.post(
   "/:projectId/ai/generate-database",
   isAuth,
+  aiLimiter,
   projectAccess,
   editorAccess,
   generateDatabaseSuggestion,
@@ -75,6 +78,7 @@ router.post(
 router.post(
   "/:projectId/ai/generate-api",
   isAuth,
+  aiLimiter,
   projectAccess,
   editorAccess,
   generateApiSuggestion,
@@ -83,6 +87,7 @@ router.post(
 router.post(
   "/:projectId/ai/generate-folders",
   isAuth,
+  aiLimiter,
   projectAccess,
   editorAccess,
   generateFolderSuggestion,
@@ -91,6 +96,7 @@ router.post(
 router.post(
   "/:projectId/ai/regenerate/:section",
   isAuth,
+  aiLimiter,
   projectAccess,
   editorAccess,
   regenerateSection

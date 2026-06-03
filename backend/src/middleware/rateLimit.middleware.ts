@@ -10,11 +10,16 @@ import redis from "../db/redis";
 //       ↓
 //   Redis server              ← counts survive restarts / multiple servers
 
+// function sendCommand(...args) {
+//   return redis.call(...args);
+// } As it sends command and express rl creates redis key itself
+
 const store = new RedisStore({
   sendCommand: (...args: string[]) =>
-    redis.call(...(args as [string, ...string[]])) as Promise<any> , // RedisStore talks to our redis client
+    redis.call(...(args as [string, ...string[]])) as Promise<any>, // RedisStore talks to our redis client
 });
 
+// AUTH Limiter will use IP as key
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 5, // 5 attempts per window
@@ -34,6 +39,7 @@ export const authLimiter = rateLimit({
   legacyHeaders: false, // disables old X-RateLimit-* headers
 });
 
+// GLOBAL Limiter will use IP as key
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // same window
   max: 100, // 100 requests per 15 min (much more relaxed)
@@ -45,6 +51,32 @@ export const globalLimiter = rateLimit({
   message: {
     success: false,
     message: "Too many requests. Slow down.",
+  },
+
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// AI Limiter will use USER ID as key
+export const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+
+  store: store,
+
+  keyGenerator: (req) => {
+    const user = (req as any).user;
+
+    if (user?.id) {
+      return `ai:${user.id}`; // ← key by user ID
+    }
+
+    return req.ip ?? "unknown";
+  },
+
+  message: {
+    success: false,
+    message: "AI request limit reached. Try again in a minute.",
   },
 
   standardHeaders: true,
