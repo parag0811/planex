@@ -3,16 +3,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
-  AtSign,
-  Lock,
   Github,
   Chrome,
   Eye,
   EyeOff,
-  Zap,
-  Shield,
-  Cpu,
-  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
@@ -48,248 +42,206 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#11151f] flex items-center justify-center px-4 relative overflow-hidden text-white">
-      {/* Background noise texture */}
-      <div
-        className="absolute inset-0 opacity-[0.05] pointer-events-none"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-        }}
-      />
-
-      {/* Ambient glow blobs */}
-      <div className="absolute top-[-10%] left-[-5%] w-125 h-125 rounded-full bg-[#f97316]/6 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-100 h-100 rounded-full bg-[#f97316]/5 blur-[100px] pointer-events-none" />
-
-      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-        {/* ── LEFT — Branding ─────────────────────────────────── */}
+    <div className="min-h-screen bg-[#0b0b0c] text-[#FAFAFA]">
+      <div className="grid min-h-screen lg:grid-cols-2">
+        {/* LEFT PANEL */}
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
+          initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: EASE }}
-          className="hidden lg:flex flex-col justify-between h-full py-4"
+          className="relative hidden lg:flex flex-col justify-between border-r border-[#2A2A2E] p-20 overflow-hidden"
         >
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 w-fit">
-            <div className="w-9 h-9 rounded-xl bg-[#f97316] flex items-center justify-center shadow-lg shadow-[#f97316]/30">
-              <Zap size={18} className="text-black fill-black" />
-            </div>
-            <span className="font-black text-white text-base tracking-tight font-mono uppercase">
-              Planex <span className="text-[#f97316]">AI</span>
-            </span>
-          </Link>
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(0,0,0,.72), rgba(0,0,0,.72)), url('/images/auth-bg.jpg')",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
 
-          {/* Big headline */}
-          <div className="my-12">
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.7, ease: EASE }}
-              className="text-[72px] font-black leading-[0.92] tracking-tighter uppercase"
-            >
-              <span className="text-white">BUILD</span>
-              <br />
-              <span className="text-[#f97316]">BETTER</span>
-              <br />
-              <span className="text-white">SYSTEMS.</span>
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35, duration: 0.6, ease: EASE }}
-              className="text-[#aab1bf] text-sm leading-relaxed mt-6 max-w-xs"
-            >
-              Enter the forge. Secure your project room. The kinetic architect's
-              environment for high-performance neural engineering.
-            </motion.p>
+          <div className="relative z-10">
+            <p className="text-[10px] uppercase tracking-[0.4em] text-[#c09292] mb-4">
+              SYSTEM ARCHITECTURE
+            </p>
+
+            <h1 className="text-8xl font-black tracking-tight leading-none">
+              PLANEX
+            </h1>
           </div>
 
-          {/* Status bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.6, ease: EASE }}
-            className="flex items-center gap-10 border-t border-white/5 pt-6"
-          >
-            {[
-              {
-                label: "STATUS",
-                value: "SYSTEM ONLINE",
-                icon: <Shield size={12} />,
-                color: "text-[#4ade80]",
-              },
-              {
-                label: "ENCRYPTED",
-                value: "AES-256-GCM",
-                icon: <Lock size={12} />,
-                color: "text-[#f97316]",
-              },
-              {
-                label: "LATENCY",
-                value: "12MS GLOBAL",
-                icon: <Globe size={12} />,
-                color: "text-[#60a5fa]",
-              },
-            ].map((s) => (
-              <div key={s.label}>
-                <p
-                  className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mb-1 ${s.color}`}
-                >
-                  {s.icon}
-                  {s.label}
-                </p>
-                <p className="text-white text-xs font-bold">{s.value}</p>
-              </div>
-            ))}
-          </motion.div>
-        </motion.div>
+          <div className="relative z-10 max-w-lg">
+            <div className="w-16 h-px bg-[#c09292] mb-8" />
 
-        {/* RIGHT — Auth Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.7, ease: EASE }}
-          className="w-full max-w-md mx-auto"
-        >
-          <form
-            onSubmit={handleSubmit}
-            className="relative rounded-3xl border border-white/10 bg-[#10141d]/90 p-8 shadow-[0_28px_90px_rgba(0,0,0,0.45)] backdrop-blur-sm"
-          >
-            {/* Grid icon top-right */}
-            <div className="absolute top-5 right-5 grid grid-cols-2 gap-1">
-              {[...Array(4)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-1.5 h-1.5 rounded-sm bg-[#f97316]/40"
-                />
-              ))}
+            <blockquote className="text-3xl italic leading-relaxed text-[#E4E4E7]">
+              “Good architecture is not built from complexity. It emerges from
+              clarity.”
+            </blockquote>
+
+            <p className="mt-6 text-[11px] uppercase tracking-[0.3em] text-[#71717A]">
+              PLANEX SYSTEMS
+            </p>
+          </div>
+
+          <div className="relative z-10 flex justify-between text-[10px] uppercase tracking-[0.25em] text-[#52525B]">
+            <div>
+              <p>VER: 1.0.0</p>
+              <p className="mt-1">STATUS: OPERATIONAL</p>
             </div>
 
-            {/* Header */}
-            <div className="mb-7">
-              <h2 className="text-white text-xl font-bold tracking-tight">
-                Initialize Session
-              </h2>
-              <p className="text-[#aab1bf] text-sm mt-1">
-                Choose your authentication protocol.
+            <div className="border border-[#2A2A2E] p-4">
+              <div className="grid grid-cols-2 gap-1">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="w-1.5 h-1.5 bg-[#FF5D1F]" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* RIGHT PANEL */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE }}
+          className="flex bg-[#0F0F11] items-center justify-center px-8 py-12"
+        >
+          <div className="w-full max-w-md">
+            <div className="mb-14 flex gap-8 border-b border-[#2A2A2E] pb-4">
+              <Link
+                href="/login"
+                className="border-b border-[#FF5D1F] pb-2 text-[11px] uppercase tracking-[0.3em]"
+              >
+                Sign In
+              </Link>
+
+              <Link
+                href="/register"
+                className="pb-2 text-[11px] uppercase tracking-[0.3em] text-[#71717A]"
+              >
+                Sign Up
+              </Link>
+            </div>
+
+            <div className="mb-10">
+              <h2 className="text-5xl font-semibold">Access Workspace</h2>
+
+              <p className="mt-3 text-[#A1A1AA]">
+                Continue building your architecture workspace.
               </p>
             </div>
 
             {error && (
-              <div className="mb-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <div className="mb-6 border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {error}
               </div>
             )}
 
-            {/* OAuth buttons */}
-            <div className="flex flex-col gap-3 mb-6">
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleOAuth("github")}
-                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-[#141a25] hover:bg-[#1a2231] border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
-              >
-                <Github size={17} />
-                Continue with GitHub
-              </motion.button>
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.98 }}
-                onClick={() => handleOAuth("google")}
-                className="cursor-pointer w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/8 border border-white/10 text-white font-semibold text-sm py-3 rounded-xl transition-all"
-              >
-                <Chrome size={17} className="text-[#f97316]" />
-                Continue with Google
-              </motion.button>
-            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-6">
+                <label className="mb-2 block text-[10px] uppercase tracking-[0.3em] text-[#A1A1AA]">
+                  Identifier
+                </label>
 
-            {/* Divider */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex-1 h-px bg-white/8" />
-              <span className="text-[#4a3a2a] text-[10px] font-bold uppercase tracking-widest">
-                Secondary Link
+                <div className="h-12 border border-[#d6d6d6] bg-[#f3f3f3] flex items-center px-4">
+                  <input
+                    type="email"
+                    placeholder="architect@planex.dev"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <div className="flex justify-between mb-2">
+                  <label className="text-[10px] uppercase tracking-[0.3em] text-[#A1A1AA]">
+                    Password
+                  </label>
+
+                  <Link
+                    href="#"
+                    className="text-[10px] uppercase tracking-[0.2em] text-[#71717A]"
+                  >
+                    Recovery
+                  </Link>
+                </div>
+
+                <div className="h-12 border border-[#d6d6d6] bg-[#f3f3f3] flex items-center px-4">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-[#71717A] cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-10 flex items-center gap-2">
+                <input type="checkbox" className="cursor-pointer" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-[#71717A]">
+                  Maintain session for 30 days
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="cursor-pointer w-full border-t border-b border-[#FF5D1F] py-4 text-[11px] uppercase tracking-[0.35em] text-[#FF5D1F] hover:bg-[#FF5D1F] hover:text-black transition-colors"
+              >
+                {loading ? "AUTHENTICATING..." : "SIGN IN"}
+              </button>
+            </form>
+
+            <div className="my-8 flex items-center gap-4">
+              <div className="flex-1 h-px bg-[#2A2A2E]" />
+              <span className="text-[10px] uppercase tracking-[0.25em] text-[#71717A]">
+                OR PROTOCOL
               </span>
-              <div className="flex-1 h-px bg-white/8" />
+              <div className="flex-1 h-px bg-[#2A2A2E]" />
             </div>
 
-            {/* Email */}
-            <div className="mb-4">
-              <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
-                Email Address
-              </label>
-              <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                <AtSign size={14} className="text-[#8b93a6] shrink-0" />
-                <input
-                  type="email"
-                  placeholder="architect@planex.ai"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="mb-5">
-              <label className="text-[#f97316] text-[10px] font-bold uppercase tracking-widest block mb-2">
-                Password
-              </label>
-              <div className="flex items-center gap-3 bg-[#0b0f16] border border-white/8 focus-within:border-[#f97316]/50 rounded-xl px-4 py-3 transition-colors">
-                <Lock size={14} className="text-[#8b93a6] shrink-0" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="auth-input bg-transparent text-white text-sm placeholder-[#647086] outline-none w-full"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[#8b93a6] hover:text-[#f97316] transition-colors shrink-0"
-                >
-                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Lost key */}
-            <div className="flex items-center justify-end mb-6">
-              <Link href="#" className="text-[#f97316] text-xs hover:underline">
-                Forgot Password?
-              </Link>
-            </div>
-
-            {/* Submit */}
-            <motion.button
-              type="submit"
-              whileTap={{ scale: 0.98 }}
-              whileHover={{ scale: 1.01 }}
-              disabled={loading}
-              className="w-full bg-[#f97316] hover:bg-[#ea6c0a] disabled:opacity-70 disabled:cursor-not-allowed text-black font-black text-sm py-3.5 rounded-xl tracking-widest uppercase transition-all shadow-lg shadow-[#f97316]/20"
-            >
-              {loading ? "Authenticating..." : "Login"}
-            </motion.button>
-
-            {/* Register link */}
-            <p className="text-center text-[#8b93a6] text-xs mt-5">
-              New architect?{" "}
-              <Link
-                href="/register"
-                className="text-white font-semibold hover:text-[#f97316] transition-colors"
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => handleOAuth("github")}
+                className="w-full h-12 border border-[#2A2A2E] flex items-center justify-center gap-2 hover:border-[#FF5D1F] cursor-pointer"
               >
-                Register new identity
-              </Link>
-            </p>
-          </form>
-        </motion.div>
-      </div>
+                <Github size={16} />
+                SINGLE SIGN-ON (GITHUB)
+              </button>
 
-      {/* Bottom-right binary decoration */}
-      <div className="absolute bottom-4 right-6 text-[#394255] text-[10px] font-mono hidden lg:block select-none">
-        01001110 01000101 11010101 01001110
-        <br />
-        100 01 71267 0. 132-4201
+              <button
+                type="button"
+                onClick={() => handleOAuth("google")}
+                className="w-full h-12 border border-[#2A2A2E] flex items-center justify-center gap-2 hover:border-[#FF5D1F] cursor-pointer"
+              >
+                <Chrome size={16} />
+                SINGLE SIGN-ON (GOOGLE)
+              </button>
+            </div>
+
+            <div className="mt-12 flex justify-between text-[10px] uppercase tracking-[0.25em] text-[#52525B]">
+              <span>© 2026 PLANEX SYSTEMS</span>
+
+              <div className="flex gap-6">
+                <span>SECURITY</span>
+                <span>LEGAL</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   );
