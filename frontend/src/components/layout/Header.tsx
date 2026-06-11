@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, LogOut, Settings, User, Zap } from "lucide-react";
+import { ChevronDown, LogOut, Settings, User, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
@@ -15,16 +15,13 @@ export default function Header() {
   const pathname = usePathname();
   const { isAuth, user } = useSelector((state: RootState) => state.auth);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Check if we're on the projects page
   const isProjectsPage = pathname?.includes("projects");
 
   const avatarSrc = useMemo(() => {
-    if (!user) {
-      return "";
-    }
-
+    if (!user) return "";
     return (
       user.avatar ||
       user.avatarUrl ||
@@ -37,22 +34,11 @@ export default function Header() {
   }, [user]);
 
   const avatarInitials = useMemo(() => {
-    if (!user) {
-      return "IN";
-    }
-
+    if (!user) return "IN";
     const sourceName =
       user.name || user.fullName || user.username || user.email || "IN";
-
-    const parts = String(sourceName)
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
-
-    if (parts.length >= 2) {
-      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-
+    const parts = String(sourceName).trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return String(sourceName).slice(0, 2).toUpperCase();
   }, [user]);
 
@@ -62,16 +48,14 @@ export default function Header() {
         setMenuOpen(false);
       }
     };
-
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
+        setMobileNavOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleOutsideClick);
     document.addEventListener("keydown", handleEscape);
-
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
@@ -84,155 +68,261 @@ export default function Header() {
     router.push("/login");
   };
 
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#11151f]/88 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 shrink-0 group">
-          <div className="w-7 h-7 rounded-md bg-[#f97316] flex items-center justify-center">
-            <Zap size={15} className="text-black fill-black" />
-          </div>
-          <span className="font-bold text-white text-[15px] tracking-tight font-mono">
-            PLANEX <span className="text-[#f97316]">AI</span>
-          </span>
+  // Nav links — only shown when logged in and on projects page
+  const authedNavLinks =
+    isAuth && isProjectsPage ? (
+      <nav className="hidden md:flex items-center gap-8">
+        <Link
+          href="/projects"
+          className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#fafafa] hover:text-[#ff3d00] transition-colors duration-150"
+        >
+          Projects
         </Link>
+        <Link
+          href="#"
+          className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
+        >
+          Workspace
+        </Link>
+      </nav>
+    ) : null;
 
-        {/* Navigation - Show only on projects page */}
-        {isProjectsPage && isAuth && (
-          <nav className="flex items-center gap-8">
-            <Link
-              href="/projects"
-              className="text-sm font-semibold text-white hover:text-[#f97316] transition-colors"
+  return (
+    <>
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#262626] bg-[#0a0a0a]/95 backdrop-blur-md">
+        <div className="max-w-[1200px] mx-auto px-6 md:px-12 lg:px-16 h-14 flex items-center justify-between gap-6">
+          {/* Wordmark */}
+          <Link href="/" className="shrink-0 group">
+            <span
+              className="font-black text-[15px] tracking-[-0.04em] text-[#fafafa] group-hover:text-[#ff3d00] transition-colors duration-150"
+              style={{
+                fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+              }}
             >
-              PROJECTS
-            </Link>
-            <Link
-              href="#"
-              className="text-sm font-semibold text-[#8b93a6] hover:text-white transition-colors"
-            >
-              WORKSPACE
-            </Link>
-          </nav>
-        )}
+              PLANEX
+            </span>
+          </Link>
 
-        <div className="relative flex items-center gap-3 ml-auto" ref={menuRef}>
-          {!isAuth && (
-            <Link
-              href="/login"
-              className="rounded-full bg-[#f97316] px-4 py-2 text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-[#ea6c0a]"
-            >
-              Login / Signup
-            </Link>
-          )}
+          {/* Center nav — logged-in + projects page only */}
+          {authedNavLinks}
 
-          {isAuth && (
-            <>
-              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-[#141b28] px-1.5 py-1.5">
-                <Link
-                  href="/profile"
-                  onClick={() => setMenuOpen(false)}
-                  className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#1a2130] text-[10px] font-bold text-[#f97316] transition-colors hover:border-[#f97316]/45"
-                  aria-label="Go to profile"
-                >
-                  {avatarSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={avatarSrc}
-                      alt={user?.name ? `${user.name} profile picture` : "Profile picture"}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span>{avatarInitials}</span>
-                  )}
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((current) => !current)}
-                  className="flex items-center justify-center rounded-full border border-transparent bg-transparent p-1 text-left transition-colors hover:border-[#f97316]/45"
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Open account menu"
-                >
-                  <ChevronDown
-                    size={14}
-                    className={`text-[#8b93a6] transition-transform ${
-                      menuOpen ? "rotate-180" : "rotate-0"
-                    }`}
-                  />
-                </button>
-              </div>
+          {/* Right side */}
+          <div
+            className="relative flex items-center gap-4 ml-auto"
+            ref={menuRef}
+          >
+            {/* Guest — show LOGIN button only */}
+            {!isAuth && (
+              <Link
+                href="/login"
+                className="relative inline-flex items-center gap-1.5 px-5 py-2 border bg-[#ff3d00] border-[#ff3d00] text-[#fafafa] hover:bg-[#fafafa] hover:text-[#0a0a0a] transition-all duration-150 text-[11px] font-bold uppercase tracking-[0.12em]"
+                style={{
+                  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+                }}
+              >
+                Login
+              </Link>
+            )}
 
-              <AnimatePresence>
-                {menuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-[calc(100%+0.75rem)] w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#101722] shadow-[0_24px_80px_rgba(0,0,0,0.45)]"
-                    role="menu"
+            {/* Authenticated user menu */}
+            {isAuth && (
+              <div className="flex items-center gap-2">
+                {/* Avatar + chevron pill */}
+                <div className="flex items-center gap-1 border border-[#262626] bg-[#1a1a1a] px-1.5 py-1.5">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="relative flex h-7 w-7 items-center justify-center overflow-hidden border border-[#262626] bg-[#0f0f0f] text-[9px] font-bold text-[#ff3d00] hover:border-[#ff3d00]/50 transition-colors duration-150"
+                    aria-label="Go to profile"
                   >
-                    <div className="border-b border-white/5 px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#1a2130] text-sm font-bold text-[#f97316]">
-                          {avatarSrc ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={avatarSrc}
-                              alt={user?.name ? `${user.name} profile picture` : "Profile picture"}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <span>{avatarInitials}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-white">
-                            {user?.name || user?.fullName || user?.username || "Your account"}
-                          </p>
-                          <p className="truncate text-xs text-[#7f889d]">
-                            {user?.email || "Signed in user"}
-                          </p>
+                    {avatarSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatarSrc}
+                        alt={user?.name ? `${user.name} avatar` : "Avatar"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span
+                        style={{ fontFamily: '"JetBrains Mono", monospace' }}
+                      >
+                        {avatarInitials}
+                      </span>
+                    )}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    className="flex items-center justify-center p-1 text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
+                    aria-expanded={menuOpen}
+                    aria-haspopup="menu"
+                    aria-label="Open account menu"
+                  >
+                    <ChevronDown
+                      size={13}
+                      strokeWidth={1.5}
+                      className={`transition-transform duration-150 ${menuOpen ? "rotate-180" : "rotate-0"}`}
+                    />
+                  </button>
+                </div>
+
+                {/* Dropdown */}
+                <AnimatePresence>
+                  {menuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
+                      className="absolute right-0 top-[calc(100%+0.75rem)] w-60 overflow-hidden border border-[#262626] bg-[#0f0f0f] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+                      role="menu"
+                    >
+                      {/* User info */}
+                      <div className="border-b border-[#262626] px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#262626] bg-[#1a1a1a] text-[10px] font-bold text-[#ff3d00]">
+                            {avatarSrc ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={avatarSrc}
+                                alt="Avatar"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span
+                                style={{
+                                  fontFamily: '"JetBrains Mono", monospace',
+                                }}
+                              >
+                                {avatarInitials}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p
+                              className="truncate text-[13px] font-semibold text-[#fafafa]"
+                              style={{
+                                fontFamily:
+                                  '"Inter Tight", "Inter", system-ui, sans-serif',
+                              }}
+                            >
+                              {user?.name ||
+                                user?.fullName ||
+                                user?.username ||
+                                "Your account"}
+                            </p>
+                            <p
+                              className="truncate text-[11px] text-[#737373]"
+                              style={{
+                                fontFamily: '"JetBrains Mono", monospace',
+                                letterSpacing: "0.02em",
+                              }}
+                            >
+                              {user?.email || "Signed in"}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="p-2">
-                      <Link
-                        href="/profile"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#d8ddea] transition-colors hover:bg-white/5 hover:text-white"
-                        role="menuitem"
-                      >
-                        <User size={16} className="text-[#f97316]" />
-                        Profile
-                      </Link>
-                      <Link
-                        href="/settings"
-                        onClick={() => setMenuOpen(false)}
-                        className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#d8ddea] transition-colors hover:bg-white/5 hover:text-white"
-                        role="menuitem"
-                      >
-                        <Settings size={16} className="text-[#f97316]" />
-                        Settings
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="mt-1 flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-[#f5a3a0] transition-colors hover:bg-white/5 hover:text-[#ffb7b3]"
-                        role="menuitem"
-                      >
-                        <LogOut size={16} className="text-[#f97316]" />
-                        Logout
-                      </button>
-                    </div>
-                  </motion.div>
+                      {/* Menu items */}
+                      <div className="p-1">
+                        <Link
+                          href="/profile"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-[#fafafa] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          role="menuitem"
+                        >
+                          <User
+                            size={14}
+                            strokeWidth={1.5}
+                            className="text-[#ff3d00] shrink-0"
+                          />
+                          <span>Profile</span>
+                        </Link>
+                        <Link
+                          href="/settings"
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-[#fafafa] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          role="menuitem"
+                        >
+                          <Settings
+                            size={14}
+                            strokeWidth={1.5}
+                            className="text-[#ff3d00] shrink-0"
+                          />
+                          <span>Settings</span>
+                        </Link>
+                        <div className="my-1 border-t border-[#262626]" />
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-3 px-3 py-2.5 text-[13px] text-[#ef4444] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          role="menuitem"
+                        >
+                          <LogOut
+                            size={14}
+                            strokeWidth={1.5}
+                            className="shrink-0"
+                          />
+                          <span>Sign out</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Mobile hamburger — only when logged in on projects page */}
+            {isAuth && isProjectsPage && (
+              <button
+                type="button"
+                className="md:hidden flex items-center justify-center p-1.5 text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
+                onClick={() => setMobileNavOpen((v) => !v)}
+                aria-label="Toggle navigation"
+              >
+                {mobileNavOpen ? (
+                  <X size={18} strokeWidth={1.5} />
+                ) : (
+                  <Menu size={18} strokeWidth={1.5} />
                 )}
-              </AnimatePresence>
-            </>
-          )}
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+
+        {/* Mobile nav drawer — logged in + projects page */}
+        <AnimatePresence>
+          {mobileNavOpen && isAuth && isProjectsPage && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.25, 0, 0, 1] }}
+              className="overflow-hidden border-t border-[#262626] bg-[#0a0a0a] md:hidden"
+            >
+              <nav className="flex flex-col px-6 py-4 gap-1">
+                <Link
+                  href="/projects"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="px-0 py-3 border-b border-[#262626] text-[11px] font-bold uppercase tracking-[0.18em] text-[#fafafa]"
+                  style={{ fontFamily: '"JetBrains Mono", monospace' }}
+                >
+                  Projects
+                </Link>
+                <Link
+                  href="#"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="px-0 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#737373]"
+                  style={{ fontFamily: '"JetBrains Mono", monospace' }}
+                >
+                  Workspace
+                </Link>
+              </nav>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </header>
+    </>
   );
 }
