@@ -2,12 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Github,
-  Chrome,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Github, Chrome, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser } from "@/src/store/slices/authSlice";
@@ -18,23 +13,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function LoginPage() {
   const dispatch = useDispatch<AppDispatch>();
-  const { loading } = useSelector((state: RootState) => state.auth);
+  const { loginLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    setError(null);
-
-    try {
-      await dispatch(loginUser({ email, password })).unwrap();
-    } catch (err: any) {
-      setError(err || "Login failed");
-    }
+    await dispatch(loginUser({ email, password }));
   };
 
   const handleOAuth = (provider: "github" | "google") => {
@@ -197,10 +185,10 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loginLoading}
                 className="cursor-pointer w-full border-t border-b border-[#FF5D1F] py-4 text-[11px] uppercase tracking-[0.35em] text-[#FF5D1F] hover:bg-[#FF5D1F] hover:text-black transition-colors"
               >
-                {loading ? "AUTHENTICATING..." : "SIGN IN"}
+                {loginLoading ? "AUTHENTICATING..." : "SIGN IN"}
               </button>
             </form>
 

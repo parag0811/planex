@@ -66,7 +66,9 @@ interface AuthState {
   user: any;
   token: string | null;
   isAuth: boolean;
-  loading: boolean;
+  authCheckLoading: boolean;
+  loginLoading: boolean;
+  profileLoading: boolean;
   error: string | null;
 }
 
@@ -77,7 +79,9 @@ const initialState: AuthState = {
   user: null,
   token: initialToken,
   isAuth: false,
-  loading: Boolean(initialToken),
+  authCheckLoading: Boolean(initialToken),
+  loginLoading: false,
+  profileLoading: false,
   error: null,
 };
 
@@ -87,13 +91,17 @@ const authSlice = createSlice({
   reducers: {
     setToken: (state, action) => {
       state.token = action.payload;
-      state.loading = false;
+      state.authCheckLoading = false;
+      state.loginLoading = false;
+      state.profileLoading = false;
     },
     logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuth = false;
-      state.loading = false;
+      state.authCheckLoading = false;
+      state.loginLoading = false;
+      state.profileLoading = false;
       state.error = null;
 
       localStorage.removeItem("token");
@@ -103,29 +111,29 @@ const authSlice = createSlice({
     // LOGIN
     builder
       .addCase(loginUser.pending, (state) => {
-        state.loading = true;
+        state.loginLoading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loginLoading = false;
         state.token = action.payload;
       })
       .addCase(loginUser.rejected, (state, action) => {
-        state.loading = false;
+        state.loginLoading = false;
         state.error = action.payload as string;
       })
 
       // FETCH USER
       .addCase(fetchUser.pending, (state) => {
-        state.loading = true;
+        state.authCheckLoading = true;
       })
       .addCase(fetchUser.fulfilled, (state, action) => {
-        state.loading = false;
+        state.authCheckLoading = false;
         state.user = action.payload;
         state.isAuth = true;
       })
       .addCase(fetchUser.rejected, (state) => {
-        state.loading = false;
+        state.authCheckLoading = false;
         state.user = null;
         state.isAuth = false;
         state.token = null;
@@ -133,15 +141,15 @@ const authSlice = createSlice({
 
       // UPDATE PROFILE
       .addCase(updateUserProfile.pending, (state) => {
-        state.loading = true;
+        state.profileLoading = true;
         state.error = null;
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.loading = false;
+        state.profileLoading = false;
         state.user = action.payload;
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
-        state.loading = false;
+        state.profileLoading = false;
         state.error = action.payload as string;
       });
   },

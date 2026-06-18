@@ -15,6 +15,7 @@ const getFrontendBaseUrl = () => {
   return process.env.FRONTEND_URL?.trim().replace(/\/$/, "") || "http://localhost:3000";
 };
 
+
 const errorHandler = (
   error: AppError,
   req: Request,
@@ -37,7 +38,11 @@ const errorHandler = (
     message = error.message || "Something went wrong";
   }
 
-  if (req.accepts("html") && req.originalUrl.startsWith("/auth/")) {
+  const isOAuthCallback =
+  req.originalUrl.includes("/google/callback") ||
+  req.originalUrl.includes("/github/callback");
+
+  if (req.accepts("html") && isOAuthCallback) {
     const frontendBaseUrl = getFrontendBaseUrl();
     const redirectUrl = `${frontendBaseUrl}/oauth-callback?error=${encodeURIComponent(message)}`;
     return res.redirect(redirectUrl);

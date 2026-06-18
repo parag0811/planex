@@ -2,23 +2,44 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, LogOut, Settings, User, Menu, X } from "lucide-react";
+import {
+  ChevronDown,
+  LogOut,
+  Settings,
+  User,
+  Menu,
+  X,
+  Search,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "@/src/store/slices/authSlice";
 import type { RootState } from "@/src/store/store";
 
+const EASE: [number, number, number, number] = [0.25, 0, 0, 1];
+
+const PROJECTS_NAV = [
+  { label: "Projects", href: "/projects" },
+  { label: "Templates", href: "/projects/templates" },
+];
+
 export default function Header() {
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
   const { isAuth, user } = useSelector((state: RootState) => state.auth);
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isProjectsPage = pathname?.includes("projects");
+
+  const isNavActive = (href: string) =>
+    href === "/projects"
+      ? pathname === "/projects"
+      : pathname?.startsWith(href.split("?")[0]);
 
   const avatarSrc = useMemo(() => {
     if (!user) return "";
@@ -68,54 +89,76 @@ export default function Header() {
     router.push("/login");
   };
 
-  // Nav links — only shown when logged in and on projects page
-  const authedNavLinks =
-    isAuth && isProjectsPage ? (
-      <nav className="hidden md:flex items-center gap-8">
-        <Link
-          href="/projects"
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#fafafa] hover:text-[#ff3d00] transition-colors duration-150"
-        >
-          Projects
-        </Link>
-        <Link
-          href="#"
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
-        >
-          Workspace
-        </Link>
-      </nav>
-    ) : null;
-
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#262626] bg-[#0a0a0a]/95 backdrop-blur-md">
-        <div className="max-w-[1200px] mx-auto px-6 md:px-12 lg:px-16 h-14 flex items-center justify-between gap-6">
-          {/* Wordmark */}
-          <Link href="/" className="shrink-0 group">
-            <span
-              className="font-black text-[15px] tracking-[-0.04em] text-[#fafafa] group-hover:text-[#ff3d00] transition-colors duration-150"
-              style={{
-                fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
-              }}
-            >
-              PLANEX
-            </span>
-          </Link>
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#feb3a2] bg-[#0a0a0a]/96 backdrop-blur-md">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12 h-14 flex items-center justify-between gap-6">
+          {/* Left — wordmark + projects nav */}
+          <div className="flex items-center gap-10 min-w-0">
+            {/* Mobile hamburger (projects page only) */}
+            {isAuth && isProjectsPage && (
+              <button
+                type="button"
+                className="md:hidden p-1 text-white/40 hover:text-white transition-colors duration-150"
+                onClick={() => setMobileNavOpen((v) => !v)}
+                aria-label="Toggle navigation"
+              >
+                {mobileNavOpen ? (
+                  <X size={17} strokeWidth={1.5} />
+                ) : (
+                  <Menu size={17} strokeWidth={1.5} />
+                )}
+              </button>
+            )}
 
-          {/* Center nav — logged-in + projects page only */}
-          {authedNavLinks}
+            {/* Wordmark */}
+            <Link href={"/"} className="shrink-0 group">
+              <span
+                className="font-semibold text-[26px] tracking-[-0.03em] text-white group-hover:text-white/70 transition-colors duration-150"
+                style={{
+                  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+                }}
+              >
+                PLANEX
+              </span>
+            </Link>
+
+            {/* Desktop nav — projects pages only when logged in */}
+            {isAuth && isProjectsPage && (
+              <nav className="hidden md:flex items-center gap-6">
+                {PROJECTS_NAV.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className={`relative pb-px text-[11px] uppercase tracking-[0.12em] transition-colors duration-150 ${
+                      isNavActive(link.href)
+                        ? "text-white"
+                        : "text-white/35 hover:text-white/65"
+                    }`}
+                    style={{
+                      fontFamily: '"Inter Tight", system-ui, sans-serif',
+                    }}
+                  >
+                    {link.label}
+                    {isNavActive(link.href) && (
+                      <span className="absolute -bottom-[4px] left-0 w-full h-px bg-[#ff3d00]" />
+                    )}
+                  </Link>
+                ))}
+              </nav>
+            )}
+          </div>
 
           {/* Right side */}
           <div
             className="relative flex items-center gap-4 ml-auto"
             ref={menuRef}
           >
-            {/* Guest — show LOGIN button only */}
+            {/* Guest — LOGIN button */}
             {!isAuth && (
               <Link
                 href="/login"
-                className="relative inline-flex items-center gap-1.5 px-5 py-2 border bg-[#ff3d00] border-[#ff3d00] text-[#fafafa] hover:bg-[#fafafa] hover:text-[#0a0a0a] transition-all duration-150 text-[11px] font-bold uppercase tracking-[0.12em]"
+                className="inline-flex items-center px-5 py-2 bg-[#ff3d00] border border-[#ff3d00] text-white hover:bg-transparent hover:text-[#ff3d00] transition-all duration-150 text-[11px] font-bold uppercase tracking-[0.12em]"
                 style={{
                   fontFamily: '"JetBrains Mono", "Fira Code", monospace',
                 }}
@@ -124,65 +167,45 @@ export default function Header() {
               </Link>
             )}
 
-            {/* Authenticated user menu */}
+            {/* Authenticated — search + avatar */}
             {isAuth && (
-              <div className="flex items-center gap-2">
-                {/* Avatar + chevron pill */}
-                <div className="flex items-center gap-1 border border-[#262626] bg-[#1a1a1a] px-1.5 py-1.5">
-                  <Link
-                    href="/profile"
-                    onClick={() => setMenuOpen(false)}
-                    className="relative flex h-7 w-7 items-center justify-center overflow-hidden border border-[#262626] bg-[#0f0f0f] text-[9px] font-bold text-[#ff3d00] hover:border-[#ff3d00]/50 transition-colors duration-150"
-                    aria-label="Go to profile"
-                  >
-                    {avatarSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={avatarSrc}
-                        alt={user?.name ? `${user.name} avatar` : "Avatar"}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span
-                        style={{ fontFamily: '"JetBrains Mono", monospace' }}
-                      >
-                        {avatarInitials}
-                      </span>
-                    )}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen((v) => !v)}
-                    className="flex items-center justify-center p-1 text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
-                    aria-expanded={menuOpen}
-                    aria-haspopup="menu"
-                    aria-label="Open account menu"
-                  >
-                    <ChevronDown
-                      size={13}
-                      strokeWidth={1.5}
-                      className={`transition-transform duration-150 ${menuOpen ? "rotate-180" : "rotate-0"}`}
+              <div className="flex items-center gap-4">
+                {/* Avatar circle + dropdown */}
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-full bg-[#ff3d00] text-[10px] font-semibold text-white overflow-hidden hover:opacity-85 transition-opacity duration-150 shrink-0"
+                  style={{ fontFamily: '"Inter", system-ui, sans-serif' }}
+                  aria-expanded={menuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Account menu"
+                >
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt="Avatar"
+                      className="h-full w-full object-cover rounded-full"
                     />
-                  </button>
-                </div>
+                  ) : (
+                    <span>{avatarInitials}</span>
+                  )}
+                </button>
 
-                {/* Dropdown */}
                 <AnimatePresence>
                   {menuOpen && (
                     <motion.div
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 6 }}
-                      transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
-                      className="absolute right-0 top-[calc(100%+0.75rem)] w-60 overflow-hidden border border-[#262626] bg-[#0f0f0f] shadow-[0_24px_80px_rgba(0,0,0,0.5)]"
+                      transition={{ duration: 0.15, ease: EASE }}
+                      className="absolute right-0 top-[calc(100%+0.75rem)] w-60 overflow-hidden border border-white/10 bg-[#0f0f0f] shadow-[0_24px_80px_rgba(0,0,0,0.6)]"
                       role="menu"
                     >
                       {/* User info */}
-                      <div className="border-b border-[#262626] px-4 py-4">
+                      <div className="border-b border-white/5 px-4 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-[#262626] bg-[#1a1a1a] text-[10px] font-bold text-[#ff3d00]">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ff3d00] text-[10px] font-bold text-white overflow-hidden">
                             {avatarSrc ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={avatarSrc}
                                 alt="Avatar"
@@ -190,9 +213,7 @@ export default function Header() {
                               />
                             ) : (
                               <span
-                                style={{
-                                  fontFamily: '"JetBrains Mono", monospace',
-                                }}
+                                style={{ fontFamily: '"Inter", sans-serif' }}
                               >
                                 {avatarInitials}
                               </span>
@@ -200,7 +221,7 @@ export default function Header() {
                           </div>
                           <div className="min-w-0">
                             <p
-                              className="truncate text-[13px] font-semibold text-[#fafafa]"
+                              className="truncate text-[13px] font-semibold text-white"
                               style={{
                                 fontFamily:
                                   '"Inter Tight", "Inter", system-ui, sans-serif',
@@ -212,10 +233,9 @@ export default function Header() {
                                 "Your account"}
                             </p>
                             <p
-                              className="truncate text-[11px] text-[#737373]"
+                              className="truncate text-[11px] text-white/35"
                               style={{
                                 fontFamily: '"JetBrains Mono", monospace',
-                                letterSpacing: "0.02em",
                               }}
                             >
                               {user?.email || "Signed in"}
@@ -229,42 +249,42 @@ export default function Header() {
                         <Link
                           href="/profile"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-[#fafafa] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-white/80 hover:bg-white/5 hover:text-white transition-colors duration-150"
                           role="menuitem"
                         >
                           <User
-                            size={14}
+                            size={13}
                             strokeWidth={1.5}
                             className="text-[#ff3d00] shrink-0"
                           />
-                          <span>Profile</span>
+                          Profile
                         </Link>
                         <Link
                           href="/settings"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-[#fafafa] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-white/80 hover:bg-white/5 hover:text-white transition-colors duration-150"
                           role="menuitem"
                         >
                           <Settings
-                            size={14}
+                            size={13}
                             strokeWidth={1.5}
                             className="text-[#ff3d00] shrink-0"
                           />
-                          <span>Settings</span>
+                          Settings
                         </Link>
-                        <div className="my-1 border-t border-[#262626]" />
+                        <div className="my-1 border-t border-white/5" />
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-3 px-3 py-2.5 text-[13px] text-[#ef4444] hover:bg-[#1a1a1a] transition-colors duration-150"
+                          className="flex w-full items-center gap-3 px-3 py-2.5 text-[13px] text-red-400 hover:bg-white/5 transition-colors duration-150"
                           role="menuitem"
                         >
                           <LogOut
-                            size={14}
+                            size={13}
                             strokeWidth={1.5}
                             className="shrink-0"
                           />
-                          <span>Sign out</span>
+                          Sign out
                         </button>
                       </div>
                     </motion.div>
@@ -272,57 +292,81 @@ export default function Header() {
                 </AnimatePresence>
               </div>
             )}
-
-            {/* Mobile hamburger — only when logged in on projects page */}
-            {isAuth && isProjectsPage && (
-              <button
-                type="button"
-                className="md:hidden flex items-center justify-center p-1.5 text-[#737373] hover:text-[#fafafa] transition-colors duration-150"
-                onClick={() => setMobileNavOpen((v) => !v)}
-                aria-label="Toggle navigation"
-              >
-                {mobileNavOpen ? (
-                  <X size={18} strokeWidth={1.5} />
-                ) : (
-                  <Menu size={18} strokeWidth={1.5} />
-                )}
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Mobile nav drawer — logged in + projects page */}
+        {/* Mobile nav drawer — projects page only */}
         <AnimatePresence>
           {mobileNavOpen && isAuth && isProjectsPage && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: [0.25, 0, 0, 1] }}
-              className="overflow-hidden border-t border-[#262626] bg-[#0a0a0a] md:hidden"
+              transition={{ duration: 0.2, ease: EASE }}
+              className="overflow-hidden border-t border-white/5 bg-[#0a0a0a] md:hidden"
             >
-              <nav className="flex flex-col px-6 py-4 gap-1">
-                <Link
-                  href="/projects"
-                  onClick={() => setMobileNavOpen(false)}
-                  className="px-0 py-3 border-b border-[#262626] text-[11px] font-bold uppercase tracking-[0.18em] text-[#fafafa]"
-                  style={{ fontFamily: '"JetBrains Mono", monospace' }}
-                >
-                  Projects
-                </Link>
-                <Link
-                  href="#"
-                  onClick={() => setMobileNavOpen(false)}
-                  className="px-0 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-[#737373]"
-                  style={{ fontFamily: '"JetBrains Mono", monospace' }}
-                >
-                  Workspace
-                </Link>
+              <nav className="flex flex-col px-4 py-2">
+                {PROJECTS_NAV.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`py-3 border-b border-white/5 last:border-0 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors duration-150 ${
+                      isNavActive(link.href) ? "text-white" : "text-white/35"
+                    }`}
+                    style={{ fontFamily: '"Inter", system-ui, sans-serif' }}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </nav>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
+
+      {/* Mobile bottom tab bar — projects pages only */}
+      {isAuth && isProjectsPage && (
+        <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 bg-[#0a0a0a] md:hidden">
+          <div className="grid grid-cols-5 h-14">
+            {[
+              { label: "Projects", href: "/projects" },
+              { label: "Templates", href: "/projects/templates" },
+              { label: "Alerts", href: "/projects/alerts" },
+              { label: "Profile", href: "/profile" },
+            ].map((item) => {
+              const active = isNavActive(item.href);
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`flex flex-col items-center justify-center gap-1 transition-colors duration-150 ${
+                    active
+                      ? "text-[#ff3d00]"
+                      : "text-white/25 hover:text-white/50"
+                  }`}
+                >
+                  <span className="text-[15px] leading-none">
+                    {item.label === "Projects"
+                      ? "⊞"
+                      : item.label === "Templates"
+                        ? "▤"
+                        : item.label === "Alerts"
+                          ? "◎"
+                          : "◯"}
+                  </span>
+                  <span
+                    className="text-[8px] font-bold uppercase tracking-[0.1em]"
+                    style={{ fontFamily: '"Inter", system-ui, sans-serif' }}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </>
   );
 }

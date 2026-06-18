@@ -12,17 +12,17 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { loading, isAuth, token } = useSelector(
+  const { authCheckLoading, isAuth, token } = useSelector(
     (state: RootState) => state.auth,
   );
 
   useEffect(() => {
-    if (!loading && token && isAuth) {
+    if (!authCheckLoading && token && isAuth) {
       router.replace("/projects");
     }
-  }, [loading, token, isAuth, router]);
+  }, [authCheckLoading, token, isAuth, router]);
 
-  if (loading) {
+  if (authCheckLoading) {
     return <FullPageLoader subtitle="Restoring your session..." />;
   }
 
