@@ -91,7 +91,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#feb3a2] bg-[#0a0a0a]/96 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[#281D1B] bg-[#111111]/96 backdrop-blur-md">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12 h-14 flex items-center justify-between gap-6">
           {/* Left — wordmark + projects nav */}
           <div className="flex items-center gap-10 min-w-0">
@@ -132,8 +132,8 @@ export default function Header() {
                     href={link.href}
                     className={`relative pb-px text-[11px] uppercase tracking-[0.12em] transition-colors duration-150 ${
                       isNavActive(link.href)
-                        ? "text-white"
-                        : "text-white/35 hover:text-white/65"
+                        ? "text-[#E09F8F]"
+                        : "text-[#AD8B85] hover:text-white/65"
                     }`}
                     style={{
                       fontFamily: '"Inter Tight", system-ui, sans-serif',

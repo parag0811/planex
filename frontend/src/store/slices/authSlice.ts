@@ -2,6 +2,30 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "@/src/lib/axios";
 import { updateProfile } from "@/src/services/auth.service";
 
+export const registerUser = createAsyncThunk(
+  "auth/registerUser",
+  async (
+    data: { name: string; email: string; password: string },
+    { rejectWithValue },
+  ) => {
+    try {
+      const res = await axiosInstance.post("/auth/register", data);
+
+      return res.data.message;
+    } catch (error: any) {
+      const validationErrors = error.response?.data?.data;
+
+      if (validationErrors?.length > 0) {
+        return rejectWithValue(validationErrors[0].msg);
+      }
+
+      return rejectWithValue(
+        error.response?.data?.message || "Registration failed",
+      );
+    }
+  },
+);
+
 // dispatch login
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
@@ -70,6 +94,8 @@ interface AuthState {
   loginLoading: boolean;
   profileLoading: boolean;
   error: string | null;
+  registerLoading: boolean;
+  registerError: string | null;
 }
 
 const initialToken =
@@ -83,6 +109,8 @@ const initialState: AuthState = {
   loginLoading: false,
   profileLoading: false,
   error: null,
+  registerLoading: false,
+  registerError: null,
 };
 
 const authSlice = createSlice({
@@ -108,6 +136,21 @@ const authSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    // REGISTER
+    builder
+      .addCase(registerUser.pending, (state) => {
+        state.registerLoading = true;
+        state.registerError = null;
+      })
+
+      .addCase(registerUser.fulfilled, (state) => {
+        state.registerLoading = false;
+      })
+
+      .addCase(registerUser.rejected, (state, action) => {
+        state.registerLoading = false;
+        state.registerError = action.payload as string;
+      });
     // LOGIN
     builder
       .addCase(loginUser.pending, (state) => {

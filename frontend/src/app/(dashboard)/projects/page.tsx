@@ -85,15 +85,15 @@ export default function ProjectsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#06070c] pb-20 md:pb-0">
-      <div className="max-w-[1100px] mx-auto px-5 md:px-8 lg:px-10">
+    <div className="min-h-screen bg-[#0A0A0A] pb-20 md:pb-0">
+      <div className="max-w-[1400px] mx-auto px-5 md:px-8 lg:px-10">
         {/* Page header */}
         <div className="pt-10 md:pt-14">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: EASE }}
-            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/35 mb-3"
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#E09F8F] mb-3"
             style={INTER}
           >
             Your Workspace
@@ -116,7 +116,7 @@ export default function ProjectsPage() {
               transition={{ delay: 0.08, duration: 0.35 }}
               type="button"
               onClick={() => router.push("/projects/create-project")}
-              className="shrink-0 flex items-center gap-2 border border-white/20 px-4 py-2 text-[11px] font-semibold tracking-[0.08em] text-white hover:border-white/40 hover:bg-white/5 transition-all duration-150"
+              className="cursor-pointer shrink-0 flex items-center gap-2 border border-white/20 px-4 py-2 text-[11px] font-semibold tracking-[0.08em] text-white hover:border-white/40 hover:bg-white/5 transition-all duration-150"
               style={INTER}
             >
               NEW PROJECT
@@ -127,7 +127,7 @@ export default function ProjectsPage() {
           </div>
 
           {/* Thin separator */}
-          <div className="h-px w-full bg-white/8 mb-8" />
+          <div className="h-1 w-full bg-[#281D1B] mb-8" />
         </div>
 
         {/* Projects grid */}
@@ -165,7 +165,7 @@ export default function ProjectsPage() {
                 initial={{ opacity: 0, y: 18 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.07, duration: 0.45, ease: EASE }}
-                className="group border border-white/8 bg-[#10141d] hover:border-white/20 hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-200 flex flex-col"
+                className="group border border-white/8 bg-[#0F0F0F] hover:border-white/20 hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-200 flex flex-col"
               >
                 <div className="p-5 md:p-6 flex flex-col flex-1">
                   {/* Top row — name + kebab */}
@@ -228,17 +228,17 @@ export default function ProjectsPage() {
       </div>
 
       {/* Footer — matches screenshot bottom section */}
-      <footer className="mt-24 border-t border-white/5">
-        <div className="max-w-[1100px] mx-auto px-5 md:px-8 lg:px-10 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <footer className="mt-50 border-t-2 border-[#281D1B]">
+        <div className="max-w-[1400px] mx-auto px-5 md:px-8 lg:px-10 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p
-              className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60"
+              className="text-[15px] font-bold uppercase tracking-[0.2em] text-white"
               style={INTER}
             >
               Planex Architectural Systems
             </p>
             <p
-              className="mt-1 text-[9px] uppercase tracking-[0.12em] text-white/20"
+              className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/60"
               style={INTER}
             >
               © 2024 All rights reserved
@@ -249,7 +249,7 @@ export default function ProjectsPage() {
               <button
                 key={item}
                 type="button"
-                className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/25 hover:text-white/60 transition-colors duration-150"
+                className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white hover:text-white/60 transition-colors duration-150"
                 style={INTER}
               >
                 {item}

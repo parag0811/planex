@@ -5,7 +5,9 @@ import { motion } from "framer-motion";
 import { Github, Chrome, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { register } from "@/src/services/auth.service";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/src/store/store";
+import { registerUser } from "@/src/store/slices/authSlice";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -19,11 +21,15 @@ const DISPLAY: React.CSSProperties = {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  const { registerLoading, registerError } = useSelector(
+    (state: RootState) => state.auth,
+  );
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -40,24 +46,21 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    if (!passwordMatch) {
-      setError("Passwords do not match");
-      return;
-    }
-    setError(null);
-    setIsSubmitting(true);
+
+    if (!passwordMatch) return;
+
     try {
-      await register({
-        name: form.name,
-        email: form.email,
-        password: form.password,
-      });
+      await dispatch(
+        registerUser({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        }),
+      ).unwrap();
+
       router.push("/login");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Registration failed");
-    } finally {
-      setIsSubmitting(false);
+    } catch (error) {
+      // Redux already stores registerError
     }
   };
 
@@ -161,12 +164,12 @@ export default function RegisterPage() {
             </div>
 
             {/* Error */}
-            {error && (
+            {registerError  && (
               <div
                 className="mb-6 border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
                 style={MONO}
               >
-                {error}
+                {registerError }
               </div>
             )}
 
@@ -290,7 +293,7 @@ export default function RegisterPage() {
                 </div>
                 {form.confirm && !passwordMatch && (
                   <p
-                    className="mt-1.5 text-[10px] text-red-400/80"
+                    className="mt-1.5 text-[12px] text-red-400/80"
                     style={MONO}
                   >
                     Passwords do not match
@@ -317,11 +320,11 @@ export default function RegisterPage() {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={registerLoading}
                 className="w-full border-t border-b border-[#FF5D1F] py-4 text-[11px] uppercase tracking-[0.3em] text-[#FF5D1F] hover:bg-[#FF5D1F] hover:text-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 cursor-pointer"
                 style={MONO}
               >
-                {isSubmitting ? "Registering..." : "Create Account"}
+                {registerLoading ? "Registering..." : "Create Account"}
               </button>
             </form>
 
