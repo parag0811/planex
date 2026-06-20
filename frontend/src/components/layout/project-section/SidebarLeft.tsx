@@ -5,90 +5,92 @@ import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import {
-  LayoutDashboard,
   Lightbulb,
+  Sparkles,
   Database,
-  Code2,
-  FolderTree,
-  Menu,
+  FolderOpen,
+  User,
   X,
-  AppWindow,
 } from "lucide-react";
 import type { RootState } from "@/src/store/store";
 
-export type SidebarPage =
-  | "dashboard"
-  | "idea"
-  | "api"
-  | "database"
-  | "folder";
+export type SidebarPage = "dashboard" | "idea" | "api" | "database" | "folder";
 
 interface SidebarProps {
   projectId: string;
-  projectName?: string;
-  projectStatus?: string;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-interface SidebarContentProps {
-  projectId: string;
-  projectName: string;
-  projectStatus: string;
-  displayName: string;
-  displayEmail: string;
-  avatarInitials: string;
-  pathname: string;
-  onNavigate: (href: string) => void;
-}
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
 
-const NAV_ITEMS: { id: SidebarPage; label: string; icon: React.ElementType; href: (projectId: string) => string }[] = [
-  { id: "dashboard", label: "DASHBOARD", icon: LayoutDashboard, href: (projectId) => `/projects/${projectId}` },
-  { id: "idea", label: "IDEA", icon: Lightbulb, href: (projectId) => `/projects/${projectId}/idea` },
-  { id: "database", label: "DATABASE", icon: Database, href: (projectId) => `/projects/${projectId}/database` },
-  { id: "api", label: "API", icon: Code2, href: (projectId) => `/projects/${projectId}/api` },
-  { id: "folder", label: "FOLDER", icon: FolderTree, href: (projectId) => `/projects/${projectId}/folder` },
+const NAV_ITEMS: {
+  id: SidebarPage;
+  label: string;
+  icon: React.ElementType;
+  href: (id: string) => string;
+}[] = [
+  {
+    id: "idea",
+    label: "IDEA",
+    icon: Lightbulb,
+    href: (id) => `/projects/${id}/idea`,
+  },
+  {
+    id: "api",
+    label: "API",
+    icon: Sparkles,
+    href: (id) => `/projects/${id}/api`,
+  },
+  {
+    id: "database",
+    label: "DB",
+    icon: Database,
+    href: (id) => `/projects/${id}/database`,
+  },
+  {
+    id: "folder",
+    label: "FOLDER",
+    icon: FolderOpen,
+    href: (id) => `/projects/${id}/folder`,
+  },
 ];
 
-function SidebarContent({
+function RailContent({
   projectId,
-  projectName,
-  projectStatus,
-  displayName,
-  displayEmail,
-  avatarInitials,
   pathname,
   onNavigate,
-}: SidebarContentProps) {
+  displayName,
+}: {
+  projectId: string;
+  pathname: string;
+  onNavigate: (href: string) => void;
+  displayName: string;
+}) {
   const isActiveRoute = (item: (typeof NAV_ITEMS)[number]) => {
     const href = item.href(projectId);
-
-    if (item.id === "dashboard") {
-      return pathname === href;
-    }
-
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#06070c]">
-      {/* Brand */}
-      <div className="border-b border-white/5 px-3 py-4 shrink-0">
-        <div className="flex items-start gap-2.5 rounded-sm bg-[#0d1118] px-3 py-2.5">
-          <div className="grid h-5.5 w-5.5 place-items-center rounded-[3px] bg-orange-500 text-[#120900]">
-            <AppWindow size={12} />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-bold tracking-[0.04em] text-white">
-              {projectName.replace(/\s+/g, "_")}
-            </p>
-            <p className="mt-0.5 text-[8px] uppercase tracking-[0.18em] text-[#7d8698]">
-              v0.4.2-alpha
-            </p>
-          </div>
-        </div>
+    <div className="flex h-full flex-col bg-[#1c1c1c]">
+      {/* Workspace label */}
+      <div className="px-5 pt-6 pb-4 shrink-0">
+        <p
+          className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/30"
+          style={MONO}
+        >
+          Workspace
+        </p>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
+      {/* Nav items */}
+      <nav className="flex-1 px-3 flex flex-col gap-1">
         {NAV_ITEMS.map((item, i) => {
           const Icon = item.icon;
           const isActive = isActiveRoute(item);
@@ -97,39 +99,44 @@ function SidebarContent({
           return (
             <motion.button
               key={item.id}
-              initial={{ opacity: 0, x: -16 }}
+              initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.03 * i + 0.05 }}
+              transition={{ delay: 0.03 * i }}
               onClick={() => onNavigate(href)}
-              className={`
-                mb-1 flex w-full cursor-pointer items-center gap-2 rounded-sm border-l-2 px-3 py-2.5 text-left
-                text-[10px] font-bold tracking-[0.18em] transition-colors duration-150
-                ${isActive
-                  ? "border-orange-500 bg-white/6 text-orange-500"
-                  : "border-transparent text-[#a3acbf] hover:bg-white/5 hover:text-white"
-                }
-              `}
+              className={`flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 ${
+                isActive
+                  ? "bg-[#2b2321] text-white"
+                  : "text-white/45 hover:text-white/80 hover:bg-white/[0.03]"
+              }`}
             >
-              <Icon size={12} className="shrink-0" />
-              <span>{item.label}</span>
+              <Icon
+                size={15}
+                strokeWidth={1.5}
+                className={isActive ? "text-[#ff3d00]" : "text-white/35"}
+              />
+              <span
+                className="text-[12px] font-semibold tracking-[0.04em] uppercase"
+                style={INTER}
+              >
+                {item.label}
+              </span>
             </motion.button>
           );
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="shrink-0 border-t border-white/5 px-3 py-3">
-        <div className="flex items-center gap-2.5 rounded-sm border border-white/10 bg-[#0d1118] px-2.5 py-2.5">
-          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#131925] text-[10px] font-bold text-orange-400">
-            {avatarInitials || "U"}
+      {/* User footer */}
+      <div className="shrink-0 border-t border-[#2b2321] px-4 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6 w-6 items-center justify-center bg-[#2b2321] text-[#a6786d] shrink-0">
+            <User size={12} strokeWidth={1.5} />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold text-white/90">{displayName}</p>
-            <p className="truncate text-[9px] text-[#8f99af]">{displayEmail}</p>
-          </div>
-        </div>
-        <div className="mt-2 px-0.5 text-[8px] uppercase tracking-[0.18em] text-[#6f7788]">
-          {projectStatus}
+          <span
+            className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40"
+            style={MONO}
+          >
+            {displayName}
+          </span>
         </div>
       </div>
     </div>
@@ -138,53 +145,34 @@ function SidebarContent({
 
 export default function Sidebar({
   projectId,
-  projectName = "Project Forge",
-  projectStatus = "Active",
+  mobileOpen = false,
+  onMobileClose,
 }: SidebarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const displayName = user?.name || user?.fullName || user?.username || "Logged In User";
-  const displayEmail = user?.email || "No email linked";
-  const avatarInitials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0])
-    .join("")
-    .toUpperCase();
+  const displayName = (() => {
+    const name = user?.name || user?.username || "PLANNER_01";
+    return String(name).toUpperCase().replace(/\s+/g, "_");
+  })();
 
   const handleNavigate = (href: string) => {
     router.push(href);
-    setMobileOpen(false);
+    onMobileClose?.();
   };
 
   return (
     <>
-      {/* Desktop */}
-      <aside className="hidden md:block w-64 shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-white/5 z-20">
-        <SidebarContent
+      {/* Desktop sidebar */}
+      <aside className="hidden md:block w-[220px] shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-[#2b2321] z-20">
+        <RailContent
           projectId={projectId}
-          projectName={projectName}
-          projectStatus={projectStatus}
-          displayName={displayName}
-          displayEmail={displayEmail}
-          avatarInitials={avatarInitials}
           pathname={pathname}
           onNavigate={handleNavigate}
+          displayName={displayName}
         />
       </aside>
-
-      {/* Mobile toggle */}
-      <button
-        className="md:hidden fixed top-2.5 left-3 z-50 flex h-8 w-8 items-center justify-center rounded-md border border-orange-500/35 bg-orange-500/15 text-orange-500"
-        onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
-      >
-        <Menu size={18} />
-      </button>
 
       {/* Mobile drawer */}
       <AnimatePresence>
@@ -192,31 +180,32 @@ export default function Sidebar({
           <>
             <motion.div
               key="backdrop"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-              onClick={() => setMobileOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/70 z-40 md:hidden"
+              onClick={onMobileClose}
             />
             <motion.aside
               key="drawer"
-              initial={{ x: -260 }} animate={{ x: 0 }} exit={{ x: -260 }}
+              initial={{ x: -240 }}
+              animate={{ x: 0 }}
+              exit={{ x: -240 }}
               transition={{ type: "spring", stiffness: 350, damping: 35 }}
-              className="fixed top-14 left-0 bottom-0 w-64 z-50 border-r border-white/8"
+              className="fixed top-0 left-0 bottom-0 w-[220px] z-50 border-r border-[#2b2321] md:hidden"
             >
               <button
-                className="absolute right-2 top-2 z-10 flex rounded-md bg-white/[0.07] p-1.5 text-white/50"
-                onClick={() => setMobileOpen(false)}
+                className="absolute right-3 top-4 flex h-6 w-6 items-center justify-center text-white/40 hover:text-white/70"
+                onClick={onMobileClose}
+                aria-label="Close menu"
               >
-                <X size={16} />
+                <X size={14} strokeWidth={1.5} />
               </button>
-              <SidebarContent
+              <RailContent
                 projectId={projectId}
-                projectName={projectName}
-                projectStatus={projectStatus}
-                displayName={displayName}
-                displayEmail={displayEmail}
-                avatarInitials={avatarInitials}
                 pathname={pathname}
                 onNavigate={handleNavigate}
+                displayName={displayName}
               />
             </motion.aside>
           </>

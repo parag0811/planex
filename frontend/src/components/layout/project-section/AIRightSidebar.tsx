@@ -5,17 +5,13 @@ import { motion, AnimatePresence, type Transition } from "framer-motion";
 import { usePathname, useParams } from "next/navigation";
 import { useDispatch } from "react-redux";
 import {
-  Sparkles,
   Send,
-  ChevronRight,
-  Bot,
-  User,
-  Loader2,
-  CheckCheck,
   PanelRightClose,
   PanelRightOpen,
-  Zap,
+  Sparkles,
+  CheckCheck,
   AlertCircle,
+  X,
 } from "lucide-react";
 import {
   getAiJobStatusThunk,
@@ -28,6 +24,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  timestamp?: string;
   explanation?: string;
   suggestion?: ApplySuggestion;
   error?: string;
@@ -46,19 +43,32 @@ interface AISidebarProps {
   onOpenChange?: (open: boolean) => void;
 }
 
-const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
+const EASE = [0.25, 0, 0, 1] as [number, number, number, number];
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+
 const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 12 },
+  initial: { opacity: 0, y: 10 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.38, delay, ease: EASE } as Transition,
+  transition: { duration: 0.3, delay, ease: EASE } as Transition,
 });
 
-const STARTER_PROMPTS = [
-  "Make this field required",
-  "Add more fields to this entity",
-  "Suggest improvements for scalability",
-  "Check for missing relationships",
+const SUGGESTED_ACTIONS = [
+  "GENERATE_API_SPEC",
+  "SIMULATE_THERMAL_LOAD",
+  "REVIEW_MATERIAL_COSTS",
 ];
+
+const SCHEMA_PREVIEW = `{
+  "engine": "decentralized",
+  "version": "4.2.8",
+  "nodes": ["alpha", "beta"],
+  "optimization": "thermal"
+}`;
 
 const getSectionContext = (pathname: string): ChatSectionType => {
   if (pathname.includes("/idea")) return "idea";
@@ -68,37 +78,40 @@ const getSectionContext = (pathname: string): ChatSectionType => {
   return "none";
 };
 
-const getSectionDisplayName = (section: string): string => {
-  const names: Record<string, string> = {
-    idea: "IDEA SECTION",
-    database: "DATABASE SECTION",
-    api: "API SECTION",
-    folder: "FOLDER SECTION",
-    none: "PROJECT SECTION",
-  };
-  return names[section] || "PROJECT SECTION";
+const getContextLabel = (pathname: string): string => {
+  if (pathname.includes("/idea")) return "IDEATION_SECTION_4.2.0";
+  if (pathname.includes("/database")) return "DATABASE_SECTION_4.2.0";
+  if (pathname.includes("/api")) return "API_SECTION_4.2.0";
+  if (pathname.includes("/folder")) return "FOLDER_SECTION_4.2.0";
+  return "DASHBOARD_4.2.0";
 };
+
+function timeNow() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
+}
 
 export default function AIRightSidebar({
   onApplySuggestion,
-  projectDescription,
   isOpen: controlledIsOpen,
   onOpenChange,
 }: AISidebarProps) {
   const pathname = usePathname();
   const params = useParams();
-  const projectId = Array.isArray(params?.projectId) 
-    ? params.projectId[0] 
+  const projectId = Array.isArray(params?.projectId)
+    ? params.projectId[0]
     : params?.projectId || "";
   const dispatch = useDispatch<AppDispatch>();
-  
+
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "Hey! I'm your AI Copilot. Describe what you need and I'll help you refine this section. Ask me to add fields, improve the design, or suggest best practices.",
+      timestamp: timeNow(),
+      content:
+        'Analyzing the "Decentralized Geometry Engine". Initial simulation suggests a 14% improvement in thermal load distribution if kinetic panels are aligned with current project coordinates. Shall I generate a prototype API spec for this?',
     },
   ]);
   const [input, setInput] = useState("");
@@ -107,14 +120,12 @@ export default function AIRightSidebar({
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const sectionContext = getSectionContext(pathname);
-  const sectionDisplayName = getSectionDisplayName(sectionContext);
+  const contextLabel = getContextLabel(pathname);
 
   const setSidebarOpen = (open: boolean) => {
-    if (controlledIsOpen === undefined) {
-      setUncontrolledIsOpen(open);
-    }
+    if (controlledIsOpen === undefined) setUncontrolledIsOpen(open);
     onOpenChange?.(open);
   };
 
@@ -126,7 +137,12 @@ export default function AIRightSidebar({
     const content = (text ?? input).trim();
     if (!content || isThinking || !projectId) return;
 
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content };
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content,
+      timestamp: timeNow(),
+    };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsThinking(true);
@@ -144,16 +160,14 @@ export default function AIRightSidebar({
       const jobId = queued.jobId;
       let jobResult = null;
       let attempts = 0;
-      const maxAttempts = 30; // 30 * 2 seconds = 60 seconds max
+      const maxAttempts = 30;
 
       while (attempts < maxAttempts) {
         await new Promise((r) => setTimeout(r, 2000));
-
         try {
           const statusResponse = await dispatch(
             getAiJobStatusThunk({ jobId }),
           ).unwrap();
-
           if (
             statusResponse.status === "completed" ||
             statusResponse.status === "failed"
@@ -162,31 +176,31 @@ export default function AIRightSidebar({
             break;
           }
         } catch (e) {
-          // Continue polling
+          // continue polling
         }
-
         attempts++;
       }
 
       if (jobResult) {
         if (jobResult.status === "failed") {
-          const errorMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            content: jobResult.error || "Request failed. Please try again.",
-            error: "request_failed",
-          };
-          setMessages((prev) => [...prev, errorMsg]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: (Date.now() + 1).toString(),
+              role: "assistant",
+              timestamp: timeNow(),
+              content: jobResult.error || "Request failed. Please try again.",
+              error: "request_failed",
+            },
+          ]);
           return;
         }
 
         let aiResponse = jobResult.result;
-
         if (typeof aiResponse === "string") {
           try {
             aiResponse = JSON.parse(aiResponse);
-          } catch (e) {
-            console.error("Failed to parse AI response:", e);
+          } catch {
             aiResponse = {
               type: "suggestion",
               message: "Failed to process response. Please try again.",
@@ -197,6 +211,7 @@ export default function AIRightSidebar({
         const aiMsg: Message = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
+          timestamp: timeNow(),
           content:
             aiResponse.type === "update"
               ? aiResponse.explanation || "Applied changes to your section."
@@ -211,30 +226,35 @@ export default function AIRightSidebar({
             section: aiResponse.section || sectionContext,
           };
         }
-
         if (aiResponse.type === "suggestion" && !aiResponse.message) {
           aiMsg.error = "Invalid response format";
         }
 
         setMessages((prev) => [...prev, aiMsg]);
       } else {
-        const errorMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: "Request timed out. Please try again.",
-          error: "timeout",
-        };
-        setMessages((prev) => [...prev, errorMsg]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            timestamp: timeNow(),
+            content: "Request timed out. Please try again.",
+            error: "timeout",
+          },
+        ]);
       }
     } catch (err: any) {
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content:
-          err?.message || "Failed to process your request. Please try again.",
-        error: "request_failed",
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          timestamp: timeNow(),
+          content:
+            err?.message || "Failed to process your request. Please try again.",
+          error: "request_failed",
+        },
+      ]);
     } finally {
       setIsThinking(false);
     }
@@ -245,7 +265,7 @@ export default function AIRightSidebar({
     try {
       onApplySuggestion(msg.suggestion);
       setApplied((prev) => new Set([...prev, msg.id]));
-    } catch (err) {
+    } catch {
       setError("Failed to apply changes. Please try again.");
     }
   };
@@ -259,7 +279,7 @@ export default function AIRightSidebar({
 
   return (
     <>
-      {/* Toggle button when closed */}
+      {/* Toggle when closed */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -267,16 +287,20 @@ export default function AIRightSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setSidebarOpen(true)}
-            className="fixed bottom-6 right-3 z-30 flex h-fit w-fit flex-col items-center gap-0.5 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2 py-2 text-orange-500 transition-all duration-200 hover:bg-orange-500/18 md:right-4 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
+            className="fixed bottom-6 right-3 z-30 flex flex-col items-center gap-1 border border-[#2b2321] bg-[#2a2a2a] px-2 py-3 text-[#ff3d00] hover:bg-[#2b2321] transition-all duration-150 md:right-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
           >
-            <Sparkles size={14} />
+            <Sparkles size={13} strokeWidth={1.5} />
             <span
-              className="text-[7px] font-mono tracking-widest uppercase leading-none whitespace-nowrap"
-              style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
+              className="text-[7px] font-bold tracking-[0.15em] uppercase leading-none whitespace-nowrap"
+              style={{
+                ...MONO,
+                writingMode: "vertical-rl",
+                textOrientation: "mixed",
+              }}
             >
-              AI Copilot
+              AI Assistant
             </span>
-            <PanelRightOpen size={12} />
+            <PanelRightOpen size={11} strokeWidth={1.5} />
           </motion.button>
         )}
       </AnimatePresence>
@@ -288,7 +312,7 @@ export default function AIRightSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-10 bg-black/45 md:hidden"
+            className="fixed inset-0 z-10 bg-black/60 md:hidden"
             aria-label="Close AI sidebar backdrop"
           />
         )}
@@ -298,221 +322,294 @@ export default function AIRightSidebar({
       <AnimatePresence>
         {isOpen && (
           <motion.aside
-            initial={{ opacity: 0, x: 28 }}
+            initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 28 }}
-            transition={{ duration: 0.32, ease: EASE } as Transition}
-            className="fixed bottom-0 right-0 top-14 z-20 flex w-[92vw] max-w-90 flex-col overflow-hidden border-l border-orange-500/15 bg-[#070a12] shadow-[-20px_0_60px_rgba(0,0,0,0.45)] md:w-85 md:max-w-none md:shrink-0 md:shadow-none"
-            style={{ fontFamily: "'Rajdhani', sans-serif" }}
+            exit={{ opacity: 0, x: 24 }}
+            transition={{ duration: 0.28, ease: EASE } as Transition}
+            className="fixed bottom-0 right-0 top-14 z-20 flex w-[92vw] max-w-[360px] flex-col overflow-hidden border-l border-[#2b2321] bg-[#201f1f] shadow-[-20px_0_60px_rgba(0,0,0,0.5)] md:w-[340px] md:max-w-none md:shrink-0 md:shadow-none"
           >
-            {/* Header */}
-            <div className="shrink-0 border-b border-white/6 px-4 py-3">
-              <div className="mb-2 flex items-center justify-between">
+            {/* Top section — header + context */}
+            <div className="shrink-0 bg-[#2a2a2a] border-b border-[#2b2321]">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3.5">
                 <div className="flex items-center gap-2">
-                  <p className="text-[18px] font-bold uppercase tracking-[0.04em] text-white/90">
-                    AI Copilot
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#ff3d00]" />
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-[0.18em] text-white"
+                    style={MONO}
+                  >
+                    AI_Assistant
                   </p>
                 </div>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="rounded-lg p-1 text-white/25 transition-colors hover:bg-white/5 hover:text-white/55"
+                  className="text-white/30 hover:text-white/70 transition-colors duration-150"
                 >
-                  <PanelRightClose size={15} />
+                  <X size={14} strokeWidth={1.5} />
                 </button>
               </div>
 
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#6e7688]">
-                Context: {sectionDisplayName}
-              </p>
-
-              <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-2.5">
-                <div className="grid h-4.5 w-4.5 place-items-center rounded-xs bg-orange-500 text-[#140b01]">
-                  <Zap size={10} />
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#7b8397]">
-                  Planex AI
+              {/* Current context */}
+              <div className="px-4 pb-3.5">
+                <p
+                  className="text-[8px] font-bold uppercase tracking-[0.18em] text-[#ff3d00] mb-1.5"
+                  style={MONO}
+                >
+                  Current_Context
                 </p>
+                <div className="border border-[#2b2321] bg-[#131313] px-3 py-2">
+                  <span
+                    className="text-[11px] font-bold tracking-[0.04em] text-white/80"
+                    style={MONO}
+                  >
+                    {contextLabel}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Starter prompts (shown only at start) */}
-            {messages.length === 1 && (
-              <div className="shrink-0 border-b border-white/5 px-3 py-3">
-                <p className="mb-1 px-1 text-[10px] font-mono uppercase tracking-[0.12em] text-white/22">
-                  Quick prompts
+            {/* Middle scroll section */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#201f1f]">
+              {/* Error banner */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2.5"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      size={13}
+                      strokeWidth={1.5}
+                      className="text-red-400 shrink-0 mt-0.5"
+                    />
+                    <p className="text-[11px] text-red-300" style={INTER}>
+                      {error}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Messages */}
+              <div className="px-4 py-4 flex flex-col gap-4">
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    {...fadeUp(0)}
+                    className="flex flex-col gap-2"
+                  >
+                    {msg.role === "assistant" ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <p
+                            className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/30"
+                            style={MONO}
+                          >
+                            Node_01_Feedback
+                          </p>
+                          <span
+                            className="text-[9px] text-white/20"
+                            style={MONO}
+                          >
+                            {msg.timestamp}
+                          </span>
+                        </div>
+                        <div
+                          className={`border-l-2 pl-3 py-1 text-[13px] leading-[1.65] ${
+                            msg.error
+                              ? "border-red-500/50 text-white/55"
+                              : "border-[#ff3d00] text-white/75"
+                          }`}
+                          style={INTER}
+                        >
+                          {msg.content}
+                        </div>
+                      </>
+                    ) : (
+                      <div
+                        className="self-end max-w-[90%] border border-[#2b2321] bg-[#131313] px-3.5 py-2.5 text-[13px] leading-[1.6] text-white/70"
+                        style={INTER}
+                      >
+                        {msg.content}
+                      </div>
+                    )}
+
+                    {/* Suggestion accept/deny */}
+                    {msg.suggestion && !applied.has(msg.id) && (
+                      <motion.div
+                        {...fadeUp(0.08)}
+                        className="border border-[#ff3d00]/25 bg-[#ff3d00]/[0.04] p-3"
+                      >
+                        {msg.explanation && (
+                          <p
+                            className="text-[11px] text-white/55 mb-2.5"
+                            style={INTER}
+                          >
+                            {msg.explanation}
+                          </p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApply(msg)}
+                            className="flex-1 border border-[#22c55e]/35 bg-[#22c55e]/10 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#22c55e] hover:bg-[#22c55e]/20 transition-all duration-150"
+                            style={MONO}
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={() =>
+                              setApplied((prev) => new Set([...prev, msg.id]))
+                            }
+                            className="flex-1 border border-white/15 bg-white/[0.03] px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white/50 hover:bg-white/[0.07] transition-all duration-150"
+                            style={MONO}
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {msg.suggestion && applied.has(msg.id) && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="border border-[#22c55e]/30 bg-[#22c55e]/10 px-3 py-2.5 flex items-center gap-2"
+                      >
+                        <CheckCheck
+                          size={12}
+                          strokeWidth={1.5}
+                          className="text-[#22c55e] shrink-0"
+                        />
+                        <span
+                          className="text-[11px] text-[#22c55e] font-semibold"
+                          style={INTER}
+                        >
+                          Applied
+                        </span>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                ))}
+
+                {isThinking && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 border-l-2 border-[#ff3d00]/40 pl-3 py-1"
+                  >
+                    <span className="text-[11px] text-white/35" style={MONO}>
+                      thinking...
+                    </span>
+                  </motion.div>
+                )}
+
+                <div ref={bottomRef} />
+              </div>
+
+              {/* Suggested actions */}
+              <div className="shrink-0 px-4 pb-4">
+                <p
+                  className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-white/30"
+                  style={MONO}
+                >
+                  Suggested_Actions
                 </p>
                 <div className="flex flex-col gap-1.5">
-                  {STARTER_PROMPTS.map((p) => (
+                  {SUGGESTED_ACTIONS.map((action) => (
                     <button
-                      key={p}
-                      onClick={() => sendMessage(p)}
-                      className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-white/6 bg-[#0d111a] px-2.5 py-2 text-left text-[13px] text-white/45 transition-all duration-200 hover:border-orange-500/30 hover:text-white/70"
+                      key={action}
+                      onClick={() =>
+                        sendMessage(action.replace(/_/g, " ").toLowerCase())
+                      }
+                      className="w-full border border-[#2b2321] bg-[#131313] px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-white/55 hover:border-[#ff3d00]/35 hover:text-white/85 transition-all duration-150"
+                      style={MONO}
                     >
-                      <ChevronRight size={11} className="text-orange-500/40 shrink-0" />
-                      {p}
+                      {action}
                     </button>
                   ))}
                 </div>
               </div>
-            )}
 
-            {/* Error banner */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="shrink-0 border-b border-red-500/20 bg-red-500/10 px-4 py-2.5"
-              >
-                <div className="flex items-start gap-2">
-                  <AlertCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-[12px] text-red-300">{error}</p>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Messages */}
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-4">
-              {messages.map((msg, i) => (
-                <motion.div
-                  key={msg.id}
-                  {...fadeUp(0)}
-                  className={`flex flex-col gap-2 ${msg.role === "user" ? "items-end" : "items-start"}`}
-                >
-                  {/* Avatar row */}
-                  <div className={`flex items-center gap-1.5 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                    <div
-                      className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                        msg.role === "assistant"
-                          ? "bg-orange-500/12 border border-orange-500/22"
-                          : "bg-white/[0.07] border border-white/12"
-                      }`}
-                    >
-                      {msg.role === "assistant" ? (
-                        <Bot size={11} className="text-orange-500" />
-                      ) : (
-                        <User size={11} className="text-white/50" />
-                      )}
-                    </div>
-                    <span className="text-[9px] text-white/22 font-mono tracking-[0.08em]">
-                      {msg.role === "assistant" ? "AI" : "You"}
-                    </span>
-                  </div>
-
-                  {/* Bubble */}
-                  <div
-                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-[1.72] ${
-                      msg.role === "user"
-                        ? "rounded-tr-sm border border-orange-500/20 bg-orange-500/12 text-white/75"
-                        : `rounded-tl-sm border text-white/60 ${
-                            msg.error
-                              ? "border-red-500/20 bg-red-500/8"
-                              : "border-white/7 bg-[#121722]"
-                          }`
-                    }`}
+              {/* Schema preview */}
+              <div className="shrink-0 px-4 pb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p
+                    className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30"
+                    style={MONO}
                   >
-                    {msg.content.split("\n").map((line, li) => (
-                      <span key={li}>
-                        {line.split(/(\*\*.*?\*\*)/).map((part, pi) =>
-                          part.startsWith("**") && part.endsWith("**") ? (
-                            <strong key={pi} className="text-white/80 font-bold">
-                              {part.slice(2, -2)}
-                            </strong>
-                          ) : (
-                            <span key={pi}>{part}</span>
-                          ),
-                        )}
-                        {li < msg.content.split("\n").length - 1 && <br />}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Apply suggestion button and controls */}
-                  {msg.suggestion && !applied.has(msg.id) && (
-                    <motion.div
-                      {...fadeUp(0.1)}
-                      className="w-full max-w-[88%] rounded-md border border-orange-500/25 bg-[#140f0b] p-3"
-                    >
-                      {msg.explanation && (
-                        <p className="text-[11px] text-white/60 mb-2.5 italic">
-                          💡 {msg.explanation}
-                        </p>
-                      )}
-
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => handleApply(msg)}
-                          className="flex-1 rounded-sm border border-green-500/30 bg-green-500/12 px-2 py-2 text-[12px] font-bold uppercase tracking-widest text-green-400 transition-all duration-200 hover:bg-green-500/20"
-                        >
-                          ✓ Accept
-                        </button>
-                        <button
-                          onClick={() => setApplied((prev) => new Set([...prev, msg.id]))}
-                          className="flex-1 rounded-sm border border-white/20 bg-white/5 px-2 py-2 text-[12px] font-bold uppercase tracking-widest text-white/50 transition-all duration-200 hover:bg-white/10"
-                        >
-                          ✕ Deny
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {msg.suggestion && applied.has(msg.id) && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="w-full max-w-[88%] rounded-md border border-green-500/35 bg-green-500/12 px-3 py-2.5 flex items-center gap-2"
-                    >
-                      <CheckCheck size={12} className="text-green-400 shrink-0" />
-                      <span className="text-[12px] text-green-400 font-semibold">Applied</span>
-                    </motion.div>
-                  )}
-                </motion.div>
-              ))}
-
-              {/* Thinking indicator */}
-              {isThinking && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex w-fit items-center gap-2 rounded-2xl rounded-tl-sm border border-white/6 bg-[#121722] px-3.5 py-2.5"
+                    Schema_Preview
+                  </p>
+                </div>
+                <pre
+                  className="border border-[#2b2321] bg-[#131313] px-3 py-3 text-[11px] leading-[1.7] overflow-x-auto text-white/50"
+                  style={MONO}
                 >
-                  <Loader2 size={11} className="text-orange-500 animate-spin" />
-                  <span className="text-[12px] text-white/30 font-mono tracking-[0.06em]">thinking...</span>
-                </motion.div>
-              )}
-
-              <div ref={bottomRef} />
+                  {SCHEMA_PREVIEW.split("\n").map((line, i) => {
+                    const keyMatch = line.match(/"(\w+)":/);
+                    const valMatch = line.match(/:\s*(".*?"|\[.*?\])/);
+                    return (
+                      <div key={i}>
+                        {keyMatch ? (
+                          <span className="text-[#ff3d00]/80">
+                            {line.split(":")[0]}:
+                          </span>
+                        ) : (
+                          line.split(":")[0]
+                        )}
+                        {valMatch && (
+                          <span className="text-white/60">
+                            {line.slice(line.indexOf(":") + 1)}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </pre>
+              </div>
             </div>
 
-            {/* Input */}
-            <div className="shrink-0 border-t border-white/5 px-3 py-3">
-              <div className="flex items-end gap-2 rounded-sm border border-white/8 bg-[#0a0e18] px-3 py-2.5 transition-all duration-200 focus-within:border-orange-500/28">
+            {/* Input — bottom fixed */}
+            <div className="shrink-0 border-t border-[#2b2321] bg-[#131313] px-3 py-3">
+              <div className="flex items-end gap-2 border border-[#2b2321] bg-[#131313] px-3 py-2.5 focus-within:border-[#ff3d00]/40 transition-colors duration-150">
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKey}
-                  placeholder="Ask AI..."
+                  placeholder="Query assistant..."
                   rows={1}
                   disabled={isThinking}
-                  className="flex-1 bg-transparent border-none outline-none resize-none text-[13.5px] text-white/65 placeholder:text-white/22 leading-relaxed max-h-24 overflow-y-auto disabled:opacity-50"
+                  className="flex-1 bg-transparent border-none outline-none resize-none text-[13px] text-white/75 placeholder:text-white/25 leading-relaxed max-h-24 overflow-y-auto disabled:opacity-50"
+                  style={INTER}
                 />
                 <motion.button
-                  whileTap={{ scale: 0.9 }}
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => sendMessage()}
                   disabled={!input.trim() || isThinking || !projectId}
-                  className={`flex items-center justify-center w-7 h-7 rounded-lg shrink-0 transition-all duration-200 ${
+                  className={`flex items-center justify-center w-7 h-7 shrink-0 transition-all duration-150 ${
                     input.trim() && !isThinking && projectId
-                      ? "bg-orange-500 text-[#0f0800] cursor-pointer hover:bg-orange-400"
-                      : "bg-white/6 text-white/20 cursor-not-allowed"
+                      ? "bg-[#ff3d00] text-white hover:bg-[#ff5a26]"
+                      : "bg-white/8 text-white/20 cursor-not-allowed"
                   }`}
                 >
-                  <Send size={12} />
+                  <Send size={12} strokeWidth={1.5} />
                 </motion.button>
               </div>
 
-              <div className="mt-2 flex items-center justify-between px-0.5 text-[9px] font-mono uppercase tracking-widest text-white/18">
-                <span>Model: Claude AI</span>
-                <span>Enter to send</span>
+              {/* Status bar */}
+              <div className="mt-2 flex items-center justify-between">
+                <span
+                  className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/25"
+                  style={MONO}
+                >
+                  Ready_State
+                </span>
+                <span
+                  className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/25"
+                  style={MONO}
+                >
+                  Lens_v1.4
+                </span>
               </div>
             </div>
           </motion.aside>

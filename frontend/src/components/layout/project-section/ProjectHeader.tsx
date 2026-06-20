@@ -2,88 +2,97 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Bell, Settings, UserCircle2 } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Search, Menu } from "lucide-react";
 
 interface ProjectHeaderProps {
   projectName?: string;
+  onMobileMenuToggle?: () => void;
 }
 
-const HEADER_TABS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "projects", label: "Projects" },
-  { id: "compute", label: "Compute" },
-  { id: "logs", label: "Logs" },
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+
+const NAV_LINKS = [
+  { label: "Projects", href: "/projects" },
+  { label: "Recent", href: "/projects?filter=recent" },
+  { label: "Templates", href: "/projects/templates" },
 ] as const;
 
 export default function ProjectHeader({
-  projectName = "Project Obsidian",
+  onMobileMenuToggle,
 }: ProjectHeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
-  const projectId = pathname.split("/")[2];
-  const dashboardHref = projectId ? `/projects/${projectId}` : "/projects";
-  const projectsHref = "/projects";
-
-  const activeTab = pathname === "/projects" ? "projects" : "dashboard";
+  const isNavActive = (href: string) =>
+    href === "/projects"
+      ? pathname === "/projects"
+      : pathname.startsWith(href.split("?")[0]);
 
   return (
     <motion.header
-      initial={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="sticky top-0 z-30 border-b border-white/5 bg-[#070910]/95 backdrop-blur"
-      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+      className="sticky top-0 z-30 border-b border-[#2b2321] bg-[#131414]"
     >
-      <div className="flex h-14 items-center justify-between gap-4 px-3 md:px-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <Link href={dashboardHref} className="shrink-0 cursor-pointer text-[28px] leading-none font-bold text-white">
-            Planex
+      <div className="flex h-14 items-center justify-between gap-6 px-4 md:px-6">
+        {/* Left — hamburger + wordmark */}
+        <div className="flex items-center gap-4 min-w-0">
+          <button
+            type="button"
+            onClick={onMobileMenuToggle}
+            className="md:hidden flex items-center justify-center text-[#a6786d]/70 hover:text-[#a6786d] transition-colors duration-150"
+            aria-label="Toggle menu"
+          >
+            <Menu size={18} strokeWidth={1.5} />
+          </button>
+
+          <Link href="/projects" className="shrink-0 flex items-center gap-2">
+            <span
+              className="text-[15px] font-black tracking-[-0.03em] text-white"
+              style={{
+                fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+              }}
+            >
+              PLANEX
+            </span>
           </Link>
-
-          <nav className="hidden sm:flex items-center gap-4">
-            {HEADER_TABS.map((tab) => {
-              const href = tab.id === "dashboard" ? dashboardHref : tab.id === "projects" ? projectsHref : "#";
-              const isActive = activeTab === tab.id;
-
-              return (
-                <Link
-                  key={tab.id}
-                  href={href}
-                  className={`cursor-pointer border-b pb-1 text-[17px] leading-none transition-colors ${
-                    isActive
-                      ? "text-orange-400 border-orange-500/90"
-                      : "text-[#8f97a8] border-transparent hover:text-white"
-                  }`}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        {/* Center — nav links */}
+        <nav className="hidden md:flex items-center gap-7">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className={`text-[11px] font-semibold uppercase tracking-[0.14em] transition-colors duration-150 ${
+                isNavActive(link.href)
+                  ? "text-[#a6786d]"
+                  : "text-[#a6786d]/45 hover:text-[#a6786d]/80"
+              }`}
+              style={MONO}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right — search */}
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full text-[#a5aec2] transition-colors hover:text-white"
-            aria-label="Notifications"
+            className="hidden sm:flex items-center gap-2 border border-[#2b2321] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a6786d]/70 hover:text-[#a6786d] hover:border-[#a6786d]/30 transition-all duration-150"
+            style={MONO}
+            aria-label="Search"
           >
-            <Bell size={15} />
-          </button>
-          <button
-            type="button"
-            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full text-[#a5aec2] transition-colors hover:text-white"
-            aria-label="Settings"
-          >
-            <Settings size={15} />
-          </button>
-          <button
-            type="button"
-            className="grid h-7 w-7 cursor-pointer place-items-center rounded-full bg-[#10151f] text-[#a5aec2] transition-colors hover:text-white"
-            aria-label="Profile"
-          >
-            <UserCircle2 size={14} />
+            <Search size={12} strokeWidth={1.5} />
+            Search
           </button>
         </div>
       </div>
