@@ -101,14 +101,34 @@ const stagger: Variants = {
   show: { transition: { staggerChildren: 0.08 } },
 };
 
+// ─── Design tokens ───────────────────────────────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
+
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const INTER_TIGHT: React.CSSProperties = {
+  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+};
+const SERIF: React.CSSProperties = {
+  fontFamily: '"Playfair Display", Georgia, serif',
+};
+
 const PRIORITY_COLORS: Record<FeaturePriority, string> = {
-  must_have: "#f97316",
-  nice_to_have: "#94a3b8",
+  must_have: "#d84c28",
+  nice_to_have: "#737373",
 };
 
 const PRIORITY_LABELS: Record<FeaturePriority, string> = {
-  must_have: "Must Have",
-  nice_to_have: "Nice To Have",
+  must_have: "Critical",
+  nice_to_have: "Optional",
 };
 
 const STACK_ICONS: Record<StackCategory, ElementType> = {
@@ -122,7 +142,7 @@ const STACK_ICONS: Record<StackCategory, ElementType> = {
 
 const STACK_COLORS: Record<StackCategory, string> = {
   frontend: "#60a5fa",
-  backend: "#f97316",
+  backend: "#d84c28",
   database: "#a78bfa",
   infrastructure: "#22c55e",
   ai: "#f59e0b",
@@ -235,8 +255,12 @@ export default function IdeaPage() {
   const [ideaData, setIdeaData] = useState<IdeaSectionContent>(EMPTY_IDEA);
   const [aiOpen, setAiOpen] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
-  const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
-  const [previewData, setPreviewData] = useState<IdeaSectionContent | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(
+    null,
+  );
+  const [previewData, setPreviewData] = useState<IdeaSectionContent | null>(
+    null,
+  );
   const [acceptingPreview, setAcceptingPreview] = useState(false);
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
 
@@ -293,7 +317,8 @@ export default function IdeaPage() {
   const loading = isFetching || isSaving || isJobLoading;
   const sectionError =
     ideaSectionState?.fetch.error ?? ideaSectionState?.save.error ?? null;
-  const error = sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+  const error =
+    sectionError ?? (jobState.status === "failed" ? jobState.error : null);
 
   const fetchIdea = useCallback(async () => {
     if (!resolvedProjectId) {
@@ -447,7 +472,6 @@ export default function IdeaPage() {
       return;
     }
 
-    // Show preview instead of auto-saving
     if (jobState.result?.idea) {
       const generatedIdea = normalizeIdea(jobState.result.idea);
       setPreviewData(generatedIdea);
@@ -455,7 +479,7 @@ export default function IdeaPage() {
       setStatus("Idea generation completed. Review and accept below.");
       setStatusType("success");
     }
-    
+
     dispatch(clearJobState());
   }, [dispatch, jobState.status, jobState.result]);
 
@@ -504,13 +528,9 @@ export default function IdeaPage() {
 
     setAcceptingPreview(true);
     try {
-      // 1. Fill the form with preview data
       setIdeaData(previewData);
-      
-      // 2. Close the preview modal
       setPreviewData(null);
 
-      // 3. Auto-save to database using the existing logic
       const result = await dispatch(
         upsertSection({
           projectId: resolvedProjectId,
@@ -519,12 +539,10 @@ export default function IdeaPage() {
         }),
       ).unwrap();
 
-      // 4. Update the form with saved data
       setIdeaData(normalizeIdea(result.section));
       setStatus("Idea preview accepted and saved successfully.");
       setStatusType("success");
     } catch (err: any) {
-      // If auto-save fails, just populate the form and let user save manually
       setIdeaData(previewData);
       setPreviewData(null);
       setStatus("Preview filled. Click Save button to save to database.");
@@ -634,67 +652,69 @@ export default function IdeaPage() {
   };
 
   const displayedFeatures = ideaData.key_features;
-
   const displayedRequirements = ideaData.requirements;
 
   return (
     <div
       ref={scrollRef}
-      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
-      style={{ fontFamily: "'Inter', sans-serif" }}
+      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden"
+      style={{ ...INTER, backgroundColor: BG }}
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
-          className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 transition-[padding-right] duration-300 ${
-            aiOpen ? "lg:pr-85" : "lg:pr-0"
-          }`}
+          className={`mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-8 lg:px-10}`}
           variants={stagger}
           initial="hidden"
           animate="show"
         >
+          {/* Top bar — refresh / save */}
           <motion.div
             variants={fadeUp(0)}
-            className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/8 bg-[#0b1019] px-4 py-3"
+            className="mb-8 flex flex-wrap items-center justify-end gap-2"
           >
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35">
-              <span>Planex</span>
-              <span>/</span>
-              <span>
-                {(
-                  ideaData.raw_idea.split(" ").slice(0, 3).join(" ") ||
-                  "Project"
-                ).toUpperCase()}
-              </span>
-              <span>/</span>
-              <span className="text-white/80">IDEA</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={fetchIdea}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-white/65 transition hover:border-white/20 hover:text-white/85"
-              >
-                <RefreshCw size={12} />
-                Refresh
-              </button>
-              <button
-                onClick={handleManualSave}
-                disabled={isSaving}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
-              >
-                <Save size={12} />
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-            </div>
+            <button
+              onClick={fetchIdea}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              <RefreshCw size={12} />
+              Refresh
+            </button>
+            <button
+              onClick={handleManualSave}
+              disabled={isSaving}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
+              style={{
+                ...MONO,
+                borderColor: ACCENT,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}12`,
+              }}
+            >
+              <Save size={12} />
+              {isSaving ? "Saving..." : "Save"}
+            </button>
           </motion.div>
 
+          {/* Loading bar */}
           {loading && (
-            <div className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5">
+            <div
+              className="mb-6 flex items-center gap-2.5 border px-4 py-2.5"
+              style={{
+                borderColor: `${ACCENT}30`,
+                backgroundColor: `${ACCENT}10`,
+              }}
+            >
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-                className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
+                className="h-4 w-4 rounded-full border-2 border-t-transparent"
+                style={{ borderColor: ACCENT, borderTopColor: "transparent" }}
               />
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.18em]"
+                style={{ ...MONO, color: ACCENT }}
+              >
                 {isJobLoading
                   ? "Generating idea section"
                   : isSaving
@@ -704,58 +724,72 @@ export default function IdeaPage() {
             </div>
           )}
 
+          {/* Error */}
           <AnimatePresence>
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4 backdrop-blur-sm"
+                className="mb-6 flex items-start gap-3 border p-4"
+                style={{
+                  borderColor: "rgba(239,68,68,0.3)",
+                  backgroundColor: "rgba(239,68,68,0.08)",
+                }}
               >
-                <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-500" />
+                <AlertCircle
+                  size={18}
+                  className="mt-0.5 shrink-0 text-red-500"
+                />
                 <div className="flex-1">
-                  <p className="font-semibold text-red-500">Error</p>
-                  <p className="mt-1 text-sm text-red-500/75">{error}</p>
+                  <p
+                    className="font-semibold text-red-400 text-sm"
+                    style={INTER}
+                  >
+                    Error
+                  </p>
+                  <p className="mt-1 text-sm text-red-400/75" style={INTER}>
+                    {error}
+                  </p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
+          {/* Status */}
           <AnimatePresence>
             {status && (
               <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                initial={{ opacity: 0, y: -10, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
                 transition={{ duration: 0.25 }}
-                className={`mb-4 flex items-center gap-3 rounded-lg border px-4 py-3 backdrop-blur-sm ${
-                  statusType === "success"
-                    ? "border-emerald-500/30 bg-emerald-500/10"
-                    : "border-amber-500/30 bg-amber-500/10"
-                }`}
-              >
-                <div className="shrink-0">
-                  {statusType === "success" ? (
-                    <motion.div
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ duration: 0.3, ease: "backOut" }}
-                    >
-                      <CheckCircle
-                        size={18}
-                        className="text-emerald-500"
-                      />
-                    </motion.div>
-                  ) : (
-                    <Zap size={18} className="text-amber-500" />
-                  )}
-                </div>
-                <p
-                  className={`text-sm font-medium ${
+                className="mb-6 flex items-center gap-3 border px-4 py-3"
+                style={{
+                  borderColor:
                     statusType === "success"
-                      ? "text-emerald-500/90"
-                      : "text-amber-500/90"
-                  }`}
+                      ? "rgba(34,197,94,0.3)"
+                      : "rgba(245,158,11,0.3)",
+                  backgroundColor:
+                    statusType === "success"
+                      ? "rgba(34,197,94,0.08)"
+                      : "rgba(245,158,11,0.08)",
+                }}
+              >
+                {statusType === "success" ? (
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-500 shrink-0"
+                  />
+                ) : (
+                  <Zap size={16} className="text-amber-500 shrink-0" />
+                )}
+                <p
+                  className="text-sm font-medium"
+                  style={{
+                    ...INTER,
+                    color: statusType === "success" ? "#34d399" : "#fbbf24",
+                  }}
                 >
                   {status}
                 </p>
@@ -763,40 +797,69 @@ export default function IdeaPage() {
             )}
           </AnimatePresence>
 
-          <motion.div variants={fadeUp(1)} className="mb-8">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10">
-                  <Lightbulb size={20} className="text-orange-500" />
-                </div>
-                <div>
-                  <h1
-                    className="text-4xl font-bold uppercase text-white"
-                    style={{ fontFamily: "'Roboto', sans-serif" }}
-                  >
-                    IDEA
-                  </h1>
-                  <p className="mt-1 text-base text-white/50">
-                    Define your project concept and scope
-                  </p>
-                </div>
-              </div>
-              <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/30">
-                {hasAnyContent ? "Draft loaded" : "Empty"}
-              </p>
-            </div>
+          {/* Breadcrumb */}
+          <motion.div variants={fadeUp(1)} className="mb-3">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ ...MONO, color: ACCENT }}
+            >
+              Section // 01 / Concept
+            </p>
           </motion.div>
 
-          <motion.div variants={fadeUp(2)} className="mb-8">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <p
-                className="text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
-                Raw Idea
-              </p>
-            </div>
-            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-6 mb-4">
+          {/* Giant headline */}
+          <motion.div variants={fadeUp(2)} className="mb-6">
+            <h1
+              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
+              style={INTER_TIGHT}
+            >
+              Ideation
+            </h1>
+          </motion.div>
+
+          {/* Tag pills */}
+          <motion.div
+            variants={fadeUp(3)}
+            className="mb-10 flex flex-wrap items-center gap-3"
+          >
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              Ver: {hasAnyContent ? "4.2.0" : "0.0.0"}
+            </span>
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              {ideaData.estimated_complexity === "high"
+                ? "High_Complexity_Core"
+                : ideaData.estimated_complexity === "low"
+                  ? "Low_Complexity_Core"
+                  : "Stable_Diffusion_Core"}
+            </span>
+          </motion.div>
+
+          {/* Section header — Concept Overview */}
+          <motion.div
+            variants={fadeUp(4)}
+            className="mb-4 flex items-center gap-3"
+          >
+            <span
+              className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0"
+              style={{ ...MONO, color: MUTED }}
+            >
+              Concept Overview
+            </span>
+            <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+          </motion.div>
+
+          {/* Raw idea — serif italic editable block */}
+          <motion.div variants={fadeUp(5)} className="mb-3">
+            <div
+              className="border px-7 py-7"
+              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+            >
               <textarea
                 value={ideaData.raw_idea}
                 onChange={(e) =>
@@ -806,39 +869,66 @@ export default function IdeaPage() {
                   }))
                 }
                 placeholder="Describe your project idea here..."
-                rows={5}
-                className="w-full resize-y bg-transparent text-base leading-relaxed text-white/80 outline-none placeholder:text-white/35"
+                rows={6}
+                className="w-full resize-y bg-transparent text-[1.15rem] italic leading-relaxed text-white outline-none placeholder:text-white/35 placeholder:not-italic"
+                style={SERIF}
               />
             </div>
+          </motion.div>
+
+          {/* Generate / regenerate button */}
+          <motion.div variants={fadeUp(6)} className="mb-12">
             {hasGeneratedOnce ? (
               <button
                 onClick={handleRegenerate}
                 disabled={!ideaData.raw_idea.trim() || isJobLoading}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-blue-500/35 bg-blue-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/15"
+                className="flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  ...MONO,
+                  borderColor: "#60a5fa55",
+                  color: "#60a5fa",
+                  backgroundColor: "#60a5fa12",
+                }}
               >
-                <Sparkles size={18} />
+                <Sparkles size={15} />
                 {isJobLoading ? "Regenerating..." : "Regenerate Suggestions"}
               </button>
             ) : (
               <button
                 onClick={() => handleGenerate(false)}
                 disabled={!ideaData.raw_idea.trim() || isJobLoading}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-orange-500/15"
+                className="flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <Sparkles size={18} />
+                <Sparkles size={15} />
                 {isJobLoading ? "Generating..." : "Generate Suggestions"}
               </button>
             )}
           </motion.div>
 
-          <motion.div variants={fadeUp(3)} className="mb-8">
-            <p
-              className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-              style={{ fontFamily: "'Roboto', sans-serif" }}
+          {/* Overview */}
+          <motion.div variants={fadeUp(7)} className="mb-12">
+            <div className="mb-4 flex items-center gap-3">
+              <span
+                className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0"
+                style={{ ...MONO, color: MUTED }}
+              >
+                Overview
+              </span>
+              <span
+                className="h-px flex-1"
+                style={{ backgroundColor: BORDER }}
+              />
+            </div>
+            <div
+              className="border px-6 py-5"
+              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
             >
-              Overview
-            </p>
-            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-6">
               <textarea
                 value={ideaData.overview}
                 onChange={(e) =>
@@ -849,51 +939,21 @@ export default function IdeaPage() {
                 }
                 placeholder="Short overview of what this product does and who it serves..."
                 rows={4}
-                className="w-full resize-y bg-transparent text-base leading-relaxed text-white/75 outline-none placeholder:text-white/35"
+                className="w-full resize-y bg-transparent text-base leading-relaxed text-white outline-none placeholder:text-white/35"
+                style={INTER}
               />
             </div>
           </motion.div>
 
+          {/* Complexity / Team / Features count */}
           <motion.div
-            variants={fadeUp(4)}
-            className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3"
+            variants={fadeUp(8)}
+            className="mb-12 grid grid-cols-1 gap-4 md:grid-cols-3"
           >
-            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-6">
-              <p
-                className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
-                Complexity
-              </p>
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg"
-                  style={{
-                    background: `${
-                      ideaData.estimated_complexity === "high"
-                        ? "#ef4444"
-                        : ideaData.estimated_complexity === "medium"
-                          ? "#f59e0b"
-                          : "#22c55e"
-                    }15`,
-                    border: `1px solid ${
-                      ideaData.estimated_complexity === "high"
-                        ? "#ef4444"
-                        : ideaData.estimated_complexity === "medium"
-                          ? "#f59e0b"
-                          : "#22c55e"
-                    }30`,
-                    color:
-                      ideaData.estimated_complexity === "high"
-                        ? "#ef4444"
-                        : ideaData.estimated_complexity === "medium"
-                          ? "#f59e0b"
-                          : "#22c55e",
-                  }}
-                >
-                  <Zap size={16} />
-                </div>
-                <div className="w-full">
+            {[
+              {
+                label: "Complexity",
+                node: (
                   <select
                     value={ideaData.estimated_complexity}
                     onChange={(e) =>
@@ -905,214 +965,256 @@ export default function IdeaPage() {
                           | "high",
                       }))
                     }
-                    className="w-full bg-transparent text-base font-semibold capitalize text-white/80 outline-none"
+                    className="w-full bg-transparent text-base font-semibold capitalize text-white outline-none"
+                    style={INTER}
                   >
-                    <option className="bg-[#0a0f18]" value="low">
+                    <option style={{ backgroundColor: INNER_BG }} value="low">
                       low
                     </option>
-                    <option className="bg-[#0a0f18]" value="medium">
+                    <option
+                      style={{ backgroundColor: INNER_BG }}
+                      value="medium"
+                    >
                       medium
                     </option>
-                    <option className="bg-[#0a0f18]" value="high">
+                    <option style={{ backgroundColor: INNER_BG }} value="high">
                       high
                     </option>
                   </select>
-                  <p className="mt-1 text-xs text-white/35">
-                    Estimated implementation scope
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-6">
-              <p
-                className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
-                Team Size
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-500/30 bg-blue-500/15 text-blue-500">
-                  <Globe size={16} />
-                </div>
-                <input
-                  value={ideaData.team_size}
-                  onChange={(e) =>
-                    setIdeaData((current) => ({
-                      ...current,
-                      team_size: e.target.value,
-                    }))
-                  }
-                  placeholder="2-4 developers"
-                  className="w-full bg-transparent text-base font-semibold text-white/75 outline-none placeholder:text-white/35"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-6">
-              <p
-                className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
-                Features Count
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-purple-500/30 bg-purple-500/15 text-purple-500">
-                  <CheckCircle size={16} />
-                </div>
-                <div>
-                  <p className="text-base font-semibold text-white/80">
+                ),
+              },
+              {
+                label: "Team Size",
+                node: (
+                  <input
+                    value={ideaData.team_size}
+                    onChange={(e) =>
+                      setIdeaData((current) => ({
+                        ...current,
+                        team_size: e.target.value,
+                      }))
+                    }
+                    placeholder="2-4 developers"
+                    className="w-full bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/35"
+                    style={INTER}
+                  />
+                ),
+              },
+              {
+                label: "Features Count",
+                node: (
+                  <p
+                    className="text-base font-semibold text-white"
+                    style={INTER}
+                  >
                     {ideaData.key_features.length}
                   </p>
-                  <p className="mt-0.5 text-xs text-white/35">Features added</p>
-                </div>
+                ),
+              },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="border p-5"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
+                <p
+                  className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em]"
+                  style={{ ...MONO, color: MUTED }}
+                >
+                  {card.label}
+                </p>
+                {card.node}
               </div>
-            </div>
+            ))}
           </motion.div>
 
-          <motion.div variants={fadeUp(5)} className="mb-8">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <p
-                className="text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
+          {/* Key Features */}
+          <motion.div variants={fadeUp(9)} className="mb-12">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold text-white" style={INTER_TIGHT}>
                 Key Features
-              </p>
-              <button
-                onClick={openFeatureModal}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
-              >
-                <Plus size={16} />
-                Add Feature
-              </button>
+              </h2>
+              <div className="flex items-center gap-3">
+                <button
+                  className="text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{ ...MONO, color: ACCENT }}
+                >
+                  Export_JSON
+                </button>
+                <button
+                  onClick={openFeatureModal}
+                  className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                  style={{
+                    ...MONO,
+                    borderColor: ACCENT,
+                    color: ACCENT,
+                    backgroundColor: `${ACCENT}12`,
+                  }}
+                >
+                  <Plus size={13} />
+                  Add
+                </button>
+              </div>
             </div>
+
             {displayedFeatures.length === 0 ? (
-              <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-8 text-center">
-                <p className="text-white/45 text-base">
-                  No features added yet. Click "Add Feature" or use "Generate
+              <div
+                className="border p-8 text-center"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
+                <p className="text-base" style={{ ...INTER, color: MUTED }}>
+                  No features added yet. Click "Add" or use "Generate
                   Suggestions" to get started.
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="flex flex-col">
                 {displayedFeatures.map((feature, i) => (
                   <motion.div
                     key={`${feature.name}-${i}`}
                     variants={fadeUp(i * 0.05)}
-                    className="group rounded-xl border border-white/[0.07] bg-white/2.5 p-5 transition-all duration-200 hover:border-white/11"
+                    className="group flex items-start gap-4 border-t py-5 first:border-t-0"
+                    style={{ borderColor: BORDER }}
                   >
-                    <div className="mb-3 flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <h3 className="text-base font-semibold text-white/85">
-                          {feature.name}
-                        </h3>
-                        <p className="mt-2 text-xs uppercase tracking-widest text-white/45">
-                          {PRIORITY_LABELS[feature.priority]}
-                        </p>
-                      </div>
-                      {ideaData.key_features.length > 0 && (
-                        <button
-                          onClick={() => removeFeature(i)}
-                          className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-red-400"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
+                    <span
+                      className="text-[11px] font-bold tracking-[0.1em] pt-1 shrink-0 w-6"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h3
+                        className="text-base font-bold text-white"
+                        style={INTER_TIGHT}
+                      >
+                        {feature.name}
+                      </h3>
+                      <p
+                        className="mt-1.5 text-sm leading-relaxed"
+                        style={{ ...INTER, color: MUTED }}
+                      >
+                        {feature.description}
+                      </p>
                     </div>
-                    <div className="mb-3 flex items-center gap-2">
-                      <div
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      <span
+                        className="px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em]"
                         style={{
-                          background: `${PRIORITY_COLORS[feature.priority]}15`,
-                          border: `1px solid ${PRIORITY_COLORS[feature.priority]}30`,
+                          ...MONO,
+                          backgroundColor:
+                            feature.priority === "must_have"
+                              ? ACCENT
+                              : "transparent",
+                          color:
+                            feature.priority === "must_have" ? "#fff" : MUTED,
+                          border:
+                            feature.priority === "must_have"
+                              ? "none"
+                              : `1px solid ${BORDER}`,
                         }}
                       >
-                        <Circle
-                          size={11}
-                          style={{
-                            color: PRIORITY_COLORS[feature.priority],
-                            fill: PRIORITY_COLORS[feature.priority],
-                          }}
-                        />
-                      </div>
+                        {PRIORITY_LABELS[feature.priority]}
+                      </span>
+                      <button
+                        onClick={() => removeFeature(i)}
+                        className="text-[9px] uppercase tracking-[0.1em] opacity-0 group-hover:opacity-100 transition"
+                        style={{ ...MONO, color: "#737373" }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     </div>
-                    <p className="text-sm leading-relaxed text-white/60">
-                      {feature.description}
-                    </p>
                   </motion.div>
                 ))}
               </div>
             )}
           </motion.div>
 
-          <motion.div variants={fadeUp(6)} className="mb-8">
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <p
-                className="text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
+          {/* Requirements */}
+          <motion.div variants={fadeUp(10)} className="mb-12">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold text-white" style={INTER_TIGHT}>
                 Requirements
-              </p>
+              </h2>
               <button
                 onClick={openRequirementModal}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <Plus size={16} />
-                Add Requirement
+                <Plus size={13} />
+                Add
               </button>
             </div>
+
             {displayedRequirements.length === 0 ? (
-              <div className="rounded-xl border border-white/[0.07] bg-white/2.5 p-8 text-center">
-                <p className="text-white/45 text-base">
-                  No requirements added yet. Click "Add Requirement" or use
-                  "Generate Suggestions" to get started.
+              <div
+                className="border p-8 text-center"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
+                <p className="text-base" style={{ ...INTER, color: MUTED }}>
+                  No requirements added yet. Click "Add" or use "Generate
+                  Suggestions" to get started.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 rounded-xl border border-white/[0.07] bg-white/2.5 p-5">
+              <div
+                className="border"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
                 {displayedRequirements.map((requirement, i) => (
                   <motion.div
                     key={`${requirement}-${i}`}
                     variants={fadeUp(i * 0.04)}
-                    className="flex items-start gap-3 rounded-lg border border-white/5 bg-white/1 px-4 py-3"
+                    className="group flex items-start gap-3 border-t px-5 py-4 first:border-t-0"
+                    style={{ borderColor: BORDER }}
                   >
-                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/3">
-                      <CheckCircle size={12} className="text-white/45" />
-                    </div>
-                    <p className="flex-1 text-base leading-relaxed text-white/65">
+                    <span
+                      className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: ACCENT }}
+                    />
+                    <p
+                      className="flex-1 text-sm leading-relaxed text-white"
+                      style={INTER}
+                    >
                       {requirement}
                     </p>
-                    {ideaData.requirements.length > 0 && (
-                      <button
-                        onClick={() => removeRequirement(i)}
-                        className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-red-400"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => removeRequirement(i)}
+                      className="opacity-0 group-hover:opacity-100 transition text-white/30 hover:text-red-400"
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </motion.div>
                 ))}
               </div>
             )}
           </motion.div>
 
-          <motion.div variants={fadeUp(7)}>
-            <div className="mb-4 flex items-center justify-between gap-2">
-              <p
-                className="text-sm font-semibold uppercase tracking-[0.15em] text-white/45"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
-              >
+          {/* Tech Stack */}
+          <motion.div variants={fadeUp(11)}>
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold text-white" style={INTER_TIGHT}>
                 Tech Stack
-              </p>
+              </h2>
               <button
                 onClick={openTechModal}
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <Plus size={16} />
-                Add Stack Item
+                <Plus size={13} />
+                Add
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {STACK_KEYS.map((category) => {
                 const items = ideaData.suggested_tech_stack[category] ?? [];
                 const Icon = STACK_ICONS[category];
@@ -1121,11 +1223,12 @@ export default function IdeaPage() {
                 return (
                   <div
                     key={category}
-                    className="rounded-xl border border-white/[0.07] bg-white/2.5 p-5"
+                    className="border p-5"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
                   >
                     <div className="mb-4 flex items-center gap-2.5">
                       <div
-                        className="flex h-7 w-7 items-center justify-center rounded-lg"
+                        className="flex h-7 w-7 items-center justify-center"
                         style={{
                           background: `${color}15`,
                           border: `1px solid ${color}30`,
@@ -1135,8 +1238,8 @@ export default function IdeaPage() {
                         <Icon size={14} />
                       </div>
                       <p
-                        className="text-xs font-bold uppercase tracking-widest"
-                        style={{ color }}
+                        className="text-[10px] font-bold uppercase tracking-[0.18em]"
+                        style={{ ...MONO, color }}
                       >
                         {category}
                       </p>
@@ -1147,7 +1250,7 @@ export default function IdeaPage() {
                         items.map((item, i) => (
                           <span
                             key={`${item}-${i}`}
-                            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold"
                             style={{
                               background: `${color}12`,
                               border: `1px solid ${color}22`,
@@ -1157,14 +1260,20 @@ export default function IdeaPage() {
                             {item}
                             <button
                               onClick={() => removeTech(category, i)}
-                              className="cursor-pointer opacity-80 transition hover:opacity-100"
+                              className="opacity-80 hover:opacity-100"
                             >
                               <X size={11} />
                             </button>
                           </span>
                         ))
                       ) : (
-                        <span className="rounded-lg border border-white/8 px-3 py-1.5 text-xs font-semibold text-white/30">
+                        <span
+                          className="px-3 py-1.5 text-xs font-semibold"
+                          style={{
+                            border: `1px solid ${BORDER}`,
+                            color: "#737373",
+                          }}
+                        >
                           Not added
                         </span>
                       )}
@@ -1184,6 +1293,7 @@ export default function IdeaPage() {
         projectDescription={ideaData.raw_idea || ""}
       />
 
+      {/* Add modal */}
       <AnimatePresence>
         {activeModal && (
           <>
@@ -1192,7 +1302,7 @@ export default function IdeaPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setActiveModal(null)}
-              className="fixed inset-0 z-40 bg-black/55"
+              className="fixed inset-0 z-40 bg-black/60"
               aria-label="Close modal backdrop"
             />
 
@@ -1201,13 +1311,13 @@ export default function IdeaPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: "'Inter', sans-serif" }}
+              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
+              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
             >
               <div className="mb-5 flex items-center justify-between">
                 <p
-                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
-                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                  style={INTER_TIGHT}
                 >
                   {activeModal === "feature"
                     ? "Add Feature"
@@ -1217,7 +1327,8 @@ export default function IdeaPage() {
                 </p>
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
                 >
                   <X size={16} />
                 </button>
@@ -1227,75 +1338,94 @@ export default function IdeaPage() {
                 <form onSubmit={addFeature} className="space-y-4">
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Name
                     </p>
                     <input
                       value={featureForm.name}
                       onChange={(e) =>
-                        setFeatureForm((current) => ({
-                          ...current,
-                          name: e.target.value,
-                        }))
+                        setFeatureForm((c) => ({ ...c, name: e.target.value }))
                       }
                       placeholder="Feature name"
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none placeholder:text-white/35 focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     />
                   </div>
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Description
                     </p>
                     <textarea
                       value={featureForm.description}
                       onChange={(e) =>
-                        setFeatureForm((current) => ({
-                          ...current,
+                        setFeatureForm((c) => ({
+                          ...c,
                           description: e.target.value,
                         }))
                       }
                       rows={3}
                       placeholder="One-sentence feature description"
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none placeholder:text-white/35 focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     />
                   </div>
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Priority
                     </p>
                     <select
                       value={featureForm.priority}
                       onChange={(e) =>
-                        setFeatureForm((current) => ({
-                          ...current,
+                        setFeatureForm((c) => ({
+                          ...c,
                           priority: e.target.value as FeaturePriority,
                         }))
                       }
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     >
-                      <option value="must_have">Must Have</option>
-                      <option value="nice_to_have">Nice To Have</option>
+                      <option value="must_have">Critical</option>
+                      <option value="nice_to_have">Optional</option>
                     </select>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => setActiveModal(null)}
-                      className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{ ...MONO, borderColor: BORDER, color: MUTED }}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{
+                        ...MONO,
+                        borderColor: ACCENT,
+                        color: ACCENT,
+                        backgroundColor: `${ACCENT}12`,
+                      }}
                     >
                       Add Feature
                     </button>
@@ -1307,8 +1437,8 @@ export default function IdeaPage() {
                 <form onSubmit={addRequirement} className="space-y-4">
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Requirement
                     </p>
@@ -1317,20 +1447,32 @@ export default function IdeaPage() {
                       onChange={(e) => setRequirementForm(e.target.value)}
                       rows={3}
                       placeholder="Describe a non-functional/system requirement"
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none placeholder:text-white/35 focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => setActiveModal(null)}
-                      className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{ ...MONO, borderColor: BORDER, color: MUTED }}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{
+                        ...MONO,
+                        borderColor: ACCENT,
+                        color: ACCENT,
+                        backgroundColor: `${ACCENT}12`,
+                      }}
                     >
                       Add Requirement
                     </button>
@@ -1342,20 +1484,25 @@ export default function IdeaPage() {
                 <form onSubmit={addTechItem} className="space-y-4">
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Category
                     </p>
                     <select
                       value={techForm.category}
                       onChange={(e) =>
-                        setTechForm((current) => ({
-                          ...current,
+                        setTechForm((c) => ({
+                          ...c,
                           category: e.target.value as StackCategory,
                         }))
                       }
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     >
                       {STACK_KEYS.map((category) => (
                         <option key={category} value={category}>
@@ -1366,34 +1513,43 @@ export default function IdeaPage() {
                   </div>
                   <div>
                     <p
-                      className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50"
-                      style={{ fontFamily: "'Roboto', sans-serif" }}
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
                     >
                       Item
                     </p>
                     <input
                       value={techForm.value}
                       onChange={(e) =>
-                        setTechForm((current) => ({
-                          ...current,
-                          value: e.target.value,
-                        }))
+                        setTechForm((c) => ({ ...c, value: e.target.value }))
                       }
                       placeholder="e.g. Next.js, PostgreSQL"
-                      className="w-full rounded-md border border-white/10 bg-[#101625] px-4 py-3 text-base text-white/85 outline-none placeholder:text-white/35 focus:border-orange-500/45"
+                      className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: INNER_BG,
+                        ...INTER,
+                      }}
                     />
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => setActiveModal(null)}
-                      className="rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{ ...MONO, borderColor: BORDER, color: MUTED }}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="rounded-md border border-orange-500/35 bg-orange-500/15 px-4 py-2 text-sm font-semibold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                      className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{
+                        ...MONO,
+                        borderColor: ACCENT,
+                        color: ACCENT,
+                        backgroundColor: `${ACCENT}12`,
+                      }}
                     >
                       Add Item
                     </button>
@@ -1405,6 +1561,7 @@ export default function IdeaPage() {
         )}
       </AnimatePresence>
 
+      {/* Preview modal */}
       <AnimatePresence>
         {previewData && (
           <>
@@ -1413,7 +1570,7 @@ export default function IdeaPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleRejectPreview}
-              className="fixed inset-0 z-40 bg-black/55"
+              className="fixed inset-0 z-40 bg-black/60"
               aria-label="Close preview modal"
             />
 
@@ -1422,62 +1579,83 @@ export default function IdeaPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: "'Inter', sans-serif" }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
             >
               <div className="mb-6 flex items-center justify-between">
                 <p
-                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
-                  style={{ fontFamily: "'Roboto', sans-serif" }}
+                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                  style={INTER_TIGHT}
                 >
                   Preview Generated Idea
                 </p>
                 <button
                   onClick={handleRejectPreview}
-                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
                 >
                   <X size={16} />
                 </button>
               </div>
 
               <div className="space-y-6">
-                {/* Raw Idea */}
                 {previewData.raw_idea && (
                   <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
                       Raw Idea
                     </p>
-                    <p className="text-sm text-white/80">{previewData.raw_idea}</p>
+                    <p className="text-sm italic text-white" style={SERIF}>
+                      {previewData.raw_idea}
+                    </p>
                   </div>
                 )}
 
-                {/* Overview */}
                 {previewData.overview && (
                   <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p
+                      className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
                       Overview
                     </p>
-                    <p className="text-sm text-white/80">{previewData.overview}</p>
+                    <p className="text-sm text-white" style={INTER}>
+                      {previewData.overview}
+                    </p>
                   </div>
                 )}
 
-                {/* Key Features */}
                 {previewData.key_features.length > 0 && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
                       Key Features
                     </p>
                     <div className="space-y-2">
                       {previewData.key_features.map((feature, idx) => (
                         <div
                           key={idx}
-                          className="rounded-lg border border-white/10 bg-white/5 p-3"
+                          className="border p-3"
+                          style={{
+                            borderColor: BORDER,
+                            backgroundColor: INNER_BG,
+                          }}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="font-semibold text-white/90">{feature.name}</p>
+                            <p
+                              className="font-semibold text-white"
+                              style={INTER}
+                            >
+                              {feature.name}
+                            </p>
                             <span
-                              className="whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold"
+                              className="whitespace-nowrap px-2 py-0.5 text-[10px] font-bold uppercase"
                               style={{
+                                ...MONO,
                                 background: `${PRIORITY_COLORS[feature.priority]}15`,
                                 color: PRIORITY_COLORS[feature.priority],
                               }}
@@ -1485,26 +1663,37 @@ export default function IdeaPage() {
                               {PRIORITY_LABELS[feature.priority]}
                             </span>
                           </div>
-                          <p className="text-xs text-white/65">{feature.description}</p>
+                          <p
+                            className="text-xs"
+                            style={{ ...INTER, color: MUTED }}
+                          >
+                            {feature.description}
+                          </p>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Requirements */}
                 {previewData.requirements.length > 0 && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
                       Requirements
                     </p>
                     <div className="space-y-2">
                       {previewData.requirements.map((req, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center gap-2 text-sm text-white/75"
+                          className="flex items-center gap-2 text-sm text-white"
+                          style={INTER}
                         >
-                          <div className="h-1.5 w-1.5 rounded-full bg-white/40" />
+                          <div
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: ACCENT }}
+                          />
                           {req}
                         </div>
                       ))}
@@ -1512,25 +1701,29 @@ export default function IdeaPage() {
                   </div>
                 )}
 
-                {/* Tech Stack */}
-                {STACK_KEYS.some((key) => (previewData.suggested_tech_stack[key] ?? []).length > 0) && (
+                {STACK_KEYS.some(
+                  (key) =>
+                    (previewData.suggested_tech_stack[key] ?? []).length > 0,
+                ) && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
                       Suggested Tech Stack
                     </p>
                     <div className="space-y-3">
                       {STACK_KEYS.map((category) => {
-                        const items = previewData.suggested_tech_stack[category] ?? [];
+                        const items =
+                          previewData.suggested_tech_stack[category] ?? [];
                         if (items.length === 0) return null;
-
                         const Icon = STACK_ICONS[category];
                         const color = STACK_COLORS[category];
-
                         return (
                           <div key={category}>
                             <div className="mb-2 flex items-center gap-2">
                               <div
-                                className="flex items-center justify-center rounded"
+                                className="flex items-center justify-center"
                                 style={{
                                   background: `${color}15`,
                                   border: `1px solid ${color}30`,
@@ -1542,8 +1735,8 @@ export default function IdeaPage() {
                                 <Icon size={14} />
                               </div>
                               <p
-                                className="text-xs font-bold uppercase tracking-widest"
-                                style={{ color }}
+                                className="text-[10px] font-bold uppercase tracking-[0.16em]"
+                                style={{ ...MONO, color }}
                               >
                                 {category}
                               </p>
@@ -1552,7 +1745,7 @@ export default function IdeaPage() {
                               {items.map((item, i) => (
                                 <span
                                   key={`${item}-${i}`}
-                                  className="inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold"
+                                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold"
                                   style={{
                                     background: `${color}12`,
                                     border: `1px solid ${color}22`,
@@ -1570,24 +1763,35 @@ export default function IdeaPage() {
                   </div>
                 )}
 
-                {/* Complexity & Team Size */}
                 <div className="grid grid-cols-2 gap-4">
                   {previewData.estimated_complexity && (
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      <p
+                        className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                        style={{ ...MONO, color: MUTED }}
+                      >
                         Estimated Complexity
                       </p>
-                      <p className="capitalize text-sm font-semibold text-white/85">
+                      <p
+                        className="capitalize text-sm font-semibold text-white"
+                        style={INTER}
+                      >
                         {previewData.estimated_complexity}
                       </p>
                     </div>
                   )}
                   {previewData.team_size && (
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+                      <p
+                        className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                        style={{ ...MONO, color: MUTED }}
+                      >
                         Team Size
                       </p>
-                      <p className="text-sm font-semibold text-white/85">
+                      <p
+                        className="text-sm font-semibold text-white"
+                        style={INTER}
+                      >
                         {previewData.team_size}
                       </p>
                     </div>
@@ -1595,26 +1799,41 @@ export default function IdeaPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
+              <div
+                className="mt-8 flex justify-end gap-3 border-t pt-6"
+                style={{ borderColor: BORDER }}
+              >
                 <button
                   onClick={handleRegenerate}
                   disabled={acceptingPreview || isJobLoading}
-                  className="rounded-md border border-blue-500/35 bg-blue-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{
+                    ...MONO,
+                    borderColor: "#60a5fa55",
+                    color: "#60a5fa",
+                    backgroundColor: "#60a5fa12",
+                  }}
                 >
                   Regenerate
                 </button>
                 <button
                   onClick={handleRejectPreview}
                   disabled={acceptingPreview}
-                  className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85 disabled:opacity-50"
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}
                 >
                   Reject
                 </button>
                 <button
                   onClick={handleAcceptPreview}
                   disabled={acceptingPreview}
-                  className="flex items-center gap-2 rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20 disabled:opacity-50"
+                  className="flex items-center gap-2 border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{
+                    ...MONO,
+                    borderColor: "#22c55e55",
+                    color: "#22c55e",
+                    backgroundColor: "#22c55e12",
+                  }}
                 >
                   {acceptingPreview ? (
                     <>
@@ -1623,7 +1842,7 @@ export default function IdeaPage() {
                     </>
                   ) : (
                     <>
-                      <Check size={16} />
+                      <Check size={15} />
                       Accept & Save
                     </>
                   )}
