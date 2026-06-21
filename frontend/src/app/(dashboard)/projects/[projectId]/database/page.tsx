@@ -16,6 +16,7 @@ import {
   Pencil,
   Check,
   X,
+  Download,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "next/navigation";
@@ -90,7 +91,11 @@ const FIELD_TYPES: DatabaseFieldType[] = [
   "json",
 ];
 
-const RELATION_TYPES: RelationType[] = ["one-to-one", "one-to-many", "many-to-many"];
+const RELATION_TYPES: RelationType[] = [
+  "one-to-one",
+  "one-to-many",
+  "many-to-many",
+];
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -102,6 +107,34 @@ const fadeUp = (i: number): Variants => ({
     transition: { delay: i * 0.07, duration: 0.4, ease: EASE },
   },
 });
+
+// ─── Design tokens ───────────────────────────────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
+
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const INTER_TIGHT: React.CSSProperties = {
+  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+};
+
+const TYPE_COLORS: Record<DatabaseFieldType, string> = {
+  uuid: "#a6786d",
+  string: "#fafafa",
+  text: "#fafafa",
+  integer: "#60a5fa",
+  boolean: "#a78bfa",
+  datetime: "#f59e0b",
+  float: "#60a5fa",
+  json: "#34d399",
+};
 
 const createEmptyField = (): DatabaseField => ({
   name: "field_name",
@@ -117,13 +150,16 @@ const createEmptyEntity = (): DatabaseEntity => ({
   fields: [],
 });
 
-const FIELD_PRESETS: Array<{
-  label: string;
-  field: DatabaseField;
-}> = [
+const FIELD_PRESETS: Array<{ label: string; field: DatabaseField }> = [
   {
     label: "Primary ID",
-    field: { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
+    field: {
+      name: "id",
+      type: "uuid",
+      required: true,
+      unique: true,
+      description: "Primary key",
+    },
   },
   {
     label: "Created At",
@@ -147,11 +183,23 @@ const FIELD_PRESETS: Array<{
   },
   {
     label: "Name",
-    field: { name: "name", type: "string", required: true, unique: false, description: "Display name" },
+    field: {
+      name: "name",
+      type: "string",
+      required: true,
+      unique: false,
+      description: "Display name",
+    },
   },
   {
     label: "Email",
-    field: { name: "email", type: "string", required: true, unique: true, description: "Unique email" },
+    field: {
+      name: "email",
+      type: "string",
+      required: true,
+      unique: true,
+      description: "Unique email",
+    },
   },
   {
     label: "Foreign Key",
@@ -171,22 +219,82 @@ const SAMPLE_SCHEMA: DatabaseSectionContent = {
       name: "User",
       description: "Platform user account",
       fields: [
-        { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
-        { name: "email", type: "string", required: true, unique: true, description: "Login email" },
-        { name: "name", type: "string", required: true, unique: false, description: "Display name" },
-        { name: "createdAt", type: "datetime", required: true, unique: false, description: "Created timestamp" },
+        {
+          name: "id",
+          type: "uuid",
+          required: true,
+          unique: true,
+          description: "Primary key",
+        },
+        {
+          name: "email",
+          type: "string",
+          required: true,
+          unique: true,
+          description: "Login email",
+        },
+        {
+          name: "name",
+          type: "string",
+          required: true,
+          unique: false,
+          description: "Display name",
+        },
+        {
+          name: "createdAt",
+          type: "datetime",
+          required: true,
+          unique: false,
+          description: "Created timestamp",
+        },
       ],
     },
     {
       name: "Invoice",
       description: "Billing record",
       fields: [
-        { name: "id", type: "uuid", required: true, unique: true, description: "Primary key" },
-        { name: "title", type: "string", required: true, unique: false, description: "Invoice title" },
-        { name: "amount", type: "float", required: true, unique: false, description: "Total amount" },
-        { name: "paid", type: "boolean", required: true, unique: false, description: "Payment status" },
-        { name: "userId", type: "uuid", required: true, unique: false, description: "Owner reference" },
-        { name: "createdAt", type: "datetime", required: true, unique: false, description: "Created timestamp" },
+        {
+          name: "id",
+          type: "uuid",
+          required: true,
+          unique: true,
+          description: "Primary key",
+        },
+        {
+          name: "title",
+          type: "string",
+          required: true,
+          unique: false,
+          description: "Invoice title",
+        },
+        {
+          name: "amount",
+          type: "float",
+          required: true,
+          unique: false,
+          description: "Total amount",
+        },
+        {
+          name: "paid",
+          type: "boolean",
+          required: true,
+          unique: false,
+          description: "Payment status",
+        },
+        {
+          name: "userId",
+          type: "uuid",
+          required: true,
+          unique: false,
+          description: "Owner reference",
+        },
+        {
+          name: "createdAt",
+          type: "datetime",
+          required: true,
+          unique: false,
+          description: "Created timestamp",
+        },
       ],
     },
   ],
@@ -235,7 +343,9 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
                     required: Boolean(fieldSource.required),
                     unique: Boolean(fieldSource.unique),
                     description:
-                      typeof fieldSource.description === "string" ? fieldSource.description : "",
+                      typeof fieldSource.description === "string"
+                        ? fieldSource.description
+                        : "",
                   };
                 })
                 .filter(Boolean) as DatabaseField[])
@@ -245,7 +355,8 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
 
           return {
             name: source.name,
-            description: typeof source.description === "string" ? source.description : "",
+            description:
+              typeof source.description === "string" ? source.description : "",
             fields,
           };
         })
@@ -270,7 +381,8 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
             from: source.from,
             to: source.to,
             type: source.type as RelationType,
-            description: typeof source.description === "string" ? source.description : "",
+            description:
+              typeof source.description === "string" ? source.description : "",
           };
         })
         .filter(Boolean) as DatabaseRelation[])
@@ -281,7 +393,11 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
         .map((index) => {
           if (!index || typeof index !== "object") return null;
           const source = index as Partial<DatabaseIndex>;
-          if (typeof source.entity !== "string" || !Array.isArray(source.fields)) return null;
+          if (
+            typeof source.entity !== "string" ||
+            !Array.isArray(source.fields)
+          )
+            return null;
 
           const fields = source.fields.filter(
             (field): field is string => typeof field === "string",
@@ -298,26 +414,22 @@ const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
 
   if (entities.length === 0) return null;
 
-  return {
-    entities,
-    relationships,
-    indexes,
-  };
+  return { entities, relationships, indexes };
 };
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
+  if (error instanceof Error) return error.message;
   return fallback;
 };
 
 export default function DatabasePage() {
   const params = useParams();
   const rawProjectId = params?.projectId;
-  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
-  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
+  const projectId = Array.isArray(rawProjectId)
+    ? rawProjectId[0]
+    : rawProjectId;
+  const resolvedProjectId =
+    projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
   const jobState = useSelector((state: RootState) => state.job);
   const databaseSectionState = useSelector(
@@ -331,11 +443,15 @@ export default function DatabasePage() {
   });
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<DatabaseSectionContent | null>(null);
+  const [previewData, setPreviewData] = useState<DatabaseSectionContent | null>(
+    null,
+  );
   const [isSampleView, setIsSampleView] = useState(false);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
-  const [editingEntityIndex, setEditingEntityIndex] = useState<number | null>(null);
+  const [editingEntityIndex, setEditingEntityIndex] = useState<number | null>(
+    null,
+  );
   const [entityNameDraft, setEntityNameDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const draftSnapshotRef = useRef<DatabaseSectionContent | null>(null);
@@ -364,7 +480,6 @@ export default function DatabasePage() {
 
   useEffect(() => {
     if (isSampleView) return;
-
     const normalized = normalizeSchema(databaseSectionState?.content);
     if (normalized) {
       setSchema(normalized);
@@ -372,33 +487,39 @@ export default function DatabasePage() {
     }
   }, [databaseSectionState?.content, isSampleView]);
 
-  const fetchDatabaseSection = useCallback(async (force = false) => {
-    if (!resolvedProjectId) {
-      setSchema({ entities: [], relationships: [], indexes: [] });
-      return;
-    }
-
-    const normalizedState = normalizeSchema(databaseSectionState?.content);
-    if (!force && normalizedState) {
-      setSchema(normalizedState);
-      draftSnapshotRef.current = normalizedState;
-      return;
-    }
-
-    try {
-      const result = await dispatch(
-        fetchSectionByType({ projectId: resolvedProjectId, type: "database" }),
-      ).unwrap();
-
-      const normalized = normalizeSchema(result.section?.content);
-      if (normalized) {
-        setSchema(normalized);
-        draftSnapshotRef.current = normalized;
+  const fetchDatabaseSection = useCallback(
+    async (force = false) => {
+      if (!resolvedProjectId) {
+        setSchema({ entities: [], relationships: [], indexes: [] });
+        return;
       }
-    } catch {
-      setSchema({ entities: [], relationships: [], indexes: [] });
-    }
-  }, [databaseSectionState?.content, dispatch, resolvedProjectId]);
+
+      const normalizedState = normalizeSchema(databaseSectionState?.content);
+      if (!force && normalizedState) {
+        setSchema(normalizedState);
+        draftSnapshotRef.current = normalizedState;
+        return;
+      }
+
+      try {
+        const result = await dispatch(
+          fetchSectionByType({
+            projectId: resolvedProjectId,
+            type: "database",
+          }),
+        ).unwrap();
+
+        const normalized = normalizeSchema(result.section?.content);
+        if (normalized) {
+          setSchema(normalized);
+          draftSnapshotRef.current = normalized;
+        }
+      } catch {
+        setSchema({ entities: [], relationships: [], indexes: [] });
+      }
+    },
+    [databaseSectionState?.content, dispatch, resolvedProjectId],
+  );
 
   useEffect(() => {
     fetchDatabaseSection();
@@ -421,7 +542,6 @@ export default function DatabasePage() {
       await dispatch(
         generateDatabase({ projectId: resolvedProjectId }),
       ).unwrap();
-
       setStatus("Database generation queued. We are processing it now.");
     } catch (error: unknown) {
       setStatus(getErrorMessage(error, "Failed to queue database generation."));
@@ -445,21 +565,17 @@ export default function DatabasePage() {
           section: "database",
         }),
       ).unwrap();
-
       setStatus("Database regeneration queued. We are processing it now.");
     } catch (error: unknown) {
-      setStatus(getErrorMessage(error, "Failed to queue database regeneration."));
+      setStatus(
+        getErrorMessage(error, "Failed to queue database regeneration."),
+      );
     }
   };
 
   useEffect(() => {
-    if (!jobState.jobId) {
-      return;
-    }
-
-    if (jobState.status === "completed" || jobState.status === "failed") {
-      return;
-    }
+    if (!jobState.jobId) return;
+    if (jobState.status === "completed" || jobState.status === "failed") return;
 
     dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
 
@@ -467,17 +583,12 @@ export default function DatabasePage() {
       dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
     }, 2500);
 
-    return () => {
-      window.clearInterval(pollTimer);
-    };
+    return () => window.clearInterval(pollTimer);
   }, [dispatch, jobState.jobId, jobState.status]);
 
   useEffect(() => {
-    if (jobState.status !== "completed") {
-      return;
-    }
+    if (jobState.status !== "completed") return;
 
-    // Show preview modal instead of auto-saving
     if (jobState.result) {
       const normalized = normalizeSchema(jobState.result);
       if (normalized) {
@@ -493,10 +604,7 @@ export default function DatabasePage() {
   }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") {
-      return;
-    }
-
+    if (jobState.status !== "failed") return;
     setStatus(jobState.error ?? "Database generation failed.");
   }, [jobState.error, jobState.status]);
 
@@ -543,16 +651,23 @@ export default function DatabasePage() {
   const removeEntity = (index: number) => {
     setSchema((current) => ({
       ...current,
-      entities: current.entities.filter((_, entityIndex) => entityIndex !== index),
+      entities: current.entities.filter(
+        (_, entityIndex) => entityIndex !== index,
+      ),
     }));
     setStatus("Entity removed.");
   };
 
-  const addField = (entityIndex: number, field: DatabaseField = createEmptyField()) => {
+  const addField = (
+    entityIndex: number,
+    field: DatabaseField = createEmptyField(),
+  ) => {
     setSchema((current) => ({
       ...current,
       entities: current.entities.map((entity, idx) =>
-        idx === entityIndex ? { ...entity, fields: [...entity.fields, field] } : entity,
+        idx === entityIndex
+          ? { ...entity, fields: [...entity.fields, field] }
+          : entity,
       ),
     }));
   };
@@ -563,18 +678,21 @@ export default function DatabasePage() {
       if (!entity) return current;
 
       const alreadyExists = entity.fields.some(
-        (field) => field.name.trim().toLowerCase() === preset.name.trim().toLowerCase(),
+        (field) =>
+          field.name.trim().toLowerCase() === preset.name.trim().toLowerCase(),
       );
 
       if (alreadyExists) {
-        setStatus(`Field \"${preset.name}\" already exists in ${entity.name}.`);
+        setStatus(`Field "${preset.name}" already exists in ${entity.name}.`);
         return current;
       }
 
       return {
         ...current,
         entities: current.entities.map((item, idx) =>
-          idx === entityIndex ? { ...item, fields: [...item.fields, preset] } : item,
+          idx === entityIndex
+            ? { ...item, fields: [...item.fields, preset] }
+            : item,
         ),
       };
     });
@@ -606,7 +724,9 @@ export default function DatabasePage() {
         if (idx !== entityIndex) return entity;
         return {
           ...entity,
-          fields: entity.fields.filter((_, idxField) => idxField !== fieldIndex),
+          fields: entity.fields.filter(
+            (_, idxField) => idxField !== fieldIndex,
+          ),
         };
       }),
     }));
@@ -614,8 +734,6 @@ export default function DatabasePage() {
 
   const handleAcceptPreview = () => {
     if (!previewData) return;
-
-    // Apply preview to form; do NOT auto-save — user should press Save
     setSchema(previewData);
     setPreviewData(null);
     setStatus("Preview applied to form. Click Save to persist.");
@@ -633,17 +751,25 @@ export default function DatabasePage() {
     }
 
     try {
-      // Apply the AI suggestion to the current schema
       const merged: DatabaseSectionContent = {
-        entities: (suggestion.payload.entities as DatabaseEntity[] | undefined) ?? schema.entities,
-        relationships: (suggestion.payload.relationships as DatabaseRelation[] | undefined) ?? schema.relationships,
-        indexes: (suggestion.payload.indexes as DatabaseIndex[] | undefined) ?? schema.indexes,
+        entities:
+          (suggestion.payload.entities as DatabaseEntity[] | undefined) ??
+          schema.entities,
+        relationships:
+          (suggestion.payload.relationships as
+            | DatabaseRelation[]
+            | undefined) ?? schema.relationships,
+        indexes:
+          (suggestion.payload.indexes as DatabaseIndex[] | undefined) ??
+          schema.indexes,
       };
 
       setSchema(merged);
       setStatus("AI suggestion applied. Click Save to persist changes.");
     } catch (error) {
-      setStatus("Failed to apply AI suggestion. Please review the changes manually.");
+      setStatus(
+        "Failed to apply AI suggestion. Please review the changes manually.",
+      );
       console.error("Error applying suggestion:", error);
     }
   };
@@ -663,7 +789,10 @@ export default function DatabasePage() {
     }));
   };
 
-  const updateRelationship = (index: number, patch: Partial<DatabaseRelation>) => {
+  const updateRelationship = (
+    index: number,
+    patch: Partial<DatabaseRelation>,
+  ) => {
     setSchema((current) => ({
       ...current,
       relationships: current.relationships.map((relation, idx) =>
@@ -684,11 +813,7 @@ export default function DatabasePage() {
       ...current,
       indexes: [
         ...(current.indexes ?? []),
-        {
-          entity: entityNames[0] || "",
-          fields: [],
-          unique: false,
-        },
+        { entity: entityNames[0] || "", fields: [], unique: false },
       ],
     }));
   };
@@ -744,8 +869,8 @@ export default function DatabasePage() {
 
   const handleToggleSample = () => {
     if (isSampleView) {
-      const restoredSchema =
-        draftSnapshotRef.current ?? normalizeSchema(databaseSectionState?.content) ?? {
+      const restoredSchema = draftSnapshotRef.current ??
+        normalizeSchema(databaseSectionState?.content) ?? {
           entities: [],
           relationships: [],
           indexes: [],
@@ -760,7 +885,9 @@ export default function DatabasePage() {
     draftSnapshotRef.current = schema;
     setSchema(SAMPLE_SCHEMA);
     setIsSampleView(true);
-    setStatus("Showing sample database. Click again to restore your saved draft.");
+    setStatus(
+      "Showing sample database. Click again to restore your saved draft.",
+    );
   };
 
   const schemaOverview = useMemo(
@@ -772,126 +899,117 @@ export default function DatabasePage() {
     [schema.entities.length, schema.relationships.length, schema.indexes],
   );
 
+  const handleExportJson = () => {
+    const blob = new Blob([JSON.stringify(schema, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "database-schema.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
       ref={scrollRef}
       className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
-      style={{ fontFamily: "'Inter', sans-serif" }}
+      style={{ ...INTER, backgroundColor: BG }}
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
-          className="mx-auto w-full px-6 py-7 sm:px-8 lg:px-12"
+          className={`mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-8 lg:px-10}`}
           initial="hidden"
           animate="show"
         >
+          {/* Top bar */}
           <motion.div
             variants={fadeUp(0)}
-            className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/8 bg-[#0b1019] px-4 py-3"
+            className="mb-8 flex flex-wrap items-center justify-end gap-2"
           >
-            <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white/35">
-              <span>Planex</span>
-              <span>/</span>
-              <span>{(schema.entities[1]?.name || "Project").toUpperCase()}</span>
-              <span>/</span>
-              <span className="text-white/80">DATABASE</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {!canRegenerate && (
-                <button
-                  onClick={handleGenerate}
-                  disabled={loading}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Sparkles size={12} />
-                  {isJobLoading ? "Generating..." : "Generate"}
-                </button>
-              )}
-              {canRegenerate && (
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-blue-500/35 bg-blue-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Sparkles size={12} />
-                  {isJobLoading ? "Regenerating..." : "Regenerate"}
-                </button>
-              )}
+            <button
+              onClick={() => fetchDatabaseSection(true)}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              <RefreshCw size={12} />
+              Refresh
+            </button>
+            {!canRegenerate ? (
               <button
-                onClick={handleSaveDraft}
+                onClick={handleGenerate}
                 disabled={loading}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <Save size={12} />
-                {isSaving ? "Saving..." : "Save"}
+                <Sparkles size={12} />
+                {isJobLoading ? "Generating..." : "Generate"}
               </button>
-            </div>
+            ) : (
+              <button
+                onClick={handleRegenerate}
+                disabled={loading}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{
+                  ...MONO,
+                  borderColor: "#60a5fa55",
+                  color: "#60a5fa",
+                  backgroundColor: "#60a5fa12",
+                }}
+              >
+                <Sparkles size={12} />
+                {isJobLoading ? "Regenerating..." : "Regenerate"}
+              </button>
+            )}
+            <button
+              onClick={handleSaveDraft}
+              disabled={loading}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+              style={{
+                ...MONO,
+                borderColor: ACCENT,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}12`,
+              }}
+            >
+              <Save size={12} />
+              {isSaving ? "Saving..." : "Save"}
+            </button>
           </motion.div>
 
-          <motion.div variants={fadeUp(1)} className="mb-7 rounded-2xl border border-white/8 bg-[#090e17] p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-300/90">
-                  Manual Schema Builder
-                </p>
-                <h2 className="mt-2 text-2xl font-bold text-white" style={{ fontFamily: "'Roboto', sans-serif" }}>Design the database step by step</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/45">
-                  Start with singular entities, add their columns, connect entities with relationships,
-                  and finish by adding indexes for frequently queried fields.
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center text-xs text-white/55">
-                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
-                  <p className="text-lg font-bold text-white">{schemaOverview.entities}</p>
-                  <p className="mt-1 uppercase tracking-[0.16em]">Entities</p>
-                </div>
-                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
-                  <p className="text-lg font-bold text-white">{schemaOverview.relationships}</p>
-                  <p className="mt-1 uppercase tracking-[0.16em]">Relations</p>
-                </div>
-                <div className="rounded-lg border border-white/8 bg-white/3 px-4 py-3">
-                  <p className="text-lg font-bold text-white">{schemaOverview.indexes}</p>
-                  <p className="mt-1 uppercase tracking-[0.16em]">Indexes</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">1. Entities</p>
-                <p className="mt-2 text-sm text-white/60">
-                  Use singular names like User, Project, or Task. Start with id and timestamps.
-                </p>
-              </div>
-              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">2. Relationships</p>
-                <p className="mt-2 text-sm text-white/60">
-                  Link entities using one-to-one, one-to-many, or many-to-many.
-                </p>
-              </div>
-              <div className="rounded-lg border border-white/8 bg-white/2 p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">3. Indexes</p>
-                <p className="mt-2 text-sm text-white/60">
-                  Add indexes to frequently filtered fields like email and foreign keys.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-
+          {/* Loading */}
           <AnimatePresence>
             {loading && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="mb-4 flex items-center gap-2.5 rounded-lg border border-orange-500/20 bg-orange-500/10 px-4 py-2.5"
+                className="mb-6 flex items-center gap-2.5 border px-4 py-2.5"
+                style={{
+                  borderColor: `${ACCENT}30`,
+                  backgroundColor: `${ACCENT}10`,
+                }}
               >
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-                  className="h-4 w-4 rounded-full border-2 border-orange-500 border-t-transparent"
+                  transition={{
+                    duration: 1.4,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                  className="h-4 w-4 rounded-full border-2 border-t-transparent"
+                  style={{ borderColor: ACCENT, borderTopColor: "transparent" }}
                 />
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-400/90">
+                <p
+                  className="text-[11px] font-bold uppercase tracking-[0.18em]"
+                  style={{ ...MONO, color: ACCENT }}
+                >
                   {isSaving
                     ? "Saving database section"
                     : isJobLoading
@@ -902,14 +1020,20 @@ export default function DatabasePage() {
             )}
           </AnimatePresence>
 
+          {/* Error / status */}
           <AnimatePresence>
             {error && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="mb-4 rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-sm text-red-200/90"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mb-6 border px-4 py-2.5 text-sm"
+                style={{
+                  borderColor: "rgba(239,68,68,0.3)",
+                  backgroundColor: "rgba(239,68,68,0.08)",
+                  color: "#fca5a5",
+                  ...INTER,
+                }}
               >
                 {error}
               </motion.div>
@@ -919,60 +1043,141 @@ export default function DatabasePage() {
           <AnimatePresence>
             {status && !error && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: -8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                transition={{ duration: 0.3 }}
-                className="mb-4 rounded-lg border border-blue-500/25 bg-blue-500/10 px-4 py-2.5 text-sm text-blue-200/90"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="mb-6 border px-4 py-2.5 text-sm"
+                style={{
+                  borderColor: "#60a5fa40",
+                  backgroundColor: "#60a5fa10",
+                  color: "#93c5fd",
+                  ...INTER,
+                }}
               >
                 {status}
               </motion.div>
             )}
           </AnimatePresence>
 
-          <motion.div variants={fadeUp(1)} className="mb-7">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10">
-                  <Database size={20} className="text-orange-500" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold uppercase text-white" style={{ fontFamily: "'Roboto', sans-serif" }}>DATABASE</h1>
-                  <p className="mt-1 text-sm text-white/45">
-                    Model entities, relationships, and indexes for your backend.
+          {/* Builder guide strip */}
+          <motion.div
+            variants={fadeUp(1)}
+            className="mb-12 border p-6"
+            style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+          >
+            <p
+              className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em]"
+              style={{ ...MONO, color: ACCENT }}
+            >
+              Section // 02 / Schema
+            </p>
+            <h2
+              className="text-2xl font-bold text-white mb-2"
+              style={INTER_TIGHT}
+            >
+              Manual Schema Builder
+            </h2>
+            <p
+              className="text-sm leading-relaxed max-w-2xl mb-6"
+              style={{ ...INTER, color: MUTED }}
+            >
+              Start with singular entities, add their columns, connect entities
+              with relationships, and finish by adding indexes for frequently
+              queried fields.
+            </p>
+
+            <div
+              className="grid grid-cols-1 gap-px sm:grid-cols-3"
+              style={{ backgroundColor: BORDER }}
+            >
+              {[
+                { label: "Entities", value: schemaOverview.entities },
+                { label: "Relations", value: schemaOverview.relationships },
+                { label: "Indexes", value: schemaOverview.indexes },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="p-4"
+                  style={{ backgroundColor: INNER_BG }}
+                >
+                  <p
+                    className="text-2xl font-black text-white"
+                    style={INTER_TIGHT}
+                  >
+                    {stat.value}
+                  </p>
+                  <p
+                    className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+                    style={{ ...MONO, color: MUTED }}
+                  >
+                    {stat.label}
                   </p>
                 </div>
-              </div>
+              ))}
             </div>
           </motion.div>
 
-          <motion.div variants={fadeUp(2)} className="mb-10">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>Entities</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={addEntity}
-                  className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
-                >
-                  <Plus size={12} />
-                  Add Entity
-                </button>
-                <p className="text-[11px] text-white/35">
-                  Keep entity names singular and add only fields you need.
-                </p>
-              </div>
-            </div>
+          {/* Page heading */}
+          <motion.div variants={fadeUp(2)} className="mb-3">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ ...MONO, color: ACCENT }}
+            >
+              Section // 02 / Database
+            </p>
+          </motion.div>
+          <motion.div variants={fadeUp(3)} className="mb-10">
+            <h1
+              className="text-[3rem] sm:text-[3.6rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
+              style={INTER_TIGHT}
+            >
+              Database
+            </h1>
+            <p className="mt-3 text-sm" style={{ ...INTER, color: MUTED }}>
+              Model entities, relationships, and indexes for your backend.
+            </p>
+          </motion.div>
 
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              {schema.entities.map((entity, entityIndex) => (
-                <div
-                  key={entityIndex}
-                  className="overflow-hidden rounded-xl border border-white/8 bg-[#0b1019] shadow-[0_12px_30px_rgba(0,0,0,0.25)]"
-                >
-                  <div className="border-b border-white/6 bg-white/4 px-5 py-4">
-                    <div className="flex items-center justify-between gap-3">
+          {/* Add entity row */}
+          <motion.div
+            variants={fadeUp(4)}
+            className="mb-6 flex flex-wrap items-center justify-between gap-3"
+          >
+            <h2 className="text-xl font-bold text-white" style={INTER_TIGHT}>
+              Entities
+            </h2>
+            <button
+              onClick={addEntity}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+              style={{
+                ...MONO,
+                borderColor: ACCENT,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}12`,
+              }}
+            >
+              <Plus size={12} />
+              Add Entity
+            </button>
+          </motion.div>
+
+          {/* Entity blocks — each rendered like the USERS screenshot */}
+          <div className="flex flex-col gap-16 mb-16">
+            {schema.entities.map((entity, entityIndex) => {
+              const entityRelationships = schema.relationships.filter(
+                (r) => r.from === entity.name || r.to === entity.name,
+              );
+              const entityIndexes = (schema.indexes ?? []).filter(
+                (i) => i.entity === entity.name,
+              );
+
+              return (
+                <motion.div key={entityIndex} variants={fadeUp(entityIndex)}>
+                  {/* Entity headline block */}
+                  <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
                       {editingEntityIndex === entityIndex ? (
-                        <div className="flex w-full items-center gap-2">
+                        <div className="flex items-center gap-2 mb-2">
                           <input
                             value={entityNameDraft}
                             onChange={(e) => setEntityNameDraft(e.target.value)}
@@ -980,198 +1185,465 @@ export default function DatabasePage() {
                               if (e.key === "Enter") saveEditEntityName();
                               if (e.key === "Escape") cancelEditEntityName();
                             }}
-                            className="w-full rounded-md border border-white/10 bg-[#0b1019] px-3 py-2 text-base font-semibold text-white outline-none"
-                            placeholder="Entity name"
+                            autoFocus
+                            className="text-[2.4rem] sm:text-[3rem] font-black uppercase leading-none tracking-[-0.03em] text-white bg-transparent border-b outline-none w-full"
+                            style={{ ...INTER_TIGHT, borderColor: ACCENT }}
+                            placeholder="ENTITY_NAME"
                           />
                           <button
                             onClick={saveEditEntityName}
-                            className="rounded-md border border-green-500/30 bg-green-500/10 p-2 text-green-300 transition hover:bg-green-500/20"
-                            aria-label="Save entity name"
+                            className="shrink-0 p-2 border"
+                            style={{
+                              borderColor: "#22c55e55",
+                              color: "#22c55e",
+                            }}
                           >
-                            <Check size={14} />
+                            <Check size={16} />
                           </button>
                           <button
                             onClick={cancelEditEntityName}
-                            className="rounded-md border border-white/10 bg-white/5 p-2 text-white/50 transition hover:bg-white/10 hover:text-white/80"
-                            aria-label="Cancel entity name edit"
+                            className="shrink-0 p-2 border"
+                            style={{ borderColor: BORDER, color: MUTED }}
                           >
-                            <X size={14} />
+                            <X size={16} />
                           </button>
                         </div>
                       ) : (
-                        <div className="flex w-full items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xl font-semibold text-white/95">
-                              {entity.name || "Untitled Entity"}
-                            </p>
-                            <p className="text-xs text-white/40">Schema entity</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => startEditEntityName(entityIndex)}
-                              className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/70 transition hover:bg-white/10 hover:text-white"
-                              aria-label="Edit entity name"
+                        <div className="flex items-start gap-3 mb-2 group">
+                          <h2
+                            className="text-[2.4rem] sm:text-[3rem] font-black uppercase leading-none tracking-[-0.03em] text-white"
+                            style={INTER_TIGHT}
+                          >
+                            {entity.name || "Untitled"}
+                          </h2>
+                          <button
+                            onClick={() => startEditEntityName(entityIndex)}
+                            className="mt-3 opacity-0 group-hover:opacity-100 transition shrink-0"
+                            style={{ color: MUTED }}
+                            aria-label="Edit entity name"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                        </div>
+                      )}
+
+                      <input
+                        value={entity.description}
+                        onChange={(e) =>
+                          updateEntity(entityIndex, {
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Describe what this entity represents..."
+                        className="bg-transparent text-[11px] uppercase tracking-[0.14em] outline-none w-full text-white placeholder:opacity-50"
+                        style={{ ...MONO, color: MUTED }}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                        style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                      >
+                        Entity_{String(entityIndex + 1).padStart(3, "0")}
+                      </span>
+                      <button
+                        onClick={() => removeEntity(entityIndex)}
+                        className="p-2 border transition hover:text-red-400"
+                        style={{ borderColor: BORDER, color: MUTED }}
+                        aria-label="Remove entity"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Field presets */}
+                  <div className="mb-5 flex flex-wrap gap-2">
+                    {FIELD_PRESETS.map((preset) => (
+                      <button
+                        key={`${preset.label}-${entityIndex}`}
+                        onClick={() =>
+                          addPresetField(entityIndex, preset.field)
+                        }
+                        className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] transition"
+                        style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                      >
+                        + {preset.label}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => addField(entityIndex)}
+                      className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] transition"
+                      style={{
+                        ...MONO,
+                        borderColor: ACCENT,
+                        color: ACCENT,
+                        backgroundColor: `${ACCENT}12`,
+                      }}
+                    >
+                      + Blank Field
+                    </button>
+                  </div>
+
+                  {/* Schema fields table */}
+                  <div className="mb-3 flex items-center justify-between">
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Schema Fields
+                    </p>
+                    <button
+                      onClick={handleExportJson}
+                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                      style={{ ...MONO, color: ACCENT }}
+                    >
+                      <Download size={11} />
+                      Export JSON
+                    </button>
+                  </div>
+
+                  <div className="border" style={{ borderColor: BORDER }}>
+                    {/* Table header */}
+                    <div
+                      className="hidden md:grid grid-cols-[2fr_1.2fr_1fr_1fr_auto] gap-3 px-4 py-3 border-b"
+                      style={{ borderColor: BORDER }}
+                    >
+                      {["Field Name", "Datatype", "Required", "Unique", ""].map(
+                        (h) => (
+                          <p
+                            key={h}
+                            className="text-[9px] font-bold uppercase tracking-[0.16em]"
+                            style={{ ...MONO, color: MUTED }}
+                          >
+                            {h}
+                          </p>
+                        ),
+                      )}
+                    </div>
+
+                    {entity.fields.length === 0 && (
+                      <div className="px-4 py-6 text-center">
+                        <p
+                          className="text-sm"
+                          style={{ ...INTER, color: MUTED }}
+                        >
+                          No fields yet. Add one above.
+                        </p>
+                      </div>
+                    )}
+
+                    {entity.fields.map((field, fieldIndex) => (
+                      <div
+                        key={fieldIndex}
+                        className="grid grid-cols-1 md:grid-cols-[2fr_1.2fr_1fr_1fr_auto] gap-3 px-4 py-3.5 border-b last:border-b-0 items-center"
+                        style={{ borderColor: BORDER }}
+                      >
+                        <input
+                          value={field.name}
+                          onChange={(e) =>
+                            updateField(entityIndex, fieldIndex, {
+                              name: e.target.value,
+                            })
+                          }
+                          className="bg-transparent text-sm font-semibold text-white outline-none"
+                          style={INTER}
+                          placeholder="field_name"
+                        />
+
+                        <select
+                          value={field.type}
+                          onChange={(e) =>
+                            updateField(entityIndex, fieldIndex, {
+                              type: e.target.value as DatabaseFieldType,
+                            })
+                          }
+                          className="border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] outline-none w-fit"
+                          style={{
+                            ...MONO,
+                            borderColor: BORDER,
+                            color: TYPE_COLORS[field.type],
+                            backgroundColor: INNER_BG,
+                          }}
+                        >
+                          {FIELD_TYPES.map((type) => (
+                            <option
+                              key={type}
+                              value={type}
+                              style={{
+                                backgroundColor: INNER_BG,
+                                color: "#fff",
+                              }}
                             >
-                              <Pencil size={12} />
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => removeEntity(entityIndex)}
-                              className="rounded-md border border-white/10 bg-white/5 p-2 text-white/35 transition hover:bg-white/10 hover:text-red-400"
-                              aria-label="Remove entity"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
+                              {type}
+                            </option>
+                          ))}
+                        </select>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={field.required}
+                            onChange={(e) =>
+                              updateField(entityIndex, fieldIndex, {
+                                required: e.target.checked,
+                              })
+                            }
+                            className="sr-only peer"
+                          />
+                          <span
+                            className="h-2.5 w-2.5 rounded-full transition-colors"
+                            style={{
+                              backgroundColor: field.required ? ACCENT : BORDER,
+                            }}
+                          />
+                          <span
+                            className="text-[10px] uppercase tracking-[0.1em]"
+                            style={{ ...MONO, color: MUTED }}
+                          >
+                            req
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(field.unique)}
+                            onChange={(e) =>
+                              updateField(entityIndex, fieldIndex, {
+                                unique: e.target.checked,
+                              })
+                            }
+                            className="sr-only peer"
+                          />
+                          <Check
+                            size={14}
+                            style={{
+                              color: field.unique ? "#22c55e" : "#3a3a3a",
+                            }}
+                          />
+                        </label>
+
+                        <button
+                          onClick={() => removeField(entityIndex, fieldIndex)}
+                          className="justify-self-end p-1.5 transition hover:text-red-400"
+                          style={{ color: MUTED }}
+                          aria-label="Remove field"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={() => addField(entityIndex)}
+                      className="w-full border-t py-3 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:text-white"
+                      style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                    >
+                      + Add Field to {entity.name || "Entity"}
+                    </button>
+                  </div>
+
+                  {/* Relationships + Indexes for this entity */}
+                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {/* Relationships panel */}
+                    <div
+                      className="border p-5"
+                      style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                    >
+                      <p
+                        className="mb-4 text-[10px] font-bold uppercase tracking-[0.18em]"
+                        style={{ ...MONO, color: MUTED }}
+                      >
+                        Relationships
+                      </p>
+                      {entityRelationships.length === 0 ? (
+                        <p
+                          className="text-sm"
+                          style={{ ...INTER, color: MUTED }}
+                        >
+                          No relationships yet.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {entityRelationships.map((relation, i) => {
+                            const otherEntity =
+                              relation.from === entity.name
+                                ? relation.to
+                                : relation.from;
+                            const relLabel =
+                              relation.type === "one-to-many"
+                                ? "Has Many"
+                                : relation.type === "one-to-one"
+                                  ? "Has One"
+                                  : "Many To Many";
+                            const globalIndex =
+                              schema.relationships.indexOf(relation);
+                            return (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <div>
+                                  <p
+                                    className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1"
+                                    style={{ ...MONO, color: MUTED }}
+                                  >
+                                    {relLabel}
+                                  </p>
+                                  <p
+                                    className="text-sm font-bold uppercase tracking-[0.02em]"
+                                    style={{ ...INTER_TIGHT, color: ACCENT }}
+                                  >
+                                    {otherEntity || "—"}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() =>
+                                    removeRelationship(globalIndex)
+                                  }
+                                  style={{ color: MUTED }}
+                                  className="hover:text-red-400 transition"
+                                >
+                                  <Link2 size={14} />
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
-                    <input
-                      value={entity.description}
-                      onChange={(e) => updateEntity(entityIndex, { description: e.target.value })}
-                      className="mt-3 w-full rounded-md border border-white/10 bg-[#0b1019] px-3 py-2 text-sm text-white/70 outline-none"
-                      placeholder="Describe what this entity represents..."
-                    />
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {FIELD_PRESETS.map((preset) => (
-                        <button
-                          key={`${preset.label}-${entityIndex}`}
-                          onClick={() => addPresetField(entityIndex, preset.field)}
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/70 transition hover:border-white/20 hover:text-white/95"
-                        >
-                          + {preset.label}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => addField(entityIndex)}
-                        className="rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-orange-300 transition hover:bg-orange-500/20"
+                    {/* Indexes panel */}
+                    <div
+                      className="border p-5"
+                      style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                    >
+                      <p
+                        className="mb-4 text-[10px] font-bold uppercase tracking-[0.18em]"
+                        style={{ ...MONO, color: MUTED }}
                       >
-                        + Blank Field
-                      </button>
-                    </div>
-
-                    <p className="mt-3 text-[11px] text-white/30">
-                      Default columns already follow backend rules: id, createdAt, updatedAt.
-                    </p>
-                  </div>
-
-                  <div className="p-4">
-                    <div className="space-y-3">
-                      {entity.fields.map((field, fieldIndex) => (
-                        <div
-                          key={fieldIndex}
-                          className="rounded-lg border border-white/6 bg-white/2 p-3"
+                        Indexes
+                      </p>
+                      {entityIndexes.length === 0 ? (
+                        <p
+                          className="text-sm"
+                          style={{ ...INTER, color: MUTED }}
                         >
-                          <div className="grid grid-cols-12 gap-3">
-                            <input
-                              value={field.name}
-                              onChange={(e) =>
-                                updateField(entityIndex, fieldIndex, { name: e.target.value })
-                              }
-                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-white/85 outline-none md:col-span-3"
-                              placeholder="column_name"
-                            />
-
-                            <select
-                              value={field.type}
-                              onChange={(e) =>
-                                updateField(entityIndex, fieldIndex, {
-                                  type: e.target.value as DatabaseFieldType,
-                                })
-                              }
-                              className="col-span-6 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-blue-300 outline-none md:col-span-3"
-                            >
-                              {FIELD_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                  {type}
-                                </option>
-                              ))}
-                            </select>
-
-                            <label className="col-span-3 inline-flex items-center gap-2 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-[12px] text-white/70 md:col-span-2">
-                              <input
-                                type="checkbox"
-                                checked={field.required}
-                                onChange={(e) =>
-                                  updateField(entityIndex, fieldIndex, {
-                                    required: e.target.checked,
-                                  })
-                                }
-                              />
-                              req
-                            </label>
-
-                            <label className="col-span-3 inline-flex items-center gap-2 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-[12px] text-white/70 md:col-span-2">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(field.unique)}
-                                onChange={(e) =>
-                                  updateField(entityIndex, fieldIndex, {
-                                    unique: e.target.checked,
-                                  })
-                                }
-                              />
-                              unique
-                            </label>
-
-                            <button
-                              onClick={() => removeField(entityIndex, fieldIndex)}
-                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-xs text-white/45 transition hover:text-red-400 md:col-span-2"
-                            >
-                              remove
-                            </button>
-
-                            <input
-                              value={field.description ?? ""}
-                              onChange={(e) =>
-                                updateField(entityIndex, fieldIndex, {
-                                  description: e.target.value,
-                                })
-                              }
-                              className="col-span-12 rounded-md border border-white/8 bg-[#0b1019] px-3 py-2 text-sm text-white/65 outline-none"
-                              placeholder="What is this field used for?"
-                            />
-                          </div>
+                          No indexes yet.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {entityIndexes.map((idx, i) => {
+                            const globalIndex = (schema.indexes ?? []).indexOf(
+                              idx,
+                            );
+                            return (
+                              <div key={i} className="flex items-center gap-3">
+                                <span
+                                  className="flex h-6 w-7 shrink-0 items-center justify-center text-[9px] font-bold uppercase"
+                                  style={{
+                                    ...MONO,
+                                    border: `1px solid ${BORDER}`,
+                                    color: idx.unique ? "#22c55e" : MUTED,
+                                  }}
+                                >
+                                  {idx.unique ? "UX" : "IX"}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className="text-[11px] font-bold uppercase tracking-[0.08em] text-white truncate"
+                                    style={MONO}
+                                  >
+                                    {idx.unique
+                                      ? `UNIQUE_${(idx.fields[0] || "").toUpperCase()}`
+                                      : `IDX_${(idx.fields[0] || "").toUpperCase()}`}
+                                  </p>
+                                  <p
+                                    className="text-[10px]"
+                                    style={{ ...MONO, color: MUTED }}
+                                  >
+                                    ({idx.fields.join(", ") || "—"})
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => removeIndex(globalIndex)}
+                                  style={{ color: MUTED }}
+                                  className="hover:text-red-400 transition shrink-0"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+                </motion.div>
+              );
+            })}
+          </div>
 
-          <motion.div variants={fadeUp(3)} className="mb-8">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-xl font-bold text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>
-                <Link2 size={16} className="text-orange-400" />
-                Relationships
+          {/* Global relationship builder */}
+          <motion.div variants={fadeUp(5)} className="mb-12">
+            <div className="mb-4 flex items-center justify-between">
+              <h2
+                className="flex items-center gap-2 text-xl font-bold text-white"
+                style={INTER_TIGHT}
+              >
+                <Link2 size={16} style={{ color: ACCENT }} />
+                Manage Relationships
               </h2>
               <button
                 onClick={addRelationship}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                disabled={entityNames.length === 0}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
                 <Plus size={12} />
                 Add Relationship
               </button>
             </div>
 
-            <div className="space-y-2 rounded-md border border-white/8 bg-[#090e17] p-3">
+            <div
+              className="border p-3 flex flex-col gap-2"
+              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+            >
               {schema.relationships.length === 0 && (
-                <p className="px-1 py-2 text-sm text-white/35">No relationships yet.</p>
+                <p
+                  className="px-2 py-2 text-sm"
+                  style={{ ...INTER, color: MUTED }}
+                >
+                  No relationships yet.
+                </p>
               )}
 
               {schema.relationships.map((relation, index) => (
                 <div
                   key={`${relation.from}-${relation.to}-${index}`}
-                  className="rounded-sm border border-white/7 bg-white/2 p-2.5"
+                  className="border p-3"
+                  style={{ borderColor: BORDER }}
                 >
-                  <div className="grid grid-cols-12 gap-2">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
                     <select
                       value={relation.from}
-                      onChange={(e) => updateRelationship(index, { from: e.target.value })}
-                      className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-3"
+                      onChange={(e) =>
+                        updateRelationship(index, { from: e.target.value })
+                      }
+                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
+                      style={{
+                        borderColor: BORDER,
+                        color: "#fff",
+                        backgroundColor: BG,
+                        ...INTER,
+                      }}
                     >
                       {entityNames.map((name) => (
                         <option key={`from-${name}`} value={name}>
@@ -1183,9 +1655,17 @@ export default function DatabasePage() {
                     <select
                       value={relation.type}
                       onChange={(e) =>
-                        updateRelationship(index, { type: e.target.value as RelationType })
+                        updateRelationship(index, {
+                          type: e.target.value as RelationType,
+                        })
                       }
-                      className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-blue-300 outline-none md:col-span-3"
+                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
+                      style={{
+                        borderColor: BORDER,
+                        color: "#60a5fa",
+                        backgroundColor: BG,
+                        ...MONO,
+                      }}
                     >
                       {RELATION_TYPES.map((type) => (
                         <option key={type} value={type}>
@@ -1196,8 +1676,16 @@ export default function DatabasePage() {
 
                     <select
                       value={relation.to}
-                      onChange={(e) => updateRelationship(index, { to: e.target.value })}
-                      className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-3"
+                      onChange={(e) =>
+                        updateRelationship(index, { to: e.target.value })
+                      }
+                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
+                      style={{
+                        borderColor: BORDER,
+                        color: "#fff",
+                        backgroundColor: BG,
+                        ...INTER,
+                      }}
                     >
                       {entityNames.map((name) => (
                         <option key={`to-${name}`} value={name}>
@@ -1208,17 +1696,25 @@ export default function DatabasePage() {
 
                     <button
                       onClick={() => removeRelationship(index)}
-                      className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/45 transition hover:text-red-400 md:col-span-3"
+                      className="md:col-span-3 border px-2 py-1.5 text-xs transition hover:text-red-400"
+                      style={{ borderColor: BORDER, color: MUTED, ...MONO }}
                     >
-                      remove
+                      Remove
                     </button>
 
                     <input
                       value={relation.description ?? ""}
                       onChange={(e) =>
-                        updateRelationship(index, { description: e.target.value })
+                        updateRelationship(index, {
+                          description: e.target.value,
+                        })
                       }
-                      className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/55 outline-none"
+                      className="md:col-span-12 border px-2 py-1.5 text-xs outline-none text-white"
+                      style={{
+                        borderColor: BORDER,
+                        backgroundColor: BG,
+                        ...INTER,
+                      }}
                       placeholder="Relationship description"
                     />
                   </div>
@@ -1227,25 +1723,32 @@ export default function DatabasePage() {
             </div>
           </motion.div>
 
-          <motion.div variants={fadeUp(4)}>
-            <div className="mb-3 flex items-center justify-between">
+          {/* Global index builder */}
+          <motion.div variants={fadeUp(6)} className="mb-12">
+            <div className="mb-4 flex items-center justify-between">
               <button
                 onClick={() => setIndexExpanded((current) => !current)}
-                className="flex cursor-pointer items-center gap-2 text-xl font-bold text-white/90"
-                style={{ fontFamily: "'Roboto', sans-serif" }}
+                className="flex cursor-pointer items-center gap-2 text-xl font-bold text-white"
+                style={INTER_TIGHT}
               >
                 {indexExpanded ? (
-                  <ChevronDown size={16} className="text-orange-400" />
+                  <ChevronDown size={16} style={{ color: ACCENT }} />
                 ) : (
-                  <ChevronRight size={16} className="text-orange-400" />
+                  <ChevronRight size={16} style={{ color: ACCENT }} />
                 )}
-                <Rows3 size={16} className="text-orange-400" />
-                Indexes
+                <Rows3 size={16} style={{ color: ACCENT }} />
+                Manage Indexes
               </button>
-
               <button
                 onClick={addIndex}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md border border-orange-500/35 bg-orange-500/15 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-orange-300 transition hover:bg-orange-500/20"
+                disabled={entityNames.length === 0}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
                 <Plus size={12} />
                 Add Index
@@ -1253,9 +1756,17 @@ export default function DatabasePage() {
             </div>
 
             {indexExpanded && (
-              <div className="space-y-2 rounded-md border border-white/8 bg-[#090e17] p-3">
+              <div
+                className="border p-3 flex flex-col gap-2"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
                 {(schema.indexes ?? []).length === 0 && (
-                  <p className="px-1 py-2 text-sm text-white/35">No indexes yet.</p>
+                  <p
+                    className="px-2 py-2 text-sm"
+                    style={{ ...INTER, color: MUTED }}
+                  >
+                    No indexes yet.
+                  </p>
                 )}
 
                 {(schema.indexes ?? []).map((item, index) => {
@@ -1266,13 +1777,25 @@ export default function DatabasePage() {
                   return (
                     <div
                       key={`${item.entity}-${index}`}
-                      className="rounded-sm border border-white/7 bg-white/2 p-2.5"
+                      className="border p-3"
+                      style={{ borderColor: BORDER }}
                     >
-                      <div className="grid grid-cols-12 gap-2">
+                      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
                         <select
                           value={item.entity}
-                          onChange={(e) => updateIndex(index, { entity: e.target.value, fields: [] })}
-                          className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-4"
+                          onChange={(e) =>
+                            updateIndex(index, {
+                              entity: e.target.value,
+                              fields: [],
+                            })
+                          }
+                          className="md:col-span-4 border px-2 py-1.5 text-xs outline-none"
+                          style={{
+                            borderColor: BORDER,
+                            color: "#fff",
+                            backgroundColor: BG,
+                            ...INTER,
+                          }}
                         >
                           {entityNames.map((name) => (
                             <option key={`index-entity-${name}`} value={name}>
@@ -1283,31 +1806,50 @@ export default function DatabasePage() {
 
                         <select
                           value={item.fields[0] ?? ""}
-                          onChange={(e) => updateIndex(index, { fields: e.target.value ? [e.target.value] : [] })}
-                          className="col-span-12 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/80 outline-none md:col-span-4"
+                          onChange={(e) =>
+                            updateIndex(index, {
+                              fields: e.target.value ? [e.target.value] : [],
+                            })
+                          }
+                          className="md:col-span-4 border px-2 py-1.5 text-xs outline-none"
+                          style={{
+                            borderColor: BORDER,
+                            color: "#fff",
+                            backgroundColor: BG,
+                            ...INTER,
+                          }}
                         >
                           <option value="">Select field</option>
                           {(selectedEntity?.fields ?? []).map((field) => (
-                            <option key={`index-field-${field.name}`} value={field.name}>
+                            <option
+                              key={`index-field-${field.name}`}
+                              value={field.name}
+                            >
                               {field.name}
                             </option>
                           ))}
                         </select>
 
-                        <label className="col-span-6 inline-flex items-center gap-1.5 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-[11px] text-white/70 md:col-span-2">
+                        <label
+                          className="md:col-span-2 flex items-center gap-2 border px-2 py-1.5 text-[11px]"
+                          style={{ borderColor: BORDER, color: MUTED }}
+                        >
                           <input
                             type="checkbox"
                             checked={Boolean(item.unique)}
-                            onChange={(e) => updateIndex(index, { unique: e.target.checked })}
+                            onChange={(e) =>
+                              updateIndex(index, { unique: e.target.checked })
+                            }
                           />
                           unique
                         </label>
 
                         <button
                           onClick={() => removeIndex(index)}
-                          className="col-span-6 rounded-sm border border-white/8 bg-[#0b1019] px-2 py-1.5 text-xs text-white/45 transition hover:text-red-400 md:col-span-2"
+                          className="md:col-span-2 border px-2 py-1.5 text-xs transition hover:text-red-400"
+                          style={{ borderColor: BORDER, color: MUTED, ...MONO }}
                         >
-                          remove
+                          Remove
                         </button>
                       </div>
                     </div>
@@ -1317,29 +1859,43 @@ export default function DatabasePage() {
             )}
           </motion.div>
 
-          <motion.div variants={fadeUp(5)} className="mt-6 rounded-md border border-dashed border-white/10 bg-white/2 p-4">
-            <div className="flex items-center gap-2 text-orange-400">
-              <Sparkles size={14} />
-              <p className="text-[11px] uppercase tracking-[0.2em]">Backend Contract</p>
+          {/* Backend contract note */}
+          <motion.div
+            variants={fadeUp(7)}
+            className="border border-dashed p-5"
+            style={{ borderColor: BORDER }}
+          >
+            <div
+              className="flex items-center gap-2 mb-2"
+              style={{ color: ACCENT }}
+            >
+              <Sparkles size={13} />
+              <p
+                className="text-[10px] uppercase tracking-[0.2em]"
+                style={MONO}
+              >
+                Backend Contract
+              </p>
             </div>
-            <p className="mt-2 text-xs leading-relaxed text-white/45">
-              Frontend data shape matches backend contract: entities, relationships, and indexes,
-              with field types restricted to uuid, string, text, integer, boolean, datetime,
-              float, and json.
-            </p>
-            <p className="mt-2 text-[11px] text-white/30">
-              The structure mirrors the database prompt builder in the backend.
+            <p
+              className="text-xs leading-relaxed"
+              style={{ ...INTER, color: MUTED }}
+            >
+              Frontend data shape matches backend contract: entities,
+              relationships, and indexes, with field types restricted to uuid,
+              string, text, integer, boolean, datetime, float, and json.
             </p>
           </motion.div>
         </motion.div>
       </div>
 
-      <AIRightSidebar 
-        isOpen={aiOpen} 
+      <AIRightSidebar
+        isOpen={aiOpen}
         onOpenChange={setAiOpen}
         onApplySuggestion={handleAISuggestion}
       />
 
+      {/* Preview modal */}
       <AnimatePresence>
         {previewData && (
           <>
@@ -1348,7 +1904,7 @@ export default function DatabasePage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={handleRejectPreview}
-              className="fixed inset-0 z-40 bg-black/55"
+              className="fixed inset-0 z-40 bg-black/60"
               aria-label="Close preview modal"
             />
 
@@ -1357,34 +1913,72 @@ export default function DatabasePage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: "'Inter', sans-serif" }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
             >
               <div className="mb-6 flex items-center justify-between">
-                <p className="text-lg font-bold uppercase tracking-[0.08em] text-white/90" style={{ fontFamily: "'Roboto', sans-serif" }}>
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                  style={INTER_TIGHT}
+                >
                   Preview Generated Database Schema
                 </p>
-                <button onClick={handleRejectPreview} className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75">
-                  ✕
+                <button
+                  onClick={handleRejectPreview}
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
+                >
+                  <X size={16} />
                 </button>
               </div>
 
               <div className="space-y-6">
                 {(previewData.entities || []).length > 0 && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Entities</p>
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Entities
+                    </p>
                     <div className="space-y-2">
                       {previewData.entities.map((entity, idx) => (
-                        <div key={idx} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                        <div
+                          key={idx}
+                          className="border p-3"
+                          style={{
+                            borderColor: BORDER,
+                            backgroundColor: INNER_BG,
+                          }}
+                        >
                           <div className="flex items-center justify-between mb-1">
-                            <p className="font-semibold text-white/90">{entity.name}</p>
-                            <p className="text-xs text-white/60">{entity.description}</p>
+                            <p
+                              className="font-semibold text-white"
+                              style={INTER}
+                            >
+                              {entity.name}
+                            </p>
+                            <p className="text-xs" style={{ color: MUTED }}>
+                              {entity.description}
+                            </p>
                           </div>
-                          <div className="text-xs text-white/70 space-y-1">
+                          <div
+                            className="text-xs space-y-1"
+                            style={{ color: MUTED }}
+                          >
                             {entity.fields.map((f, i) => (
-                              <div key={i} className="flex items-center justify-between">
-                                <div>{f.name} <span className="text-white/40">· {f.type}{f.required ? ' · required' : ''}</span></div>
-                                <div className="text-white/50">{f.unique ? 'unique' : ''}</div>
+                              <div
+                                key={i}
+                                className="flex items-center justify-between"
+                              >
+                                <div className="text-white">
+                                  {f.name}{" "}
+                                  <span style={{ color: MUTED }}>
+                                    · {f.type}
+                                    {f.required ? " · required" : ""}
+                                  </span>
+                                </div>
+                                <div>{f.unique ? "unique" : ""}</div>
                               </div>
                             ))}
                           </div>
@@ -1396,12 +1990,30 @@ export default function DatabasePage() {
 
                 {(previewData.relationships || []).length > 0 && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Relationships</p>
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Relationships
+                    </p>
                     <div className="space-y-2">
                       {previewData.relationships.map((r, i) => (
-                        <div key={i} className="rounded-lg border border-white/10 bg-white/5 p-3">
-                          <p className="text-sm text-white/85">{r.from} → {r.to} ({r.type})</p>
-                          {r.description && <p className="text-xs text-white/60">{r.description}</p>}
+                        <div
+                          key={i}
+                          className="border p-3"
+                          style={{
+                            borderColor: BORDER,
+                            backgroundColor: INNER_BG,
+                          }}
+                        >
+                          <p className="text-sm text-white" style={INTER}>
+                            {r.from} → {r.to} ({r.type})
+                          </p>
+                          {r.description && (
+                            <p className="text-xs" style={{ color: MUTED }}>
+                              {r.description}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1410,11 +2022,25 @@ export default function DatabasePage() {
 
                 {(previewData.indexes ?? []).length > 0 && (
                   <div>
-                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/50">Indexes</p>
+                    <p
+                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Indexes
+                    </p>
                     <div className="space-y-2">
                       {(previewData.indexes ?? []).map((idx, i) => (
-                        <div key={i} className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/80">
-                          <div>{idx.entity} · {idx.fields.join(", ")}{idx.unique ? ' · unique' : ''}</div>
+                        <div
+                          key={i}
+                          className="border p-3 text-sm text-white"
+                          style={{
+                            borderColor: BORDER,
+                            backgroundColor: INNER_BG,
+                            ...INTER,
+                          }}
+                        >
+                          {idx.entity} · {idx.fields.join(", ")}
+                          {idx.unique ? " · unique" : ""}
                         </div>
                       ))}
                     </div>
@@ -1422,16 +2048,42 @@ export default function DatabasePage() {
                 )}
               </div>
 
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
+              <div
+                className="mt-6 flex justify-end gap-3 border-t pt-6"
+                style={{ borderColor: BORDER }}
+              >
                 <button
                   onClick={handleRegenerate}
                   disabled={loading}
-                  className="rounded-md border border-blue-500/35 bg-blue-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{
+                    ...MONO,
+                    borderColor: "#60a5fa55",
+                    color: "#60a5fa",
+                    backgroundColor: "#60a5fa12",
+                  }}
                 >
                   Regenerate
                 </button>
-                <button onClick={handleRejectPreview} className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85">Reject</button>
-                <button onClick={handleAcceptPreview} className="rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20">Accept</button>
+                <button
+                  onClick={handleRejectPreview}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAcceptPreview}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{
+                    ...MONO,
+                    borderColor: "#22c55e55",
+                    color: "#22c55e",
+                    backgroundColor: "#22c55e12",
+                  }}
+                >
+                  Accept
+                </button>
               </div>
             </motion.div>
           </>
