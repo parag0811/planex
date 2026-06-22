@@ -19,7 +19,7 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: str
   ]);
 };
 
-export const aiHandlers = {
+export const aiHandlers : any= {
   chat: async (data: any) => {
     const { projectId, message, context } = data;
 

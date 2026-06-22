@@ -10,9 +10,12 @@ import {
   Save,
   Sparkles,
   X,
-  ChevronDown,
   ChevronRight,
   Edit2,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Zap,
 } from "lucide-react";
 import AIRightSidebar, {
   type ApplySuggestion,
@@ -20,7 +23,10 @@ import AIRightSidebar, {
 import { useParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/src/store/store";
-import { fetchSectionByType, upsertSection } from "@/src/store/slices/sectionSlice";
+import {
+  fetchSectionByType,
+  upsertSection,
+} from "@/src/store/slices/sectionSlice";
 import {
   clearJobState,
   generateFolder,
@@ -28,6 +34,7 @@ import {
   regenerateSection,
 } from "@/src/store/slices/jobSlice";
 
+// ─── Types ───────────────────────────────────────────────────────
 interface FolderNode {
   id: string;
   name: string;
@@ -39,18 +46,32 @@ interface FolderSectionContent {
   root: FolderNode[];
 }
 
+// ─── Design tokens ───────────────────────────────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
+
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const INTER_TIGHT: React.CSSProperties = {
+  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+};
+
+// ─── Animation ───────────────────────────────────────────────────
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-const uid = () => Math.random().toString(36).slice(2, 11);
-
-const EMPTY: FolderSectionContent = { root: [] };
-
 const fadeUp = (i: number): Variants => ({
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 20 },
   show: {
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.07, duration: 0.4, ease: EASE },
+    transition: { delay: i * 0.08, duration: 0.45, ease: EASE },
   },
 });
 
@@ -59,66 +80,55 @@ const stagger: Variants = {
   show: { transition: { staggerChildren: 0.08 } },
 };
 
-// Utility to find node by id
-const findNodeById = (nodes: FolderNode[], id: string): FolderNode | null => {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    if (node.children) {
-      const found = findNodeById(node.children, id);
-      if (found) return found;
-    }
-  }
-  return null;
-};
+// ─── Utilities ───────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 11);
 
-// Utility to update node in tree
+const EMPTY: FolderSectionContent = { root: [] };
+
 const updateNodeInTree = (
   nodes: FolderNode[],
   id: string,
-  updates: Partial<FolderNode>
-): FolderNode[] => {
-  return nodes.map((node) => {
-    if (node.id === id) {
-      return { ...node, ...updates };
-    }
-    if (node.children) {
-      return { ...node, children: updateNodeInTree(node.children, id, updates) };
-    }
+  updates: Partial<FolderNode>,
+): FolderNode[] =>
+  nodes.map((node) => {
+    if (node.id === id) return { ...node, ...updates };
+    if (node.children)
+      return {
+        ...node,
+        children: updateNodeInTree(node.children, id, updates),
+      };
     return node;
   });
-};
 
-// Utility to delete node from tree
-const deleteNodeFromTree = (nodes: FolderNode[], id: string): FolderNode[] => {
-  return nodes
+const deleteNodeFromTree = (nodes: FolderNode[], id: string): FolderNode[] =>
+  nodes
     .filter((node) => node.id !== id)
     .map((node) => ({
       ...node,
-      children: node.children ? deleteNodeFromTree(node.children, id) : undefined,
+      children: node.children
+        ? deleteNodeFromTree(node.children, id)
+        : undefined,
     }));
-};
 
-// Utility to add node to parent
 const addNodeToParent = (
   nodes: FolderNode[],
   parentId: string | null,
-  newNode: FolderNode
+  newNode: FolderNode,
 ): FolderNode[] => {
-  if (!parentId) {
-    return [...nodes, newNode];
-  }
+  if (!parentId) return [...nodes, newNode];
   return nodes.map((node) => {
-    if (node.id === parentId) {
+    if (node.id === parentId)
       return { ...node, children: [...(node.children || []), newNode] };
-    }
-    if (node.children) {
-      return { ...node, children: addNodeToParent(node.children, parentId, newNode) };
-    }
+    if (node.children)
+      return {
+        ...node,
+        children: addNodeToParent(node.children, parentId, newNode),
+      };
     return node;
   });
 };
 
-// Modal for adding/editing nodes
+// ─── Node Modal ──────────────────────────────────────────────────
 function NodeModal({
   isOpen,
   onClose,
@@ -130,104 +140,140 @@ function NodeModal({
   onSave: (node: FolderNode) => void;
   node?: FolderNode | null;
 }) {
-  const [form, setForm] = useState({ name: node?.name || "", type: (node?.type || "file") as "folder" | "file" });
+  const [form, setForm] = useState({
+    name: node?.name || "",
+    type: (node?.type || "file") as "folder" | "file",
+  });
+
+  useEffect(() => {
+    setForm({ name: node?.name || "", type: node?.type || "file" });
+  }, [node, isOpen]);
 
   const handleSave = () => {
     if (!form.name.trim()) return;
     onSave({
       id: node?.id || uid(),
-      name: form.name,
+      name: form.name.trim(),
       type: form.type,
       children: node?.children || [],
     });
-    setForm({ name: "", type: "file" });
-    onClose();
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
+          <motion.button
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/60"
+            aria-label="Close modal backdrop"
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
+            style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
           >
-            <div className="w-full max-w-md rounded-xl border border-white/8 bg-[#0b1019] p-6 shadow-xl">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-white">
-                  {node ? "Edit" : "Add"} {form.type === "folder" ? "Folder" : "File"}
-                </h2>
-                <button
-                  onClick={onClose}
-                  className="rounded-md p-1 text-white/35 transition hover:bg-white/8 hover:text-white/55"
+            <div className="mb-5 flex items-center justify-between">
+              <p
+                className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                style={INTER_TIGHT}
+              >
+                {node ? "Edit" : "Add"}{" "}
+                {form.type === "folder" ? "Folder" : "File"}
+              </p>
+              <button
+                onClick={onClose}
+                className="p-1 transition hover:text-white"
+                style={{ color: MUTED }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <p
+                  className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{ ...MONO, color: MUTED }}
                 >
-                  <X size={18} />
-                </button>
+                  Name
+                </p>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder={form.type === "folder" ? "my-folder" : "file.ts"}
+                  className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                  style={{
+                    borderColor: BORDER,
+                    backgroundColor: INNER_BG,
+                    ...MONO,
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleSave()}
+                />
               </div>
 
-              <div className="flex flex-col gap-4">
-                {/* Name */}
-                <div>
-                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
-                    Name
-                  </label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder={form.type === "folder" ? "my-folder" : "file.ts"}
-                    className="w-full rounded-md border border-white/8 bg-[#0f1520] px-4 py-3 font-mono text-sm text-white/80 placeholder:text-white/20 outline-none transition hover:border-white/12 focus:border-orange-500/30 focus:bg-[#141a26]"
-                  />
+              {/* Type toggle */}
+              <div>
+                <p
+                  className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                  style={{ ...MONO, color: MUTED }}
+                >
+                  Type
+                </p>
+                <div className="flex gap-2">
+                  {(["folder", "file"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setForm({ ...form, type: t })}
+                      className="flex flex-1 items-center justify-center gap-2 border py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] transition"
+                      style={{
+                        ...MONO,
+                        borderColor: form.type === t ? ACCENT : BORDER,
+                        color: form.type === t ? ACCENT : MUTED,
+                        backgroundColor:
+                          form.type === t ? `${ACCENT}12` : "transparent",
+                      }}
+                    >
+                      {t === "folder" ? (
+                        <Folder size={12} />
+                      ) : (
+                        <File size={12} />
+                      )}
+                      {t}
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                {/* Type */}
-                <div>
-                  <label className="mb-2 block text-xs font-mono uppercase tracking-[0.12em] text-white/40">
-                    Type
-                  </label>
-                  <div className="flex gap-2">
-                    {(["folder", "file"] as const).map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => setForm({ ...form, type: t })}
-                        className={`flex-1 rounded-md border px-3 py-2 text-xs font-bold uppercase tracking-widest transition ${
-                          form.type === t
-                            ? "border-orange-500/30 bg-orange-500/10 text-orange-400"
-                            : "border-white/8 bg-white/3 text-white/45 hover:border-white/12"
-                        }`}
-                      >
-                        {t === "folder" ? <Folder size={12} className="inline mr-1" /> : <File size={12} className="inline mr-1" />}
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={onClose}
-                    className="flex-1 rounded-md border border-white/8 bg-white/3 px-4 py-2 text-sm font-bold text-white/60 transition hover:border-white/12 hover:text-white/80"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    disabled={!form.name.trim()}
-                    className="flex-1 rounded-md border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {node ? "Update" : "Add"}
-                  </button>
-                </div>
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={onClose}
+                  className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={!form.name.trim()}
+                  className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-40"
+                  style={{
+                    ...MONO,
+                    borderColor: ACCENT,
+                    color: ACCENT,
+                    backgroundColor: `${ACCENT}12`,
+                  }}
+                >
+                  {node ? "Update" : "Add"}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -237,7 +283,7 @@ function NodeModal({
   );
 }
 
-// Tree node renderer
+// ─── Tree Node ───────────────────────────────────────────────────
 function TreeNode({
   node,
   level,
@@ -246,6 +292,7 @@ function TreeNode({
   onDelete,
   expanded,
   onToggle,
+  index,
 }: {
   node: FolderNode;
   level: number;
@@ -254,101 +301,174 @@ function TreeNode({
   onDelete: (nodeId: string) => void;
   expanded: Set<string>;
   onToggle: (nodeId: string) => void;
+  index: number;
 }) {
   const hasChildren = node.children && node.children.length > 0;
   const isExpanded = expanded.has(node.id);
+  const isFolder = node.type === "folder";
 
   return (
-    <div key={node.id} className="flex flex-col">
+    <div>
       <motion.div
         layout
-        className="group flex items-center gap-3 rounded-md py-2.5 px-3.5 hover:bg-white/4 transition"
-        style={{ paddingLeft: `${level * 16 + 12}px` }}
+        className="group flex items-center gap-3 border-t py-3 transition"
+        style={{
+          borderColor: BORDER,
+          paddingLeft: `${level * 20 + 12}px`,
+        }}
       >
-        {node.type === "folder" && (
-          <button
-            onClick={() => onToggle(node.id)}
-            className="flex items-center justify-center w-6 h-6 text-white/35 hover:text-white/55 transition"
-          >
-            <ChevronRight
-              size={18}
-              className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
-            />
-          </button>
-        )}
-        {node.type === "folder" ? (
-          <Folder size={16} className="text-amber-400/70 shrink-0" />
-        ) : (
-          <File size={16} className="text-blue-400/70 shrink-0" />
-        )}
-        <span className="flex-1 text-base text-white/80 truncate">{node.name}</span>
+        {/* Expand chevron */}
+        <button
+          onClick={() => isFolder && onToggle(node.id)}
+          className="flex h-4 w-4 shrink-0 items-center justify-center transition"
+          style={{ color: isFolder ? MUTED : "transparent" }}
+        >
+          <ChevronRight
+            size={12}
+            className={`transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+          />
+        </button>
 
-        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {node.type === "folder" && (
+        {/* Icon */}
+        {isFolder ? (
+          <Folder size={14} className="shrink-0" style={{ color: "#f59e0b" }} />
+        ) : (
+          <File size={14} className="shrink-0" style={{ color: "#60a5fa" }} />
+        )}
+
+        {/* Index */}
+        <span
+          className="shrink-0 text-[10px] font-bold"
+          style={{ ...MONO, color: BORDER }}
+        >
+          {String(index + 1).padStart(2, "0")}
+        </span>
+
+        {/* Name */}
+        <span
+          className="flex-1 truncate text-sm font-semibold text-white"
+          style={MONO}
+        >
+          {node.name}
+        </span>
+
+        {/* Type badge */}
+        <span
+          className="shrink-0 border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+          style={{
+            ...MONO,
+            borderColor: isFolder ? "#f59e0b30" : "#60a5fa30",
+            color: isFolder ? "#f59e0b" : "#60a5fa",
+            backgroundColor: isFolder ? "#f59e0b0a" : "#60a5fa0a",
+          }}
+        >
+          {isFolder ? "dir" : "file"}
+        </span>
+
+        {/* Actions — visible on hover */}
+        <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+          {isFolder && (
             <button
               onClick={() => onAddChild(node.id)}
-              className="rounded-md p-2 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
+              className="border p-1.5 transition"
+              style={{
+                borderColor: `${ACCENT}40`,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}08`,
+              }}
               title="Add child"
             >
-              <Plus size={16} />
+              <Plus size={11} />
             </button>
           )}
           <button
             onClick={() => onEdit(node)}
-            className="rounded-md p-2 text-white/35 hover:bg-white/8 hover:text-white/70 transition"
+            className="border p-1.5 transition hover:text-white"
+            style={{ borderColor: BORDER, color: MUTED }}
             title="Edit"
           >
-            <Edit2 size={16} />
+            <Edit2 size={11} />
           </button>
           <button
             onClick={() => onDelete(node.id)}
-            className="rounded-md p-2 text-white/35 hover:bg-red-500/20 hover:text-red-400 transition"
+            className="border p-1.5 transition hover:text-red-400"
+            style={{
+              borderColor: "rgba(239,68,68,0.2)",
+              color: MUTED,
+            }}
             title="Delete"
           >
-            <Trash2 size={16} />
+            <Trash2 size={11} />
           </button>
         </div>
       </motion.div>
 
-      {hasChildren && isExpanded && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="flex flex-col"
-        >
-          {node.children!.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              level={level + 1}
-              onAddChild={onAddChild}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              expanded={expanded}
-              onToggle={onToggle}
-            />
-          ))}
-        </motion.div>
-      )}
+      {/* Children */}
+      <AnimatePresence>
+        {hasChildren && isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <div
+              className="border-l"
+              style={{
+                borderColor: BORDER,
+                marginLeft: `${level * 20 + 20}px`,
+              }}
+            >
+              {node.children!.map((child, i) => (
+                <TreeNode
+                  key={child.id}
+                  node={child}
+                  level={level + 1}
+                  onAddChild={onAddChild}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                  index={i}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function PreviewNode({ node, level = 0 }: { node: FolderNode; level?: number }) {
+// ─── Preview Node ─────────────────────────────────────────────────
+function PreviewNode({
+  node,
+  level = 0,
+}: {
+  node: FolderNode;
+  level?: number;
+}) {
   return (
-    <div className="space-y-1" style={{ marginLeft: `${level * 16}px` }}>
-      <div className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-white/80">
+    <div style={{ paddingLeft: `${level * 16}px` }}>
+      <div
+        className="flex items-center gap-2 border-t py-2 text-sm"
+        style={{ borderColor: BORDER }}
+      >
         {node.type === "folder" ? (
-          <Folder size={14} className="text-amber-400/70" />
+          <Folder size={13} style={{ color: "#f59e0b", flexShrink: 0 }} />
         ) : (
-          <File size={14} className="text-blue-400/70" />
+          <File size={13} style={{ color: "#60a5fa", flexShrink: 0 }} />
         )}
-        <span>{node.name || "Untitled"}</span>
+        <span className="text-white" style={MONO}>
+          {node.name || "Untitled"}
+        </span>
       </div>
-
       {node.children && node.children.length > 0 && (
-        <div className="border-l border-white/10 pl-3">
+        <div
+          className="border-l"
+          style={{ borderColor: BORDER, marginLeft: 6 }}
+        >
           {node.children.map((child) => (
             <PreviewNode key={child.id} node={child} level={level + 1} />
           ))}
@@ -358,12 +478,16 @@ function PreviewNode({ node, level = 0 }: { node: FolderNode; level?: number }) 
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────
 export default function FolderStructurePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const params = useParams();
   const rawProjectId = params?.projectId;
-  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
-  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
+  const projectId = Array.isArray(rawProjectId)
+    ? rawProjectId[0]
+    : rawProjectId;
+  const resolvedProjectId =
+    projectId && projectId !== "undefined" ? projectId : "";
 
   const dispatch = useDispatch<AppDispatch>();
   const jobState = useSelector((state: RootState) => state.job);
@@ -372,39 +496,49 @@ export default function FolderStructurePage() {
   );
 
   const [status, setStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(
+    null,
+  );
   const [folder, setFolder] = useState<FolderSectionContent>(EMPTY);
-  const [previewData, setPreviewData] = useState<FolderSectionContent | null>(null);
+  const [previewData, setPreviewData] = useState<FolderSectionContent | null>(
+    null,
+  );
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [shown, setShown] = useState(false);
   const [aiOpen, setAiOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  
-  // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<FolderNode | null>(null);
   const [addingToParent, setAddingToParent] = useState<string | null>(null);
 
-  const show = () => {
-    setShown(true);
-    setExpanded(new Set());
-    setStatus("Folder builder opened.");
-  };
+  const isFetching = Boolean(folderSectionState?.fetch.loading);
+  const isSaving = Boolean(folderSectionState?.save.loading);
+  const isJobLoading =
+    jobState.status === "pending" || jobState.status === "processing";
+  const loading = isFetching || isSaving || isJobLoading;
+  const sectionError =
+    folderSectionState?.fetch.error ?? folderSectionState?.save.error ?? null;
+  const error =
+    sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+  const canRegenerate =
+    Boolean(previewData) || hasGeneratedOnce || folder.root.length > 0 || shown;
 
-  const reset = () => {
-    setFolder(EMPTY);
-    setShown(false);
-  };
-
-  const save = () => {
-    handleSaveDraft();
-  };
+  // Auto-dismiss status
+  useEffect(() => {
+    if (status) {
+      const t = setTimeout(() => {
+        setStatus(null);
+        setStatusType(null);
+      }, 3500);
+      return () => clearTimeout(t);
+    }
+  }, [status]);
 
   const normalizeFolder = (payload: unknown): FolderSectionContent => {
     const source =
       payload && typeof payload === "object" && "content" in (payload as any)
         ? (payload as any).content
         : payload;
-
     const raw = (source ?? {}) as Partial<FolderSectionContent>;
 
     const mapNode = (n: any): FolderNode => ({
@@ -421,23 +555,23 @@ export default function FolderStructurePage() {
 
   const fetchFolder = useCallback(async () => {
     if (!resolvedProjectId) return;
-    setStatus(null);
     try {
       const action = await dispatch(
         fetchSectionByType({ projectId: resolvedProjectId, type: "folder" }),
       ).unwrap();
-
       const section = action.section as unknown;
       const content = (section && (section as any).content) ?? section ?? null;
       if (content) {
         setFolder(normalizeFolder(content));
         setShown(true);
+        setHasGeneratedOnce(true);
       } else {
         setFolder(EMPTY);
         setShown(false);
       }
     } catch (err: any) {
-      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to fetch folder");
+      setStatus(err?.message ?? "Failed to fetch folder structure.");
+      setStatusType("error");
     }
   }, [dispatch, resolvedProjectId]);
 
@@ -445,117 +579,89 @@ export default function FolderStructurePage() {
     fetchFolder();
   }, [fetchFolder]);
 
-  const handleSaveDraft = async () => {
-    if (!resolvedProjectId) return;
-    setStatus(null);
+  const handleSave = async () => {
+    if (!resolvedProjectId) {
+      setStatus("Select a project before saving.");
+      setStatusType("error");
+      return;
+    }
     try {
       await dispatch(
-        upsertSection({ projectId: resolvedProjectId, type: "folder", content: folder }),
+        upsertSection({
+          projectId: resolvedProjectId,
+          type: "folder",
+          content: folder,
+        }),
       ).unwrap();
-      setStatus("Saved");
+      setStatus("Folder structure saved.");
+      setStatusType("success");
     } catch (err: any) {
-      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to save folder");
+      setStatus(err?.message ?? "Failed to save folder structure.");
+      setStatusType("error");
     }
   };
 
-  const isFetching = Boolean(folderSectionState?.fetch.loading);
-  const isSaving = Boolean(folderSectionState?.save.loading);
-  const isJobLoading =
-    jobState.status === "pending" || jobState.status === "processing";
-  const loading = isFetching || isSaving || isJobLoading;
-  const error =
-    folderSectionState?.fetch.error ??
-    folderSectionState?.save.error ??
-    (jobState.status === "failed" ? jobState.error : null);
-  const canRegenerate =
-    Boolean(previewData) || hasGeneratedOnce || folder.root.length > 0 || shown;
-
   const handleGenerate = async () => {
     if (!resolvedProjectId) {
-      setStatus("Select a project before generating folder suggestions.");
+      setStatus("Select a project before generating.");
+      setStatusType("error");
       return;
     }
-
-    setStatus(null);
-    setPreviewData(null);
-
     try {
       dispatch(clearJobState());
       await dispatch(generateFolder({ projectId: resolvedProjectId })).unwrap();
-
       setStatus("Folder generation queued. We are processing it now.");
+      setStatusType("success");
     } catch (err: any) {
-      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to queue folder generation.");
+      setStatus(err?.message ?? "Failed to queue folder generation.");
+      setStatusType("error");
     }
   };
 
   const handleRegenerate = async () => {
     if (!resolvedProjectId) {
-      setStatus("Select a project before regenerating the folder structure.");
+      setStatus("Select a project before regenerating.");
+      setStatusType("error");
       return;
     }
-
-    setStatus(null);
-    setPreviewData(null);
-
     try {
       dispatch(clearJobState());
       await dispatch(
-        regenerateSection({
-          projectId: resolvedProjectId,
-          section: "folder",
-        }),
+        regenerateSection({ projectId: resolvedProjectId, section: "folder" }),
       ).unwrap();
-
       setStatus("Folder regeneration queued. We are processing it now.");
+      setStatusType("success");
     } catch (err: any) {
-      setStatus(typeof err === "string" ? err : err?.message ?? "Failed to queue folder regeneration.");
+      setStatus(err?.message ?? "Failed to queue folder regeneration.");
+      setStatusType("error");
     }
   };
 
   useEffect(() => {
-    if (!jobState.jobId) {
-      return;
-    }
-
-    if (jobState.status === "completed" || jobState.status === "failed") {
-      return;
-    }
-
+    if (!jobState.jobId) return;
+    if (jobState.status === "completed" || jobState.status === "failed") return;
     dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
-
     const pollTimer = window.setInterval(() => {
       dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
     }, 2500);
-
-    return () => {
-      window.clearInterval(pollTimer);
-    };
+    return () => window.clearInterval(pollTimer);
   }, [dispatch, jobState.jobId, jobState.status]);
 
   useEffect(() => {
-    if (jobState.status !== "completed") {
-      return;
-    }
-
+    if (jobState.status !== "completed") return;
     if (jobState.result) {
-      const normalized = normalizeFolder(jobState.result);
-      setPreviewData(normalized);
+      setPreviewData(normalizeFolder(jobState.result));
       setHasGeneratedOnce(true);
-      setStatus("Folder generation completed. Review the preview below.");
-    } else {
-      setStatus("Folder generation completed, but no preview was returned.");
+      setStatus("Folder generation completed. Review and accept below.");
+      setStatusType("success");
     }
-
     dispatch(clearJobState());
-  }, [dispatch, fetchFolder, jobState.status]);
+  }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") {
-      return;
-    }
-
+    if (jobState.status !== "failed") return;
     setStatus(jobState.error ?? "Folder generation failed.");
+    setStatusType("error");
   }, [jobState.error, jobState.status]);
 
   const applyAI = (s: ApplySuggestion) => {
@@ -567,21 +673,34 @@ export default function FolderStructurePage() {
     }
   };
 
-  const handleAcceptPreview = () => {
-    if (!previewData) {
-      return;
-    }
-
+  const handleAcceptPreview = async () => {
+    if (!previewData) return;
     setFolder(previewData);
     setShown(true);
     setExpanded(new Set());
     setPreviewData(null);
-    setStatus("Preview applied to the builder. Click Save to persist.");
+    if (resolvedProjectId) {
+      try {
+        await dispatch(
+          upsertSection({
+            projectId: resolvedProjectId,
+            type: "folder",
+            content: previewData,
+          }),
+        ).unwrap();
+        setStatus("Preview accepted and saved.");
+        setStatusType("success");
+      } catch {
+        setStatus("Preview applied. Click Save to persist.");
+        setStatusType("success");
+      }
+    }
   };
 
   const handleRejectPreview = () => {
     setPreviewData(null);
     setStatus(null);
+    setStatusType(null);
   };
 
   const openAddModal = (parentId: string | null) => {
@@ -598,7 +717,6 @@ export default function FolderStructurePage() {
 
   const saveNode = (node: FolderNode) => {
     if (editingNode) {
-      // Edit existing node
       setFolder((prev) => ({
         ...prev,
         root: updateNodeInTree(prev.root, editingNode.id, {
@@ -607,7 +725,6 @@ export default function FolderStructurePage() {
         }),
       }));
     } else {
-      // Add new node
       setFolder((prev) => ({
         ...prev,
         root: addNodeToParent(prev.root, addingToParent, node),
@@ -628,280 +745,435 @@ export default function FolderStructurePage() {
   const toggleExpanded = (nodeId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId);
-      } else {
-        next.add(nodeId);
-      }
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
       return next;
     });
   };
 
-  return (
-    <div className="flex h-screen w-full bg-[#05070d]">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-          aiOpen ? "lg:pr-85" : "lg:pr-0"
-        }`}
-      >
-        {/* Header */}
-        <div className="border-b border-white/8 bg-[#0b1019]/50 backdrop-blur-sm px-6 py-4 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-orange-500/20 to-orange-600/10 border border-orange-500/20 flex items-center justify-center">
-              <Folder size={20} className="text-orange-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">Folder Structure</h1>
-              <p className="text-xs text-white/40">Design your project layout</p>
-            </div>
-          </div>
+  const totalFiles = useMemo(() => {
+    const count = (nodes: FolderNode[]): number =>
+      nodes.reduce(
+        (acc, n) => acc + (n.type === "file" ? 1 : 0) + count(n.children || []),
+        0,
+      );
+    return count(folder.root);
+  }, [folder]);
 
-          <div className="flex items-center gap-2">
+  const totalFolders = useMemo(() => {
+    const count = (nodes: FolderNode[]): number =>
+      nodes.reduce(
+        (acc, n) =>
+          acc + (n.type === "folder" ? 1 : 0) + count(n.children || []),
+        0,
+      );
+    return count(folder.root);
+  }, [folder]);
+
+  return (
+    <div
+      ref={scrollRef}
+      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden"
+      style={{ ...INTER, backgroundColor: BG }}
+    >
+      <div className="min-w-0 flex-1 overflow-y-auto">
+        <motion.div
+          className="mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-8 lg:px-10"
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+        >
+          {/* Top bar */}
+          <motion.div
+            variants={fadeUp(0)}
+            className="mb-8 flex flex-wrap items-center justify-end gap-2"
+          >
+            <button
+              onClick={fetchFolder}
+              disabled={isFetching}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              <RefreshCw size={12} />
+              {isFetching ? "Loading..." : "Refresh"}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
+              style={{
+                ...MONO,
+                borderColor: ACCENT,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}12`,
+              }}
+            >
+              <Save size={12} />
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+          </motion.div>
+
+          {/* Loading bar */}
+          {loading && (
+            <div
+              className="mb-6 flex items-center gap-2.5 border px-4 py-2.5"
+              style={{
+                borderColor: `${ACCENT}30`,
+                backgroundColor: `${ACCENT}10`,
+              }}
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{
+                  duration: 1.4,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+                className="h-4 w-4 rounded-full border-2"
+                style={{
+                  borderColor: ACCENT,
+                  borderTopColor: "transparent",
+                }}
+              />
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.18em]"
+                style={{ ...MONO, color: ACCENT }}
+              >
+                {isJobLoading
+                  ? "Generating folder structure"
+                  : isSaving
+                    ? "Saving folder structure"
+                    : "Loading folder structure"}
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-6 flex items-start gap-3 border p-4"
+                style={{
+                  borderColor: "rgba(239,68,68,0.3)",
+                  backgroundColor: "rgba(239,68,68,0.08)",
+                }}
+              >
+                <AlertCircle
+                  size={18}
+                  className="mt-0.5 shrink-0 text-red-500"
+                />
+                <div className="flex-1">
+                  <p
+                    className="font-semibold text-red-400 text-sm"
+                    style={INTER}
+                  >
+                    Error
+                  </p>
+                  <p className="mt-1 text-sm text-red-400/75" style={INTER}>
+                    {error}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Status */}
+          <AnimatePresence>
+            {status && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                transition={{ duration: 0.25 }}
+                className="mb-6 flex items-center gap-3 border px-4 py-3"
+                style={{
+                  borderColor:
+                    statusType === "success"
+                      ? "rgba(34,197,94,0.3)"
+                      : "rgba(245,158,11,0.3)",
+                  backgroundColor:
+                    statusType === "success"
+                      ? "rgba(34,197,94,0.08)"
+                      : "rgba(245,158,11,0.08)",
+                }}
+              >
+                {statusType === "success" ? (
+                  <CheckCircle
+                    size={16}
+                    className="text-emerald-500 shrink-0"
+                  />
+                ) : (
+                  <Zap size={16} className="text-amber-500 shrink-0" />
+                )}
+                <p
+                  className="text-sm font-medium"
+                  style={{
+                    ...INTER,
+                    color: statusType === "success" ? "#34d399" : "#fbbf24",
+                  }}
+                >
+                  {status}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Breadcrumb */}
+          <motion.div variants={fadeUp(1)} className="mb-3">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ ...MONO, color: ACCENT }}
+            >
+              Section // 02 / Architecture
+            </p>
+          </motion.div>
+
+          {/* Giant headline */}
+          <motion.div variants={fadeUp(2)} className="mb-6">
+            <h1
+              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
+              style={INTER_TIGHT}
+            >
+              Folder
+              <br />
+              Structure
+            </h1>
+          </motion.div>
+
+          {/* Tag pills */}
+          <motion.div
+            variants={fadeUp(3)}
+            className="mb-10 flex flex-wrap items-center gap-3"
+          >
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              Ver: {folder.root.length > 0 ? "1.0.0" : "0.0.0"}
+            </span>
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              {folder.root.length > 0 ? "Active_Tree" : "Empty_State_Core"}
+            </span>
+          </motion.div>
+
+          {/* Stats row */}
+          <motion.div
+            variants={fadeUp(4)}
+            className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-3"
+          >
+            {[
+              {
+                label: "Root Nodes",
+                value: folder.root.length,
+              },
+              {
+                label: "Total Folders",
+                value: totalFolders,
+              },
+              {
+                label: "Total Files",
+                value: totalFiles,
+              },
+            ].map((card) => (
+              <div
+                key={card.label}
+                className="border p-5"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
+                <p
+                  className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em]"
+                  style={{ ...MONO, color: MUTED }}
+                >
+                  {card.label}
+                </p>
+                <p className="text-base font-semibold text-white" style={INTER}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Section header */}
+          <motion.div
+            variants={fadeUp(5)}
+            className="mb-4 flex items-center gap-3"
+          >
+            <span
+              className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0"
+              style={{ ...MONO, color: MUTED }}
+            >
+              Project Layout
+            </span>
+            <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+          </motion.div>
+
+          {/* Generate / Regenerate */}
+          <motion.div variants={fadeUp(6)} className="mb-8">
             {canRegenerate ? (
               <button
                 onClick={handleRegenerate}
-                disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-300 transition hover:border-cyan-500/50 hover:bg-cyan-500/20 disabled:opacity-50"
+                disabled={isJobLoading}
+                className="flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  ...MONO,
+                  borderColor: "#60a5fa55",
+                  color: "#60a5fa",
+                  backgroundColor: "#60a5fa12",
+                }}
               >
-                <Sparkles size={14} />
-                {isJobLoading ? "Regenerating..." : "Regenerate"}
+                <Sparkles size={15} />
+                {isJobLoading ? "Regenerating..." : "Regenerate Suggestions"}
               </button>
             ) : (
               <button
                 onClick={handleGenerate}
-                disabled={loading}
-                className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-300 transition hover:border-blue-500/50 hover:bg-blue-500/20 disabled:opacity-50"
+                disabled={isJobLoading}
+                className="flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <Sparkles size={14} />
-                {isJobLoading ? "Generating..." : "Generate"}
+                <Sparkles size={15} />
+                {isJobLoading ? "Generating..." : "Generate Suggestions"}
               </button>
             )}
-            <button
-              onClick={() => setFolder(EMPTY)}
-              className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12"
-            >
-              <X size={14} />
-              Clear
-            </button>
-            <button
-              onClick={show}
-              className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12"
-            >
-              <Folder size={14} />
-              Open Builder
-            </button>
-            <button
-              onClick={fetchFolder}
-              disabled={isFetching}
-              className="flex items-center gap-1.5 rounded-lg border border-white/8 bg-white/4 px-4 py-2 text-sm font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80 hover:border-white/12 disabled:opacity-50"
-            >
-              <X size={14} />
-              {isFetching ? "Fetching..." : "Refresh"}
-            </button>
-            <button
-              onClick={save}
-              disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-2 text-sm font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20 disabled:opacity-50"
-            >
-              <Save size={14} />
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Status Messages */}
-        {error && (
-          <div className="border-b border-red-500/20 bg-red-500/5 px-6 py-3 text-xs font-mono text-red-400">
-            {error}
-          </div>
-        )}
-        {status && !error && (
-          <div className="border-b border-green-500/20 bg-green-500/5 px-6 py-3 text-xs font-mono text-green-400">
-            {status}
-          </div>
-        )}
-        {loading && (
-          <div className="border-b border-blue-500/20 bg-blue-500/5 px-6 py-3 text-xs font-mono text-blue-400">
-            {isFetching
-              ? "Loading folder structure..."
-              : isSaving
-                ? "Saving folder structure..."
-                : "Generating folder structure..."}
-          </div>
-        )}
+          {/* Tree view */}
+          <motion.div variants={fadeUp(7)} className="mb-12">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold text-white" style={INTER_TIGHT}>
+                File Tree
+              </h2>
+              <button
+                onClick={() => openAddModal(null)}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
+              >
+                <Plus size={13} />
+                Add Root
+              </button>
+            </div>
 
-        {/* Content */}
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 flex flex-col gap-4"
-        >
-          <motion.div
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-            className="flex flex-col gap-1"
-          >
-            {!shown ? (
-              <motion.div variants={fadeUp(0)} className="flex h-64 items-center justify-center">
-                <div className="flex flex-col items-center justify-center gap-3 text-center">
-                  <div className="w-12 h-12 rounded-lg bg-white/3 flex items-center justify-center">
-                    <Folder size={24} className="text-white/20" />
+            <div
+              className="border"
+              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+            >
+              {folder.root.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center border"
+                    style={{ borderColor: BORDER }}
+                  >
+                    <Folder size={22} style={{ color: MUTED }} />
                   </div>
-                  <p className="text-sm font-bold text-white/40">No folder structure yet</p>
-                  <p className="text-xs text-white/25 max-w-xs">
-                    Open the builder or start adding folders manually.
-                  </p>
+                  <div>
+                    <p
+                      className="text-base font-semibold text-white"
+                      style={INTER}
+                    >
+                      No structure yet
+                    </p>
+                    <p
+                      className="mt-1 text-sm"
+                      style={{ ...INTER, color: MUTED }}
+                    >
+                      Click "Add Root" or use "Generate Suggestions" to get
+                      started.
+                    </p>
+                  </div>
                   <button
                     onClick={() => openAddModal(null)}
-                    className="mt-2 flex items-center gap-1.5 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20"
+                    className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                    style={{
+                      ...MONO,
+                      borderColor: ACCENT,
+                      color: ACCENT,
+                      backgroundColor: `${ACCENT}12`,
+                    }}
                   >
-                    <Plus size={12} />
-                    Add Root Folder
+                    <Plus size={13} />
+                    Add Root Node
                   </button>
                 </div>
-              </motion.div>
-            ) : (
-              <>
-                <motion.div variants={fadeUp(0)} className="flex gap-2 mb-2">
-                  <button
-                    onClick={() => openAddModal(null)}
-                    className="flex items-center gap-1 rounded-md border border-white/8 bg-white/4 px-3 py-2 text-xs font-bold text-white/60 transition hover:bg-white/6 hover:text-white/80"
+              ) : (
+                <div>
+                  {/* Column header */}
+                  <div
+                    className="flex items-center gap-3 border-b px-3 py-2"
+                    style={{ borderColor: BORDER }}
                   >
-                    <Plus size={12} />
-                    Add Root
-                  </button>
-                </motion.div>
-
-                <motion.div
-                  variants={fadeUp(1)}
-                  className="rounded-lg border border-white/8 bg-[#0f1520]/50 p-4 flex-1 overflow-y-auto min-h-96"
-                >
-                  <div className="space-y-1">
-                    {folder.root.length === 0 ? (
-                      <div className="flex h-32 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-white/10 text-center">
-                        <div className="w-10 h-10 rounded-lg bg-white/3 flex items-center justify-center">
-                          <Folder size={20} className="text-white/20" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-white/30">No items yet.</p>
-                          <p className="mt-1 text-[11px] text-white/20">
-                            Start adding folders or files manually.
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => openAddModal(null)}
-                          className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-bold text-orange-400 transition hover:border-orange-500/50 hover:bg-orange-500/20"
-                        >
-                          <Plus size={12} />
-                          Add Root Folder
-                        </button>
-                      </div>
-                    ) : (
-                      folder.root.map((node) => (
-                        <TreeNode
-                          key={node.id}
-                          node={node}
-                          level={0}
-                          onAddChild={openAddModal}
-                          onEdit={openEditModal}
-                          onDelete={deleteNode}
-                          expanded={expanded}
-                          onToggle={toggleExpanded}
-                        />
-                      ))
-                    )}
+                    <span
+                      className="w-4 shrink-0"
+                      style={{ color: "transparent" }}
+                    />
+                    <span
+                      className="w-4 shrink-0"
+                      style={{ color: "transparent" }}
+                    />
+                    <span
+                      className="w-6 shrink-0 text-[9px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: BORDER }}
+                    >
+                      #
+                    </span>
+                    <span
+                      className="flex-1 text-[9px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Name
+                    </span>
+                    <span
+                      className="text-[9px] font-bold uppercase tracking-[0.14em]"
+                      style={{ ...MONO, color: MUTED }}
+                    >
+                      Type
+                    </span>
+                    <span
+                      className="w-24 shrink-0"
+                      style={{ color: "transparent" }}
+                    />
                   </div>
-                </motion.div>
-              </>
-            )}
+
+                  {folder.root.map((node, i) => (
+                    <TreeNode
+                      key={node.id}
+                      node={node}
+                      level={0}
+                      onAddChild={openAddModal}
+                      onEdit={openEditModal}
+                      onDelete={deleteNode}
+                      expanded={expanded}
+                      onToggle={toggleExpanded}
+                      index={i}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </motion.div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
-      <AnimatePresence>
-        {previewData && (
-          <>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleRejectPreview}
-              className="fixed inset-0 z-40 bg-black/55"
-              aria-label="Close preview modal"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-white/10 bg-[#0b1019] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
-              style={{ fontFamily: "'Inter', sans-serif" }}
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <p
-                  className="text-lg font-bold uppercase tracking-[0.08em] text-white/90"
-                  style={{ fontFamily: "'Roboto', sans-serif" }}
-                >
-                  Preview Generated Folder Structure
-                </p>
-                <button
-                  onClick={handleRejectPreview}
-                  className="rounded-md p-1 text-white/40 transition hover:bg-white/8 hover:text-white/75"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {(previewData.root ?? []).length > 0 ? (
-                  <div className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
-                    {(previewData.root ?? []).map((node) => (
-                      <PreviewNode key={node.id} node={node} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-                    The generated preview is empty.
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3 border-t border-white/10 pt-6">
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="rounded-md border border-cyan-500/35 bg-cyan-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-cyan-200 transition hover:bg-cyan-500/20 disabled:opacity-50"
-                >
-                  Regenerate
-                </button>
-                <button
-                  onClick={handleRejectPreview}
-                  className="rounded-md border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-white/65 transition hover:text-white/85"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={handleAcceptPreview}
-                  className="rounded-md border border-green-500/35 bg-green-500/15 px-6 py-2.5 text-sm font-semibold uppercase tracking-[0.12em] text-green-300 transition hover:bg-green-500/20"
-                >
-                  Accept
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* AI Sidebar */}
       <AIRightSidebar
-        onApplySuggestion={applyAI}
-        projectDescription="Design your project folder structure with organized directories and files."
         isOpen={aiOpen}
         onOpenChange={setAiOpen}
+        onApplySuggestion={applyAI}
+        projectDescription="Design your project folder structure with organized directories and files."
       />
 
       {/* Node Modal */}
@@ -915,6 +1187,104 @@ export default function FolderStructurePage() {
         onSave={saveNode}
         node={editingNode}
       />
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {previewData && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleRejectPreview}
+              className="fixed inset-0 z-40 bg-black/60"
+              aria-label="Close preview modal"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              style={{
+                borderColor: BORDER,
+                backgroundColor: BG,
+                ...INTER,
+              }}
+            >
+              <div className="mb-6 flex items-center justify-between">
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                  style={INTER_TIGHT}
+                >
+                  Preview Generated Structure
+                </p>
+                <button
+                  onClick={handleRejectPreview}
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div
+                className="border p-4"
+                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              >
+                {(previewData.root ?? []).length > 0 ? (
+                  (previewData.root ?? []).map((node) => (
+                    <PreviewNode key={node.id} node={node} />
+                  ))
+                ) : (
+                  <p className="text-sm" style={{ ...INTER, color: MUTED }}>
+                    The generated preview is empty.
+                  </p>
+                )}
+              </div>
+
+              <div
+                className="mt-8 flex justify-end gap-3 border-t pt-6"
+                style={{ borderColor: BORDER }}
+              >
+                <button
+                  onClick={handleRegenerate}
+                  disabled={isJobLoading}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{
+                    ...MONO,
+                    borderColor: "#60a5fa55",
+                    color: "#60a5fa",
+                    backgroundColor: "#60a5fa12",
+                  }}
+                >
+                  Regenerate
+                </button>
+                <button
+                  onClick={handleRejectPreview}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={handleAcceptPreview}
+                  className="flex items-center gap-2 border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{
+                    ...MONO,
+                    borderColor: "#22c55e55",
+                    color: "#22c55e",
+                    backgroundColor: "#22c55e12",
+                  }}
+                >
+                  Accept & Save
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
