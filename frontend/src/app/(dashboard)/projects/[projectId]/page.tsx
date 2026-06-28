@@ -14,7 +14,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import {
   generateInviteLink,
-  fetchProjectById,
+  // fetchProjectById,
   hideInviteLink,
   removeMember,
   showInviteLink,
@@ -520,11 +520,11 @@ export default function ProjectOverviewPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  useEffect(() => {
-    if (projectId) {
-      dispatch(fetchProjectById(projectId));
-    }
-  }, [dispatch, projectId]);
+  // useEffect(() => {
+  //   if (projectId) {
+  //     dispatch(fetchProjectById(projectId));
+  //   }
+  // }, [dispatch, projectId]);
 
   useEffect(() => {
     if (currentProject?.name) {
