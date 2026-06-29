@@ -505,7 +505,7 @@ export default function FolderStructurePage() {
   );
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
   const [shown, setShown] = useState(false);
-  const [aiOpen, setAiOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState<FolderNode | null>(null);
@@ -773,10 +773,10 @@ export default function FolderStructurePage() {
   return (
     <div
       ref={scrollRef}
-      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden"
+      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar"
       style={{ ...INTER, backgroundColor: BG }}
     >
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-y-auto no-scrollbar">
         <motion.div
           className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
           variants={stagger}
@@ -927,7 +927,7 @@ export default function FolderStructurePage() {
               className="text-[11px] font-bold uppercase tracking-[0.2em]"
               style={{ ...MONO, color: ACCENT }}
             >
-              Section // 02 / Architecture
+              Section // 04 / Architecture
             </p>
           </motion.div>
 
@@ -1206,7 +1206,7 @@ export default function FolderStructurePage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 no-scrollbar"
               style={{
                 borderColor: BORDER,
                 backgroundColor: BG,

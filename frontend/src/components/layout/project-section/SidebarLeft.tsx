@@ -168,7 +168,7 @@ export default function Sidebar({
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:block w-[220px] shrink-0 h-[calc(100vh-3.5rem)] sticky top-14 border-r border-[#2b2321] z-20">
+      <aside className="hidden md:block w-[220px] shrink-0 h-full relative border-r border-[#2b2321] z-20">
         <RailContent
           projectId={projectId}
           pathname={pathname}
@@ -195,7 +195,7 @@ export default function Sidebar({
               animate={{ x: 0 }}
               exit={{ x: -240 }}
               transition={{ type: "spring", stiffness: 350, damping: 35 }}
-              className="fixed top-0 left-0 bottom-0 w-[220px] z-50 border-r border-[#2b2321] md:hidden"
+              className="fixed top-0 left-0 h-[100dvh] w-[220px] z-50 border-r border-[#2b2321] md:hidden"
             >
               <button
                 className="absolute right-3 top-4 flex h-6 w-6 items-center justify-center text-white/40 hover:text-white/70"

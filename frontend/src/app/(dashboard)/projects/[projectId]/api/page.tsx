@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { motion, AnimatePresence, type Transition } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Variants } from "framer-motion";
 import {
-  Code2,
   Plus,
   X,
   ChevronDown,
@@ -15,10 +15,15 @@ import {
   Globe,
   Shield,
   ArrowRight,
-  RotateCcw,
+  RefreshCw,
+  Save,
   Wifi,
   Key,
   Trash2,
+  Code2,
+  AlertCircle,
+  CheckCircle,
+  Zap,
 } from "lucide-react";
 import AIRightSidebar, {
   type ApplySuggestion,
@@ -82,51 +87,49 @@ interface SectionPayload {
   content?: unknown;
 }
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
-const C = {
-  bg: "#141414",
-  inner: "#101010",
-  border: "#2b2321",
-  accent: "#d84c28",
-  accentDim: "rgba(216,76,40,0.12)",
-  accentMid: "rgba(216,76,40,0.25)",
-  label: "#a6786d",
-  white: "#ffffff",
-  whiteDim: "rgba(255,255,255,0.55)",
-  whiteFaint: "rgba(255,255,255,0.25)",
+// ─── Design tokens — identical to Idea page ──────────────────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
+
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const INTER_TIGHT: React.CSSProperties = {
+  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
 };
 
-const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
+const fadeUp = (i: number): Variants => ({
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.45, ease: EASE },
+  },
+});
+
+const stagger: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
+};
+
+// ─── Method + Auth styles ────────────────────────────────────────────────────
 const METHOD_STYLE: Record<
   HttpMethod,
   { color: string; bg: string; border: string }
 > = {
-  GET: {
-    color: "#22c55e",
-    bg: "rgba(34,197,94,0.12)",
-    border: "rgba(34,197,94,0.30)",
-  },
-  POST: {
-    color: "#60a5fa",
-    bg: "rgba(96,165,250,0.12)",
-    border: "rgba(96,165,250,0.30)",
-  },
-  PUT: {
-    color: "#f59e0b",
-    bg: "rgba(245,158,11,0.12)",
-    border: "rgba(245,158,11,0.30)",
-  },
-  PATCH: {
-    color: "#a78bfa",
-    bg: "rgba(167,139,250,0.12)",
-    border: "rgba(167,139,250,0.30)",
-  },
-  DELETE: {
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.12)",
-    border: "rgba(239,68,68,0.30)",
-  },
+  GET: { color: "#22c55e", bg: "rgba(34,197,94,0.12)", border: "rgba(34,197,94,0.30)" },
+  POST: { color: "#60a5fa", bg: "rgba(96,165,250,0.12)", border: "rgba(96,165,250,0.30)" },
+  PUT: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.30)" },
+  PATCH: { color: "#a78bfa", bg: "rgba(167,139,250,0.12)", border: "rgba(167,139,250,0.30)" },
+  DELETE: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.30)" },
 };
 
 const AUTH_STYLE = {
@@ -145,85 +148,76 @@ const emptyRecord = () => ({}) as Record<string, string>;
 
 const toStringRecord = (value: unknown): Record<string, string> => {
   if (!value || typeof value !== "object") return {};
-  return Object.entries(value as Record<string, unknown>).reduce<
-    Record<string, string>
-  >((acc, [k, v]) => {
-    if (typeof v === "string") acc[k] = v;
-    return acc;
-  }, {});
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string>>(
+    (acc, [k, v]) => { if (typeof v === "string") acc[k] = v; return acc; },
+    {}
+  );
 };
+
+const uid = () => Math.random().toString(36).slice(2, 8);
 
 const normalizeApi = (payload: unknown): ApiSectionContent => {
   const source =
     payload &&
-    typeof payload === "object" &&
-    "content" in (payload as SectionPayload) &&
-    (payload as SectionPayload).content &&
-    typeof (payload as SectionPayload).content === "object"
+      typeof payload === "object" &&
+      "content" in (payload as SectionPayload) &&
+      (payload as SectionPayload).content &&
+      typeof (payload as SectionPayload).content === "object"
       ? (payload as SectionPayload).content
       : payload;
 
   const raw = (source ?? {}) as Partial<ApiSectionContent>;
 
   const rest = Array.isArray(raw.rest)
-    ? (raw.rest
-        .map((route) => {
-          if (!route || typeof route !== "object") return null;
-          const r = route as Partial<ApiRoute>;
-          if (
-            typeof r.name !== "string" ||
-            typeof r.path !== "string" ||
-            !r.method ||
-            !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(r.method)
-          )
-            return null;
-          return {
-            id: typeof r.id === "string" && r.id ? r.id : uid(),
-            name: r.name,
-            method: r.method as HttpMethod,
-            path: r.path,
-            description: typeof r.description === "string" ? r.description : "",
-            request: {
-              body: toStringRecord(r.request?.body),
-              params: toStringRecord(r.request?.params),
-              query: toStringRecord(r.request?.query),
-            },
-            response: { success: toStringRecord(r.response?.success) },
-            authRequired: Boolean(r.authRequired),
-          } satisfies ApiRoute;
-        })
-        .filter(Boolean) as ApiRoute[])
+    ? (raw.rest.map((route) => {
+      if (!route || typeof route !== "object") return null;
+      const r = route as Partial<ApiRoute>;
+      if (
+        typeof r.name !== "string" ||
+        typeof r.path !== "string" ||
+        !r.method ||
+        !["GET", "POST", "PUT", "PATCH", "DELETE"].includes(r.method)
+      ) return null;
+      return {
+        id: typeof r.id === "string" && r.id ? r.id : uid(),
+        name: r.name,
+        method: r.method as HttpMethod,
+        path: r.path,
+        description: typeof r.description === "string" ? r.description : "",
+        request: {
+          body: toStringRecord(r.request?.body),
+          params: toStringRecord(r.request?.params),
+          query: toStringRecord(r.request?.query),
+        },
+        response: { success: toStringRecord(r.response?.success) },
+        authRequired: Boolean(r.authRequired),
+      } satisfies ApiRoute;
+    }).filter(Boolean) as ApiRoute[])
     : [];
 
   const realtime = Array.isArray(raw.realtime)
-    ? (raw.realtime
-        .map((event) => {
-          if (!event || typeof event !== "object") return null;
-          const e = event as Partial<WebSocketEvent>;
-          if (typeof e.name !== "string") return null;
-          return {
-            id: typeof e.id === "string" && e.id ? e.id : uid(),
-            name: e.name,
-            description: typeof e.description === "string" ? e.description : "",
-            payload: toStringRecord(e.payload),
-          } satisfies WebSocketEvent;
-        })
-        .filter(Boolean) as WebSocketEvent[])
+    ? (raw.realtime.map((event) => {
+      if (!event || typeof event !== "object") return null;
+      const e = event as Partial<WebSocketEvent>;
+      if (typeof e.name !== "string") return null;
+      return {
+        id: typeof e.id === "string" && e.id ? e.id : uid(),
+        name: e.name,
+        description: typeof e.description === "string" ? e.description : "",
+        payload: toStringRecord(e.payload),
+      } satisfies WebSocketEvent;
+    }).filter(Boolean) as WebSocketEvent[])
     : [];
 
   const authSource =
-    raw.auth && typeof raw.auth === "object"
-      ? (raw.auth as Partial<AuthFlow>)
-      : {};
+    raw.auth && typeof raw.auth === "object" ? (raw.auth as Partial<AuthFlow>) : {};
+
   return {
     rest,
     realtime,
     auth: {
       type: isAuthType(authSource.type) ? authSource.type : "JWT",
-      description:
-        typeof authSource.description === "string"
-          ? authSource.description
-          : "",
+      description: typeof authSource.description === "string" ? authSource.description : "",
       routes: Array.isArray(authSource.routes)
         ? authSource.routes.filter((r): r is string => typeof r === "string")
         : [],
@@ -231,121 +225,19 @@ const normalizeApi = (payload: unknown): ApiSectionContent => {
   };
 };
 
-const uid = () => Math.random().toString(36).slice(2, 8);
-
 const createEmptyRoute = (): ApiRoute => ({
-  id: uid(),
-  name: "",
-  method: "GET",
-  path: "",
-  description: "",
+  id: uid(), name: "", method: "GET", path: "", description: "",
   request: { body: emptyRecord(), params: emptyRecord(), query: emptyRecord() },
   response: { success: emptyRecord() },
   authRequired: false,
 });
 
 const createEmptyEvent = (): WebSocketEvent => ({
-  id: uid(),
-  name: "",
-  description: "",
-  payload: emptyRecord(),
+  id: uid(), name: "", description: "", payload: emptyRecord(),
 });
 
-const MOCK: ApiSectionContent = {
-  rest: [
-    {
-      id: "1",
-      name: "List Users",
-      method: "GET",
-      path: "/api/v1/users",
-      description: "Paginated user list",
-      request: {
-        body: {},
-        params: {},
-        query: { page: "number", limit: "number" },
-      },
-      response: { success: { users: "User[]", total: "number" } },
-      authRequired: true,
-    },
-    {
-      id: "2",
-      name: "Register",
-      method: "POST",
-      path: "/api/v1/users/register",
-      description: "Create a new user account",
-      request: {
-        body: { email: "string", password: "string" },
-        params: {},
-        query: {},
-      },
-      response: { success: { user: "User", token: "string" } },
-      authRequired: false,
-    },
-    {
-      id: "3",
-      name: "Get User",
-      method: "GET",
-      path: "/api/v1/users/:id",
-      description: "Fetch user by ID",
-      request: { body: {}, params: { id: "string" }, query: {} },
-      response: { success: { user: "User" } },
-      authRequired: true,
-    },
-    {
-      id: "4",
-      name: "Update User",
-      method: "PUT",
-      path: "/api/v1/users/:id",
-      description: "Update user profile fields",
-      request: {
-        body: { name: "string?" },
-        params: { id: "string" },
-        query: {},
-      },
-      response: { success: { user: "User" } },
-      authRequired: true,
-    },
-    {
-      id: "5",
-      name: "Delete Project",
-      method: "DELETE",
-      path: "/api/v1/projects/:id",
-      description: "Delete project and cascade",
-      request: { body: {}, params: { id: "string" }, query: {} },
-      response: { success: { deleted: "boolean" } },
-      authRequired: true,
-    },
-  ],
-  realtime: [
-    {
-      id: "w1",
-      name: "project:update",
-      description: "Fires on any project field change",
-      payload: { projectId: "string", field: "string", userId: "string" },
-    },
-    {
-      id: "w2",
-      name: "member:join",
-      description: "Emitted when collaborator joins",
-      payload: { userId: "string", name: "string", role: "string" },
-    },
-  ],
-  auth: {
-    type: "JWT",
-    description:
-      "Stateless JWT with 15-min access tokens and 7-day refresh tokens. Bearer token required on all protected routes.",
-    routes: [
-      "/api/v1/auth/login",
-      "/api/v1/auth/refresh",
-      "/api/v1/auth/logout",
-    ],
-  },
-};
-
 const EMPTY: ApiSectionContent = {
-  rest: [],
-  realtime: [],
-  auth: { type: "JWT", description: "", routes: [] },
+  rest: [], realtime: [], auth: { type: "JWT", description: "", routes: [] },
 };
 
 const hasApiContent = (api: ApiSectionContent) =>
@@ -355,74 +247,45 @@ const hasApiContent = (api: ApiSectionContent) =>
   api.auth.routes.length > 0 ||
   api.auth.type !== "JWT";
 
-// ─── Shared: inline editable field ───────────────────────────────────────────
+// ─── Inline editable field ────────────────────────────────────────────────────
 function EditField({
-  value,
-  onChange,
-  placeholder = "",
-  mono = false,
-  className = "",
+  value, onChange, placeholder = "", mono = false, className = "",
 }: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  mono?: boolean;
-  className?: string;
+  value: string; onChange: (v: string) => void;
+  placeholder?: string; mono?: boolean; className?: string;
 }) {
   const [on, setOn] = useState(false);
   const [d, setD] = useState(value);
-  const done = () => {
-    onChange(d);
-    setOn(false);
-  };
+  const done = () => { onChange(d); setOn(false); };
 
   if (on)
     return (
       <input
-        autoFocus
-        value={d}
+        autoFocus value={d}
         onChange={(e) => setD(e.target.value)}
         onBlur={done}
         onKeyDown={(e) => e.key === "Enter" && done()}
         className={`bg-transparent border-b outline-none text-white text-[13px] pb-0.5 ${mono ? "font-mono" : ""} ${className}`}
-        style={{
-          borderBottomColor: C.accent,
-          fontFamily: mono ? "'Share Tech Mono',monospace" : "inherit",
-          color: C.white,
-        }}
+        style={{ borderBottomColor: ACCENT, color: "#fff" }}
       />
     );
   return (
     <span
-      onClick={() => {
-        setD(value);
-        setOn(true);
-      }}
+      onClick={() => { setD(value); setOn(true); }}
       className={`cursor-text transition-colors ${className}`}
-      style={{ color: value ? C.white : C.whiteFaint }}
+      style={{ color: value ? "#fff" : "rgba(255,255,255,0.25)" }}
     >
-      {value || (
-        <span
-          style={{ color: C.whiteFaint, fontStyle: "italic", fontSize: 11 }}
-        >
-          {placeholder}
-        </span>
-      )}
+      {value || <span style={{ color: "rgba(255,255,255,0.25)", fontStyle: "italic", fontSize: 11 }}>{placeholder}</span>}
     </span>
   );
 }
 
 // ─── KeyValueEditor ───────────────────────────────────────────────────────────
 function KeyValueEditor({
-  title,
-  value,
-  onChange,
-  emptyLabel,
+  title, value, onChange, emptyLabel,
 }: {
-  title: string;
-  value: Record<string, string>;
-  onChange: (next: Record<string, string>) => void;
-  emptyLabel: string;
+  title: string; value: Record<string, string>;
+  onChange: (next: Record<string, string>) => void; emptyLabel: string;
 }) {
   const [keyInput, setKeyInput] = useState("");
   const [valueInput, setValueInput] = useState("");
@@ -431,101 +294,49 @@ function KeyValueEditor({
     const k = keyInput.trim();
     if (!k) return;
     onChange({ ...value, [k]: valueInput.trim() || "string" });
-    setKeyInput("");
-    setValueInput("");
+    setKeyInput(""); setValueInput("");
   };
 
   return (
-    <div
-      className="rounded-none border p-3"
-      style={{ borderColor: C.border, background: C.inner }}
-    >
+    <div className="border p-3" style={{ borderColor: BORDER, background: INNER_BG }}>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <p
-          className="text-[9px] font-bold uppercase tracking-[0.22em]"
-          style={{ color: C.label, fontFamily: "'Roboto Mono', monospace" }}
-        >
-          {title}
-        </p>
-        <p className="text-[10px]" style={{ color: C.whiteFaint }}>
-          {emptyLabel}
-        </p>
+        <p className="text-[9px] font-bold uppercase tracking-[0.22em]" style={{ ...MONO, color: MUTED }}>{title}</p>
+        <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{emptyLabel}</p>
       </div>
-
       <div className="mb-3 space-y-1.5">
         {Object.entries(value).length === 0 ? (
-          <p className="text-[11px]" style={{ color: C.whiteFaint }}>
-            No fields yet.
-          </p>
+          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>No fields yet.</p>
         ) : (
           Object.entries(value).map(([k, t]) => (
-            <div
-              key={k}
-              className="flex items-center justify-between gap-2 px-2.5 py-1.5 border"
-              style={{ borderColor: C.border }}
-            >
+            <div key={k} className="flex items-center justify-between gap-2 px-2.5 py-1.5 border" style={{ borderColor: BORDER }}>
               <div className="min-w-0 flex-1">
-                <span
-                  className="text-[11px] font-mono"
-                  style={{ color: C.accent }}
-                >
-                  {k}
-                </span>
-                <span style={{ color: C.border }}>:</span>
-                <span
-                  className="ml-1 text-[11px] font-mono"
-                  style={{ color: C.label }}
-                >
-                  {t}
-                </span>
+                <span className="text-[11px] font-mono" style={{ color: ACCENT }}>{k}</span>
+                <span style={{ color: BORDER }}>:</span>
+                <span className="ml-1 text-[11px] font-mono" style={{ color: MUTED }}>{t}</span>
               </div>
-              <button
-                onClick={() => {
-                  const n = { ...value };
-                  delete n[k];
-                  onChange(n);
-                }}
-                className="transition hover:opacity-70"
-                style={{ color: C.whiteFaint }}
-              >
+              <button onClick={() => { const n = { ...value }; delete n[k]; onChange(n); }} style={{ color: "rgba(255,255,255,0.25)" }}>
                 <X size={12} />
               </button>
             </div>
           ))
         )}
       </div>
-
       <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
         {["Field name", "Type"].map((ph, i) => (
           <input
             key={i}
             value={i === 0 ? keyInput : valueInput}
-            onChange={(e) =>
-              i === 0
-                ? setKeyInput(e.target.value)
-                : setValueInput(e.target.value)
-            }
+            onChange={(e) => i === 0 ? setKeyInput(e.target.value) : setValueInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addItem()}
             placeholder={ph}
             className="px-3 py-2 font-mono text-xs outline-none border transition"
-            style={{
-              background: C.bg,
-              borderColor: C.border,
-              color: C.white,
-              fontFamily: "'Roboto Mono', monospace",
-            }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = C.accent)}
-            onBlur={(e) => (e.currentTarget.style.borderColor = C.border)}
+            style={{ background: BG, borderColor: BORDER, color: "#fff", ...MONO }}
           />
         ))}
         <button
           onClick={addItem}
           className="px-3 py-2 border text-xs font-bold transition hover:opacity-80"
-          style={{
-            borderColor: C.accent,
-            background: C.accentDim,
-            color: C.accent,
-          }}
+          style={{ borderColor: ACCENT, background: `${ACCENT}12`, color: ACCENT }}
         >
           <Plus size={13} />
         </button>
@@ -534,322 +345,98 @@ function KeyValueEditor({
   );
 }
 
-// ─── Shared input style ───────────────────────────────────────────────────────
-const inputClass = "w-full px-4 py-3 text-sm outline-none border transition";
-const inputStyle = (focused = false) => ({
-  background: C.inner,
-  borderColor: focused ? C.accent : C.border,
-  color: C.white,
-  fontFamily: "'Inter', sans-serif",
-});
-
-function ThemedInput({
-  value,
-  onChange,
-  placeholder,
-  mono = false,
-  className = "",
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  mono?: boolean;
-  className?: string;
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      className={`${inputClass} ${mono ? "font-mono" : ""} ${className}`}
-      style={{
-        ...inputStyle(focused),
-        fontFamily: mono ? "'Roboto Mono', monospace" : "'Inter', sans-serif",
-      }}
-    />
-  );
-}
-
-function ThemedTextarea({
-  value,
-  onChange,
-  placeholder,
-  rows = 2,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  rows?: number;
-}) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      className={`${inputClass} resize-none`}
-      style={inputStyle(focused)}
-    />
-  );
-}
-
 // ─── Route Modal ──────────────────────────────────────────────────────────────
 function RouteModal({
-  route,
-  isOpen,
-  onClose,
-  onSave,
+  route, isOpen, onClose, onSave,
 }: {
-  route?: ApiRoute | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (r: ApiRoute) => void;
+  route?: ApiRoute | null; isOpen: boolean; onClose: () => void; onSave: (r: ApiRoute) => void;
 }) {
   const [form, setForm] = useState<ApiRoute>(route ?? createEmptyRoute());
-  useEffect(() => {
-    if (isOpen) setForm(route ?? createEmptyRoute());
-  }, [isOpen, route]);
-
+  useEffect(() => { if (isOpen) setForm(route ?? createEmptyRoute()); }, [isOpen, route]);
   const methods: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose} className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.72)" }} />
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40"
-            style={{ background: "rgba(0,0,0,0.72)" }}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 16 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.97, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 16 }} transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div
-              className="w-full max-w-2xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
-              style={{ background: C.bg, borderColor: C.border }}
-            >
-              {/* Header */}
-              <div
-                className="mb-6 flex items-center justify-between border-b pb-4"
-                style={{ borderColor: C.border }}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.accent,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Section // 02 /
-                  </span>
-                  <h2
-                    className="text-lg font-bold text-white uppercase tracking-[0.08em]"
-                    style={{ fontFamily: "'Roboto', sans-serif" }}
-                  >
+            <div className="w-full max-w-2xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
+              style={{ background: BG, borderColor: BORDER }}>
+              <div className="mb-6 flex items-center justify-between border-b pb-4" style={{ borderColor: BORDER }}>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-1" style={{ ...MONO, color: ACCENT }}>
+                    Section // 03 / API
+                  </p>
+                  <h2 className="text-lg font-black uppercase leading-none text-white" style={INTER_TIGHT}>
                     {route ? "Edit Endpoint" : "Add Endpoint"}
                   </h2>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-1 transition hover:opacity-60"
-                  style={{ color: C.label }}
-                >
+                <button onClick={onClose} className="p-1 transition hover:opacity-60" style={{ color: MUTED }}>
                   <X size={16} />
                 </button>
               </div>
-
               <div className="flex flex-col gap-5">
                 <div>
-                  <label
-                    className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Endpoint Name
-                  </label>
-                  <ThemedInput
-                    value={form.name}
-                    onChange={(v) => setForm({ ...form, name: v })}
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Endpoint Name</p>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g., Get User"
-                  />
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }} />
                 </div>
-
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label
-                      className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                      style={{
-                        color: C.label,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
-                      Method
-                    </label>
-                    <select
-                      value={form.method}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          method: e.target.value as HttpMethod,
-                        })
-                      }
-                      className="w-full px-3 py-3 text-sm font-mono outline-none border transition"
-                      style={{
-                        background: C.inner,
-                        borderColor: C.border,
-                        color: C.white,
-                      }}
-                    >
-                      {methods.map((m) => (
-                        <option
-                          key={m}
-                          value={m}
-                          style={{ color: METHOD_STYLE[m].color }}
-                        >
-                          {m}
-                        </option>
-                      ))}
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Method</p>
+                    <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as HttpMethod })}
+                      className="w-full px-3 py-3 text-sm outline-none border"
+                      style={{ background: INNER_BG, borderColor: BORDER, color: "#fff", ...MONO }}>
+                      {methods.map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label
-                      className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                      style={{
-                        color: C.label,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
-                      Path
-                    </label>
-                    <ThemedInput
-                      value={form.path}
-                      onChange={(v) => setForm({ ...form, path: v })}
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Path</p>
+                    <input value={form.path} onChange={(e) => setForm({ ...form, path: e.target.value })}
                       placeholder="/api/v1/users"
-                      mono
-                    />
+                      className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30 font-mono"
+                      style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...MONO }} />
                   </div>
                 </div>
-
                 <div>
-                  <label
-                    className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Description
-                  </label>
-                  <ThemedTextarea
-                    value={form.description}
-                    onChange={(v) => setForm({ ...form, description: v })}
-                    placeholder="Describe what this endpoint does..."
-                  />
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Description</p>
+                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={3} placeholder="Describe what this endpoint does..."
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30 resize-none"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }} />
                 </div>
-
                 <div className="grid gap-3">
-                  <KeyValueEditor
-                    title="Request Body"
-                    value={form.request.body}
-                    onChange={(body) =>
-                      setForm({ ...form, request: { ...form.request, body } })
-                    }
-                    emptyLabel="body"
-                  />
-                  <KeyValueEditor
-                    title="Request Params"
-                    value={form.request.params}
-                    onChange={(params) =>
-                      setForm({ ...form, request: { ...form.request, params } })
-                    }
-                    emptyLabel="params"
-                  />
-                  <KeyValueEditor
-                    title="Request Query"
-                    value={form.request.query}
-                    onChange={(query) =>
-                      setForm({ ...form, request: { ...form.request, query } })
-                    }
-                    emptyLabel="query"
-                  />
-                  <KeyValueEditor
-                    title="Response Success"
-                    value={form.response.success}
-                    onChange={(success) =>
-                      setForm({ ...form, response: { success } })
-                    }
-                    emptyLabel="response"
-                  />
+                  <KeyValueEditor title="Request Body" value={form.request.body}
+                    onChange={(body) => setForm({ ...form, request: { ...form.request, body } })} emptyLabel="body" />
+                  <KeyValueEditor title="Request Params" value={form.request.params}
+                    onChange={(params) => setForm({ ...form, request: { ...form.request, params } })} emptyLabel="params" />
+                  <KeyValueEditor title="Request Query" value={form.request.query}
+                    onChange={(query) => setForm({ ...form, request: { ...form.request, query } })} emptyLabel="query" />
+                  <KeyValueEditor title="Response Success" value={form.response.success}
+                    onChange={(success) => setForm({ ...form, response: { success } })} emptyLabel="response" />
                 </div>
-
-                <div
-                  className="flex items-center gap-3 border px-3 py-2.5"
-                  style={{ borderColor: C.border }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={form.authRequired}
-                    onChange={(e) =>
-                      setForm({ ...form, authRequired: e.target.checked })
-                    }
-                    className="w-4 h-4"
-                    style={{ accentColor: C.accent }}
-                  />
-                  <span className="text-[13px]" style={{ color: C.whiteDim }}>
-                    Requires Authentication
-                  </span>
-                  {form.authRequired && (
-                    <Lock size={12} style={{ color: C.accent }} />
-                  )}
+                <div className="flex items-center gap-3 border px-3 py-2.5" style={{ borderColor: BORDER }}>
+                  <input type="checkbox" checked={form.authRequired}
+                    onChange={(e) => setForm({ ...form, authRequired: e.target.checked })}
+                    className="w-4 h-4" style={{ accentColor: ACCENT }} />
+                  <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.55)", ...INTER }}>Requires Authentication</span>
+                  {form.authRequired && <Lock size={12} style={{ color: ACCENT }} />}
                 </div>
-
-                <div
-                  className="flex gap-2 pt-2 border-t"
-                  style={{ borderColor: C.border }}
-                >
-                  <button
-                    onClick={onClose}
-                    className="flex-1 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] border transition hover:opacity-70"
-                    style={{
-                      borderColor: C.border,
-                      color: C.label,
-                      background: "transparent",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (form.name.trim() && form.path.trim()) {
-                        onSave(form);
-                        onClose();
-                      }
-                    }}
-                    className="flex-1 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] border transition hover:opacity-80"
-                    style={{
-                      borderColor: C.accent,
-                      color: C.accent,
-                      background: C.accentDim,
-                    }}
-                  >
-                    Save Endpoint
-                  </button>
+                <div className="flex gap-2 pt-2 border-t" style={{ borderColor: BORDER }}>
+                  <button onClick={onClose}
+                    className="flex-1 border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                    style={{ ...MONO, borderColor: BORDER, color: MUTED, background: "transparent" }}>Cancel</button>
+                  <button onClick={() => { if (form.name.trim() && form.path.trim()) { onSave(form); onClose(); } }}
+                    className="flex-1 border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                    style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Save Endpoint</button>
                 </div>
               </div>
             </div>
@@ -862,39 +449,22 @@ function RouteModal({
 
 // ─── WsModal ──────────────────────────────────────────────────────────────────
 function WsModal({
-  event,
-  isOpen,
-  onClose,
-  onSave,
+  event, isOpen, onClose, onSave,
 }: {
-  event?: WebSocketEvent | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (e: WebSocketEvent) => void;
+  event?: WebSocketEvent | null; isOpen: boolean; onClose: () => void; onSave: (e: WebSocketEvent) => void;
 }) {
   const [form, setForm] = useState<WebSocketEvent>(event ?? createEmptyEvent());
   const [kvKey, setKvKey] = useState("");
   const [kvValue, setKvValue] = useState("");
 
   useEffect(() => {
-    if (isOpen) {
-      setForm(event ?? createEmptyEvent());
-      setKvKey("");
-      setKvValue("");
-    }
+    if (isOpen) { setForm(event ?? createEmptyEvent()); setKvKey(""); setKvValue(""); }
   }, [event, isOpen]);
 
   const addPayloadField = () => {
     if (kvKey.trim()) {
-      setForm({
-        ...form,
-        payload: {
-          ...form.payload,
-          [kvKey.trim()]: kvValue.trim() || "string",
-        },
-      });
-      setKvKey("");
-      setKvValue("");
+      setForm({ ...form, payload: { ...form.payload, [kvKey.trim()]: kvValue.trim() || "string" } });
+      setKvKey(""); setKvValue("");
     }
   };
 
@@ -902,141 +472,55 @@ function WsModal({
     <AnimatePresence>
       {isOpen && (
         <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose} className="fixed inset-0 z-40" style={{ background: "rgba(0,0,0,0.72)" }} />
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 z-40"
-            style={{ background: "rgba(0,0,0,0.72)" }}
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97, y: 16 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.97, y: 16 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.97, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 16 }} transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div
-              className="w-full max-w-xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
-              style={{ background: C.bg, borderColor: C.border }}
-            >
-              <div
-                className="mb-6 flex items-center justify-between border-b pb-4"
-                style={{ borderColor: C.border }}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className="text-[10px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.accent,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    WS //
-                  </span>
-                  <h2
-                    className="text-lg font-bold text-white uppercase tracking-[0.08em]"
-                    style={{ fontFamily: "'Roboto', sans-serif" }}
-                  >
+            <div className="w-full max-w-xl border p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
+              style={{ background: BG, borderColor: BORDER }}>
+              <div className="mb-6 flex items-center justify-between border-b pb-4" style={{ borderColor: BORDER }}>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-1" style={{ ...MONO, color: ACCENT }}>
+                    WS // Realtime Event
+                  </p>
+                  <h2 className="text-lg font-black uppercase leading-none text-white" style={INTER_TIGHT}>
                     {event ? "Edit Event" : "Add Event"}
                   </h2>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-1 transition hover:opacity-60"
-                  style={{ color: C.label }}
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={onClose} className="p-1 transition hover:opacity-60" style={{ color: MUTED }}><X size={16} /></button>
               </div>
-
               <div className="flex flex-col gap-5">
                 <div>
-                  <label
-                    className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Event Name
-                  </label>
-                  <ThemedInput
-                    value={form.name}
-                    onChange={(v) => setForm({ ...form, name: v })}
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Event Name</p>
+                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g., project:update"
-                    mono
-                  />
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30 font-mono"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...MONO }} />
                 </div>
                 <div>
-                  <label
-                    className="mb-2 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Description
-                  </label>
-                  <ThemedTextarea
-                    value={form.description}
-                    onChange={(v) => setForm({ ...form, description: v })}
-                    placeholder="What triggers this event..."
-                  />
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Description</p>
+                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    rows={3} placeholder="What triggers this event..."
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30 resize-none"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }} />
                 </div>
-
                 <div>
-                  <label
-                    className="mb-3 block text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Payload Fields
-                  </label>
-                  <div
-                    className="mb-3 border p-3 space-y-1.5"
-                    style={{ borderColor: C.border, background: C.inner }}
-                  >
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Payload Fields</p>
+                  <div className="mb-3 border p-3 space-y-1.5" style={{ borderColor: BORDER, background: INNER_BG }}>
                     {Object.entries(form.payload).length === 0 ? (
-                      <p
-                        className="text-[11px]"
-                        style={{ color: C.whiteFaint }}
-                      >
-                        No fields yet.
-                      </p>
+                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>No fields yet.</p>
                     ) : (
                       Object.entries(form.payload).map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="flex items-center justify-between gap-2 px-2.5 py-1.5 border"
-                          style={{ borderColor: C.border }}
-                        >
+                        <div key={k} className="flex items-center justify-between gap-2 px-2.5 py-1.5 border" style={{ borderColor: BORDER }}>
                           <div className="min-w-0 flex-1">
-                            <span
-                              className="text-[11px] font-mono"
-                              style={{ color: C.accent }}
-                            >
-                              {k}
-                            </span>
-                            <span style={{ color: C.whiteFaint }}>: </span>
-                            <span
-                              className="text-[11px] font-mono"
-                              style={{ color: C.label }}
-                            >
-                              {v}
-                            </span>
+                            <span className="text-[11px] font-mono" style={{ color: ACCENT }}>{k}</span>
+                            <span style={{ color: "rgba(255,255,255,0.25)" }}>: </span>
+                            <span className="text-[11px] font-mono" style={{ color: MUTED }}>{v}</span>
                           </div>
-                          <button
-                            onClick={() => {
-                              const p = { ...form.payload };
-                              delete p[k];
-                              setForm({ ...form, payload: p });
-                            }}
-                            style={{ color: C.whiteFaint }}
-                          >
+                          <button onClick={() => { const p = { ...form.payload }; delete p[k]; setForm({ ...form, payload: p }); }} style={{ color: "rgba(255,255,255,0.25)" }}>
                             <X size={12} />
                           </button>
                         </div>
@@ -1044,71 +528,26 @@ function WsModal({
                     )}
                   </div>
                   <div className="flex gap-2">
-                    {[
-                      ["Field name", kvKey, setKvKey],
-                      ["Type", kvValue, setKvValue],
-                    ].map(([ph, val, set], i) => (
-                      <input
-                        key={i}
-                        value={val as string}
-                        onChange={(e) => (set as any)(e.target.value)}
-                        onKeyDown={(e) =>
-                          e.key === "Enter" && addPayloadField()
-                        }
+                    {[["Field name", kvKey, setKvKey], ["Type", kvValue, setKvValue]].map(([ph, val, set], i) => (
+                      <input key={i} value={val as string} onChange={(e) => (set as any)(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && addPayloadField()}
                         placeholder={ph as string}
                         className="flex-1 px-3 py-2 text-xs font-mono outline-none border transition"
-                        style={{
-                          background: C.bg,
-                          borderColor: C.border,
-                          color: C.white,
-                        }}
-                      />
+                        style={{ background: BG, borderColor: BORDER, color: "#fff" }} />
                     ))}
-                    <button
-                      onClick={addPayloadField}
-                      className="px-3 py-2 border transition hover:opacity-80"
-                      style={{
-                        borderColor: C.accent,
-                        background: C.accentDim,
-                        color: C.accent,
-                      }}
-                    >
+                    <button onClick={addPayloadField} className="px-3 py-2 border transition hover:opacity-80"
+                      style={{ borderColor: ACCENT, background: `${ACCENT}12`, color: ACCENT }}>
                       <Plus size={13} />
                     </button>
                   </div>
                 </div>
-
-                <div
-                  className="flex gap-2 pt-2 border-t"
-                  style={{ borderColor: C.border }}
-                >
-                  <button
-                    onClick={onClose}
-                    className="flex-1 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] border transition hover:opacity-70"
-                    style={{
-                      borderColor: C.border,
-                      color: C.label,
-                      background: "transparent",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (form.name.trim()) {
-                        onSave(form);
-                        onClose();
-                      }
-                    }}
-                    className="flex-1 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.14em] border transition hover:opacity-80"
-                    style={{
-                      borderColor: C.accent,
-                      color: C.accent,
-                      background: C.accentDim,
-                    }}
-                  >
-                    Save Event
-                  </button>
+                <div className="flex gap-2 pt-2 border-t" style={{ borderColor: BORDER }}>
+                  <button onClick={onClose}
+                    className="flex-1 border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                    style={{ ...MONO, borderColor: BORDER, color: MUTED, background: "transparent" }}>Cancel</button>
+                  <button onClick={() => { if (form.name.trim()) { onSave(form); onClose(); } }}
+                    className="flex-1 border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                    style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Save Event</button>
                 </div>
               </div>
             </div>
@@ -1119,32 +558,13 @@ function WsModal({
   );
 }
 
-// ─── Stagger helpers ──────────────────────────────────────────────────────────
-const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07 } } };
-const fadeUp = (i: number) => ({
-  hidden: { opacity: 0, y: 14 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.06, duration: 0.38, ease: EASE },
-  },
-});
-
-// ─── Divider ──────────────────────────────────────────────────────────────────
-function Divider() {
-  return <div className="w-full h-px" style={{ background: C.border }} />;
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ApiDesignPage() {
   const params = useParams();
   const router = useRouter();
   const rawProjectId = params?.projectId;
-  const projectId = Array.isArray(rawProjectId)
-    ? rawProjectId[0]
-    : rawProjectId;
-  const resolvedProjectId =
-    projectId && projectId !== "undefined" ? projectId : "";
+  const projectId = Array.isArray(rawProjectId) ? rawProjectId[0] : rawProjectId;
+  const resolvedProjectId = projectId && projectId !== "undefined" ? projectId : "";
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch<AppDispatch>();
@@ -1154,14 +574,12 @@ export default function ApiDesignPage() {
   );
 
   const [api, setApi] = useState<ApiSectionContent>(EMPTY);
-  const [previewData, setPreviewData] = useState<ApiSectionContent | null>(
-    null,
-  );
+  const [previewData, setPreviewData] = useState<ApiSectionContent | null>(null);
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
-  const [shown, setShown] = useState(false);
-  const [aiOpen, setAiOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [tab, setTab] = useState<"rest" | "realtime" | "auth">("rest");
   const [status, setStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
   const [routeModalOpen, setRouteModalOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<ApiRoute | null>(null);
   const [wsModalOpen, setWsModalOpen] = useState(false);
@@ -1169,92 +587,67 @@ export default function ApiDesignPage() {
 
   const isFetching = Boolean(apiSectionState?.fetch.loading);
   const isSaving = Boolean(apiSectionState?.save.loading);
-  const isJobLoading =
-    jobState.status === "pending" || jobState.status === "processing";
+  const isJobLoading = jobState.status === "pending" || jobState.status === "processing";
   const loading = isFetching || isSaving || isJobLoading;
-  const error =
-    apiSectionState?.fetch.error ??
-    apiSectionState?.save.error ??
-    (jobState.status === "failed" ? jobState.error : null);
-  const canRegenerate =
-    Boolean(previewData) || hasGeneratedOnce || hasApiContent(api);
+  const sectionError = apiSectionState?.fetch.error ?? apiSectionState?.save.error ?? null;
+  const error = sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+  const canRegenerate = Boolean(previewData) || hasGeneratedOnce || hasApiContent(api);
 
   const fetchApi = useCallback(async () => {
-    if (!resolvedProjectId) {
-      setApi(EMPTY);
-      setShown(false);
-      return;
-    }
+    if (!resolvedProjectId) { setApi(EMPTY); return; }
     try {
       const result = await dispatch(
         fetchSectionByType({ projectId: resolvedProjectId, type: "api" }),
       ).unwrap();
-      const normalized = normalizeApi(
-        result.section?.content ?? result.section,
-      );
+      const normalized = normalizeApi(result.section?.content ?? result.section);
       setApi(normalized);
-      setShown(Boolean(hasApiContent(normalized)));
+      if (hasApiContent(normalized)) setHasGeneratedOnce(true);
     } catch {
       setApi(EMPTY);
-      setShown(false);
     }
   }, [dispatch, resolvedProjectId]);
 
-  useEffect(() => {
-    fetchApi();
-  }, [fetchApi]);
+  useEffect(() => { fetchApi(); }, [fetchApi]);
 
   useEffect(() => {
-    if (!status) return;
-    const t = window.setTimeout(() => setStatus(null), 3500);
-    return () => window.clearTimeout(t);
+    if (status) {
+      const t = setTimeout(() => { setStatus(null); setStatusType(null); }, 3500);
+      return () => clearTimeout(t);
+    }
   }, [status]);
 
   const handleGenerate = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before generating API suggestions.");
-      return;
-    }
+    if (!resolvedProjectId) { setStatus("Select a project before generating."); setStatusType("error"); return; }
     try {
       setPreviewData(null);
       dispatch(clearJobState());
       await dispatch(generateApi({ projectId: resolvedProjectId })).unwrap();
       setStatus("API generation queued. Processing now.");
+      setStatusType("success");
     } catch (err: any) {
       setStatus(err?.message ?? "Failed to queue API generation.");
+      setStatusType("error");
     }
   };
 
   const handleRegenerate = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before regenerating.");
-      return;
-    }
-    setStatus(null);
-    setPreviewData(null);
+    if (!resolvedProjectId) { setStatus("Select a project before regenerating."); setStatusType("error"); return; }
     try {
+      setPreviewData(null);
       dispatch(clearJobState());
-      await dispatch(
-        regenerateSection({ projectId: resolvedProjectId, section: "api" }),
-      ).unwrap();
+      await dispatch(regenerateSection({ projectId: resolvedProjectId, section: "api" })).unwrap();
       setStatus("API regeneration queued. Processing now.");
+      setStatusType("success");
     } catch (err: any) {
       setStatus(err?.message ?? "Failed to queue API regeneration.");
+      setStatusType("error");
     }
   };
 
   useEffect(() => {
-    if (
-      !jobState.jobId ||
-      jobState.status === "completed" ||
-      jobState.status === "failed"
-    )
-      return;
+    if (!jobState.jobId || jobState.status === "completed" || jobState.status === "failed") return;
     dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
-    const t = window.setInterval(
-      () => dispatch(getJobStatusThunk({ jobId: jobState.jobId! })),
-      2500,
-    );
+    const t = window.setInterval(() => dispatch(getJobStatusThunk({ jobId: jobState.jobId! })), 2500);
     return () => window.clearInterval(t);
   }, [dispatch, jobState.jobId, jobState.status]);
 
@@ -1263,9 +656,8 @@ export default function ApiDesignPage() {
     if (jobState.result) {
       setPreviewData(normalizeApi(jobState.result));
       setHasGeneratedOnce(true);
-      setStatus("Generation completed. Review preview below.");
-    } else {
-      setStatus("Generation completed, but no preview was returned.");
+      setStatus("Generation completed. Review and accept below.");
+      setStatusType("success");
     }
     dispatch(clearJobState());
   }, [dispatch, jobState.result, jobState.status]);
@@ -1273,1026 +665,453 @@ export default function ApiDesignPage() {
   useEffect(() => {
     if (jobState.status !== "failed") return;
     setStatus(jobState.error ?? "API generation failed.");
+    setStatusType("error");
   }, [jobState.error, jobState.status]);
 
-  const handleSaveDraft = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before saving.");
-      return;
-    }
-    if (!hasApiContent(api)) {
-      setStatus("Add at least one API field before saving.");
-      return;
-    }
+  const handleSave = async () => {
+    if (!resolvedProjectId) { setStatus("Select a project before saving."); return; }
+    if (!hasApiContent(api)) { setStatus("Add at least one API field before saving."); return; }
     try {
       const result = await dispatch(
-        upsertSection({
-          projectId: resolvedProjectId,
-          type: "api",
-          content: api,
-        }),
+        upsertSection({ projectId: resolvedProjectId, type: "api", content: api }),
       ).unwrap();
-      const normalized = normalizeApi(
-        result.section?.content ?? result.section,
-      );
-      setApi(normalized);
-      setShown(true);
-      setStatus("API section saved.");
+      setApi(normalizeApi(result.section?.content ?? result.section));
+      setStatus("API section saved."); setStatusType("success");
     } catch (err: any) {
-      setStatus(err?.message || "Failed to save API section.");
+      setStatus(err?.message || "Failed to save API section."); setStatusType("error");
     }
-  };
-
-  const show = () => {
-    setShown(true);
-    setStatus("Sample reference opened.");
-  };
-  const openFolder = () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before opening folder.");
-      return;
-    }
-    router.push(`/projects/${resolvedProjectId}/folder`);
-  };
-
-  const upRoute = (r: ApiRoute) =>
-    setApi((p) => ({ ...p, rest: p.rest.map((x) => (x.id === r.id ? r : x)) }));
-  const delRoute = (id: string) =>
-    setApi((p) => ({ ...p, rest: p.rest.filter((x) => x.id !== id) }));
-  const addRoute = () => {
-    setEditingRoute(null);
-    setRouteModalOpen(true);
-  };
-  const saveRoute = (r: ApiRoute) => {
-    if (editingRoute) upRoute(r);
-    else setApi((p) => ({ ...p, rest: [...p.rest, r] }));
-    setRouteModalOpen(false);
-    setEditingRoute(null);
-  };
-  const editRoute = (r: ApiRoute) => {
-    setEditingRoute(r);
-    setRouteModalOpen(true);
-  };
-
-  const upEvent = (e: WebSocketEvent) =>
-    setApi((p) => ({
-      ...p,
-      realtime: (p.realtime ?? []).map((x) => (x.id === e.id ? e : x)),
-    }));
-  const delEvent = (id: string) =>
-    setApi((p) => ({
-      ...p,
-      realtime: (p.realtime ?? []).filter((x) => x.id !== id),
-    }));
-  const addEvent = () => {
-    setEditingWs(null);
-    setWsModalOpen(true);
-  };
-  const saveEvent = (e: WebSocketEvent) => {
-    if (editingWs) upEvent(e);
-    else setApi((p) => ({ ...p, realtime: [...(p.realtime ?? []), e] }));
-    setWsModalOpen(false);
-    setEditingWs(null);
-  };
-  const editEvent = (e: WebSocketEvent) => {
-    setEditingWs(e);
-    setWsModalOpen(true);
-  };
-
-  const applyAI = (s: ApplySuggestion) => {
-    setApi((p) => normalizeApi({ ...p, ...s.payload }));
-    setShown(true);
-    setStatus("Applied suggestion locally.");
   };
 
   const handleAcceptPreview = () => {
     if (!previewData) return;
-    setApi(previewData);
-    setShown(true);
-    setPreviewData(null);
-    setStatus("Preview applied. Click Save to persist.");
+    setApi(previewData); setPreviewData(null);
+    setStatus("Preview applied. Click Save to persist."); setStatusType("success");
   };
-  const handleRejectPreview = () => {
-    setPreviewData(null);
-    setStatus(null);
+  const handleRejectPreview = () => { setPreviewData(null); setStatus(null); setStatusType(null); };
+
+  const upRoute = (r: ApiRoute) => setApi((p) => ({ ...p, rest: p.rest.map((x) => (x.id === r.id ? r : x)) }));
+  const delRoute = (id: string) => setApi((p) => ({ ...p, rest: p.rest.filter((x) => x.id !== id) }));
+  const saveRoute = (r: ApiRoute) => {
+    if (editingRoute) upRoute(r); else setApi((p) => ({ ...p, rest: [...p.rest, r] }));
+    setRouteModalOpen(false); setEditingRoute(null);
+  };
+  const upEvent = (e: WebSocketEvent) => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).map((x) => (x.id === e.id ? e : x)) }));
+  const delEvent = (id: string) => setApi((p) => ({ ...p, realtime: (p.realtime ?? []).filter((x) => x.id !== id) }));
+  const saveEvent = (e: WebSocketEvent) => {
+    if (editingWs) upEvent(e); else setApi((p) => ({ ...p, realtime: [...(p.realtime ?? []), e] }));
+    setWsModalOpen(false); setEditingWs(null);
+  };
+
+  const applyAI = (s: ApplySuggestion) => {
+    setApi((p) => normalizeApi({ ...p, ...s.payload }));
+    setStatus("Applied suggestion locally."); setStatusType("success");
   };
 
   return (
     <div
       ref={scrollRef}
-      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
-      style={{ background: C.bg, fontFamily: "'Inter', sans-serif" }}
+      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar"
+      style={{ ...INTER, backgroundColor: BG }}
     >
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-y-auto no-scrollbar">
         <motion.div
-          className={`mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:pl-8 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-8"}`}
+          className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
           variants={stagger}
           initial="hidden"
           animate="show"
         >
-          {/* ── Breadcrumb bar ── */}
-          <motion.div
-            variants={fadeUp(0)}
-            className="mb-6 flex flex-wrap items-center justify-between gap-3 border px-4 py-3"
-            style={{ borderColor: C.border, background: C.inner }}
-          >
-            <div
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em]"
-              style={{ fontFamily: "'Roboto Mono', monospace", color: C.label }}
-            >
-              <span>Planex</span>
-              <span style={{ color: C.border }}>/</span>
-              <span>Section</span>
-              <span style={{ color: C.border }}>//</span>
-              <span className="text-[10px]" style={{ color: C.accent }}>
-                02 / API
-              </span>
-            </div>
 
-            <div className="flex items-center gap-2">
-              {canRegenerate ? (
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80 disabled:opacity-50"
-                  style={{
-                    borderColor: "rgba(96,165,250,0.4)",
-                    background: "rgba(96,165,250,0.08)",
-                    color: "#93c5fd",
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
-                  <RotateCcw size={11} />
-                  {isJobLoading ? "Regenerating…" : "Regenerate"}
-                </button>
-              ) : (
-                <button
-                  onClick={handleGenerate}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80 disabled:opacity-50"
-                  style={{
-                    borderColor: "rgba(96,165,250,0.4)",
-                    background: "rgba(96,165,250,0.08)",
-                    color: "#93c5fd",
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
-                  <Sparkles size={11} />
-                  {isJobLoading ? "Generating…" : "Generate"}
-                </button>
-              )}
+          {/* ── Top bar — Refresh / Save (matches Idea page) ── */}
+          <motion.div variants={fadeUp(0)} className="mb-8 flex flex-wrap items-center justify-end gap-2">
+            <button
+              onClick={fetchApi}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              <RefreshCw size={12} />
+              Refresh
+            </button>
+            {canRegenerate ? (
               <button
-                onClick={fetchApi}
-                className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                style={{
-                  borderColor: C.border,
-                  background: "transparent",
-                  color: C.label,
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
+                onClick={handleRegenerate}
+                disabled={isJobLoading}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{ ...MONO, borderColor: "#60a5fa55", color: "#60a5fa", backgroundColor: "#60a5fa12" }}
               >
-                <RotateCcw size={11} />
-                Refresh
+                <Sparkles size={12} />
+                {isJobLoading ? "Regenerating..." : "Regenerate"}
               </button>
+            ) : (
               <button
-                onClick={handleSaveDraft}
-                disabled={loading}
-                className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80 disabled:opacity-50"
-                style={{
-                  borderColor: C.accent,
-                  background: C.accentDim,
-                  color: C.accent,
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
+                onClick={handleGenerate}
+                disabled={isJobLoading}
+                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
+                style={{ ...MONO, borderColor: "#60a5fa55", color: "#60a5fa", backgroundColor: "#60a5fa12" }}
               >
-                <Check size={11} />
-                {isSaving ? "Saving…" : "Save"}
+                <Sparkles size={12} />
+                {isJobLoading ? "Generating..." : "Generate"}
               </button>
-            </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
+              style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}
+            >
+              <Save size={12} />
+              {isSaving ? "Saving..." : "Save"}
+            </button>
           </motion.div>
 
-          {/* ── Loading bar ── */}
+          {/* ── Loading bar (matches Idea page) ── */}
           {loading && (
             <div
-              className="mb-4 flex items-center gap-3 border px-4 py-3"
-              style={{ borderColor: C.accent, background: C.accentDim }}
+              className="mb-6 flex items-center gap-2.5 border px-4 py-2.5"
+              style={{ borderColor: `${ACCENT}30`, backgroundColor: `${ACCENT}10` }}
             >
               <motion.div
                 animate={{ rotate: 360 }}
-                transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                className="h-3.5 w-3.5 rounded-full border-2"
-                style={{ borderColor: C.accent, borderTopColor: "transparent" }}
+                transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                className="h-4 w-4 rounded-full border-2 border-t-transparent"
+                style={{ borderColor: ACCENT, borderTopColor: "transparent" }}
               />
-              <p
-                className="text-[10px] font-bold uppercase tracking-[0.22em]"
-                style={{
-                  color: C.accent,
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
-              >
-                {isSaving
-                  ? "Saving API section"
-                  : isJobLoading
-                    ? "Generating API section"
-                    : "Loading API section"}
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em]" style={{ ...MONO, color: ACCENT }}>
+                {isJobLoading ? "Generating API section" : isSaving ? "Saving API section" : "Loading API section"}
               </p>
             </div>
           )}
 
-          {/* ── Error ── */}
-          {error && (
-            <div
-              className="mb-4 border px-4 py-3"
-              style={{
-                borderColor: "rgba(239,68,68,0.4)",
-                background: "rgba(239,68,68,0.08)",
-              }}
-            >
-              <p
-                className="text-[10px] font-bold uppercase tracking-[0.18em]"
-                style={{
-                  color: "#ef4444",
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
+          {/* ── Error (matches Idea page) ── */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="mb-6 flex items-start gap-3 border p-4"
+                style={{ borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }}
               >
-                Error
-              </p>
-              <p
-                className="mt-1 text-[12px]"
-                style={{ color: "rgba(239,68,68,0.7)" }}
-              >
-                {error}
-              </p>
-            </div>
-          )}
+                <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-500" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-400 text-sm" style={INTER}>Error</p>
+                  <p className="mt-1 text-sm text-red-400/75" style={INTER}>{error}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* ── Status toast ── */}
+          {/* ── Status (matches Idea page) ── */}
           <AnimatePresence>
             {status && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="mb-4 border px-4 py-3 text-[12px]"
+                initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }} transition={{ duration: 0.25 }}
+                className="mb-6 flex items-center gap-3 border px-4 py-3"
                 style={{
-                  borderColor: "rgba(96,165,250,0.3)",
-                  background: "rgba(96,165,250,0.08)",
-                  color: "#93c5fd",
-                  fontFamily: "'Roboto Mono',monospace",
+                  borderColor: statusType === "success" ? "rgba(34,197,94,0.3)" : "rgba(245,158,11,0.3)",
+                  backgroundColor: statusType === "success" ? "rgba(34,197,94,0.08)" : "rgba(245,158,11,0.08)",
                 }}
               >
-                {status}
+                {statusType === "success"
+                  ? <CheckCircle size={16} className="text-emerald-500 shrink-0" />
+                  : <Zap size={16} className="text-amber-500 shrink-0" />}
+                <p className="text-sm font-medium" style={{ ...INTER, color: statusType === "success" ? "#34d399" : "#fbbf24" }}>
+                  {status}
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* ── Page title ── */}
-          <motion.div variants={fadeUp(1)} className="mb-8">
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-10 w-10 items-center justify-center border"
-                style={{ borderColor: C.accent, background: C.accentDim }}
-              >
-                <Code2 size={18} style={{ color: C.accent }} />
-              </div>
-              <div>
-                <p
-                  className="text-[9px] font-bold uppercase tracking-[0.3em] mb-1"
+          {/* ── Breadcrumb (matches Idea page exactly) ── */}
+          <motion.div variants={fadeUp(1)} className="mb-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ ...MONO, color: ACCENT }}>
+              Section // 03 / API Design
+            </p>
+          </motion.div>
+
+          {/* ── Giant headline (matches Idea page) ── */}
+          <motion.div variants={fadeUp(2)} className="mb-6">
+            <h1
+              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
+              style={INTER_TIGHT}
+            >
+              API Design
+            </h1>
+          </motion.div>
+
+          {/* ── Tag pills (matches Idea page) ── */}
+          <motion.div variants={fadeUp(3)} className="mb-10 flex flex-wrap items-center gap-3">
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              Ver: {hasApiContent(api) ? "4.2.0" : "0.0.0"}
+            </span>
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              {api.rest.length > 0 ? `${api.rest.length}_Endpoints_Defined` : "No_Endpoints_Yet"}
+            </span>
+            <span
+              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+            >
+              Auth: {api.auth.type}
+            </span>
+          </motion.div>
+
+          {/* ── Section divider (matches Idea page) ── */}
+          <motion.div variants={fadeUp(4)} className="mb-8 flex items-center gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0" style={{ ...MONO, color: MUTED }}>
+              Endpoints & Auth
+            </span>
+            <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+          </motion.div>
+
+          {/* ── Tabs ── */}
+          <motion.div variants={fadeUp(5)} className="mb-6">
+            <div className="flex gap-0 border" style={{ borderColor: BORDER, width: "fit-content" }}>
+              {([
+                ["rest", Globe, `REST  (${api.rest.length})`],
+                ["realtime", Wifi, `WS Events  (${api.realtime?.length ?? 0})`],
+                ["auth", Key, "Auth Flow"],
+              ] as const).map(([id, Icon, label]) => (
+                <button
+                  key={id}
+                  onClick={() => setTab(id)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold tracking-[0.14em] transition-all duration-150 border-r last:border-r-0"
                   style={{
-                    color: C.accent,
-                    fontFamily: "'Roboto Mono',monospace",
+                    ...MONO,
+                    borderColor: BORDER,
+                    background: tab === id ? `${ACCENT}12` : "transparent",
+                    color: tab === id ? ACCENT : MUTED,
+                    borderBottomColor: tab === id ? ACCENT : "transparent",
+                    borderBottomWidth: 2,
                   }}
                 >
-                  Section // 02
-                </p>
-                <h1
-                  className="text-3xl font-black uppercase text-white tracking-[0.06em]"
-                  style={{ fontFamily: "'Roboto', sans-serif" }}
-                >
-                  API Design
-                </h1>
-                <p
-                  className="mt-1 text-[12px]"
-                  style={{
-                    color: C.label,
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
-                  Define REST, WebSocket, and authentication layers.
-                </p>
-              </div>
+                  <Icon size={11} />
+                  {label}
+                </button>
+              ))}
             </div>
           </motion.div>
 
-          {/* ── Show / hide toggle ── */}
-          <motion.div variants={fadeUp(2)} className="mb-6">
-            {!shown ? (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={show}
-                className="flex items-center gap-2 border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.16em] transition hover:opacity-80"
-                style={{
-                  borderColor: C.accent,
-                  background: C.accentDim,
-                  color: C.accent,
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
-              >
-                <ChevronDown size={12} />
-                Show API Fields
-              </motion.button>
-            ) : (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex items-center gap-1.5 text-[10px] font-mono tracking-[0.1em]"
-                style={{
-                  color: "#22c55e",
-                  fontFamily: "'Roboto Mono',monospace",
-                }}
-              >
-                <Check size={11} />
-                Fields visible — edit below
-              </motion.span>
-            )}
-          </motion.div>
+          {/* ── Tab content ── */}
+          <motion.div variants={fadeUp(6)}>
+            <AnimatePresence mode="wait">
 
-          {/* ── Builder ── */}
-          <AnimatePresence>
-            {shown && (
-              <motion.div
-                variants={fadeUp(3)}
-                initial="hidden"
-                animate="show"
-                exit="hidden"
-                className="flex flex-col gap-6"
-              >
-                {/* Sample reference notice */}
-                {!hasApiContent(api) && (
-                  <div
-                    className="border p-4"
-                    style={{
-                      borderColor: C.border,
-                      borderStyle: "dashed",
-                      background: C.inner,
-                    }}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles size={12} style={{ color: C.accent }} />
-                      <p
-                        className="text-[9px] font-bold uppercase tracking-[0.22em]"
-                        style={{
-                          color: C.accent,
-                          fontFamily: "'Roboto Mono',monospace",
-                        }}
-                      >
-                        Sample Reference Only
+              {/* REST */}
+              {tab === "rest" && (
+                <motion.div key="rest" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0" style={{ ...MONO, color: MUTED }}>Active Routes</span>
+                    <button
+                      onClick={() => { setEditingRoute(null); setRouteModalOpen(true); }}
+                      className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                      style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}
+                    >
+                      <Plus size={13} />
+                      Add Endpoint
+                    </button>
+                  </div>
+
+                  {api.rest.length === 0 ? (
+                    <div className="border p-8 text-center" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                      <p className="text-base" style={{ ...INTER, color: MUTED }}>
+                        No endpoints yet. Click "Add Endpoint" or use Generate to get started.
                       </p>
                     </div>
-                    <p
-                      className="text-[12px] leading-relaxed mb-4"
-                      style={{ color: C.label }}
-                    >
-                      The example structure below is for reference only. It is
-                      not written into the saved API section.
-                    </p>
-                    <button
-                      onClick={openFolder}
-                      className="flex items-center gap-2 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                      style={{
-                        borderColor: C.accent,
-                        background: C.accentDim,
-                        color: C.accent,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
-                      <ArrowRight size={11} />
-                      Show your folder
-                    </button>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      {MOCK.rest.slice(0, 2).map((route) => {
-                        const s = METHOD_STYLE[route.method];
+                  ) : (
+                    <div className="border" style={{ borderColor: BORDER }}>
+                      {api.rest.map((r, i) => {
+                        const s = METHOD_STYLE[r.method];
                         return (
-                          <div
-                            key={route.id}
-                            className="border p-3"
-                            style={{ borderColor: C.border, background: C.bg }}
+                          <motion.div
+                            key={r.id} layout
+                            className="flex items-center gap-3 px-4 py-3 group transition-colors"
+                            style={{ borderBottom: i < api.rest.length - 1 ? `1px solid ${BORDER}` : undefined, background: "transparent" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = INNER_BG)}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                           >
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="px-2 py-0.5 text-[9px] font-bold tracking-[0.1em] border"
-                                style={{
-                                  background: s.bg,
-                                  borderColor: s.border,
-                                  color: s.color,
-                                  fontFamily: "'Roboto Mono',monospace",
-                                }}
-                              >
-                                {route.method}
-                              </span>
-                              <span
-                                className="font-mono text-[12px]"
-                                style={{ color: C.whiteDim }}
-                              >
-                                {route.path}
-                              </span>
+                            <span
+                              className="shrink-0 px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] border min-w-[46px] text-center"
+                              style={{ ...MONO, background: s.bg, borderColor: s.border, color: s.color }}
+                            >{r.method}</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-mono truncate text-white">{r.path}</p>
+                              {r.description && <p className="text-[11px] truncate mt-0.5" style={{ color: MUTED }}>{r.description}</p>}
                             </div>
-                            <p
-                              className="mt-2 text-[11px]"
-                              style={{ color: C.label }}
-                            >
-                              {route.description}
-                            </p>
-                          </div>
+                            {r.authRequired && (
+                              <div className="flex items-center gap-1 border px-2 py-0.5 text-[9px] font-bold tracking-[0.1em] shrink-0"
+                                style={{ ...MONO, borderColor: `${ACCENT}40`, background: `${ACCENT}12`, color: ACCENT }}>
+                                <Lock size={9} />AUTH
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => { setEditingRoute(r); setRouteModalOpen(true); }}
+                                className="p-1.5 border transition hover:opacity-70" style={{ borderColor: BORDER, color: MUTED }}>
+                                <ChevronDown size={12} className="-rotate-90" />
+                              </button>
+                              <button onClick={() => delRoute(r.id)}
+                                className="p-1.5 border transition hover:opacity-70"
+                                style={{ borderColor: "rgba(239,68,68,0.3)", color: "rgba(239,68,68,0.6)" }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </motion.div>
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  )}
+                </motion.div>
+              )}
 
-                {/* ── Tabs ── */}
-                <div
-                  className="flex gap-0 border"
-                  style={{ borderColor: C.border, width: "fit-content" }}
-                >
-                  {(
-                    [
-                      ["rest", Globe, `REST ENDPOINTS  (${api.rest.length})`],
-                      [
-                        "realtime",
-                        Wifi,
-                        `WS EVENTS  (${api.realtime?.length ?? 0})`,
-                      ],
-                      ["auth", Key, "AUTH FLOW"],
-                    ] as const
-                  ).map(([id, Icon, label]) => (
+              {/* WS Events */}
+              {tab === "realtime" && (
+                <motion.div key="realtime" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0" style={{ ...MONO, color: MUTED }}>WebSocket Events</span>
                     <button
-                      key={id}
-                      onClick={() => setTab(id)}
-                      className="flex items-center gap-1.5 px-4 py-2.5 text-[10px] font-bold tracking-[0.14em] transition-all duration-150 border-r last:border-r-0"
-                      style={{
-                        fontFamily: "'Roboto Mono',monospace",
-                        borderColor: C.border,
-                        background: tab === id ? C.accentDim : "transparent",
-                        color: tab === id ? C.accent : C.label,
-                        borderBottomColor:
-                          tab === id ? C.accent : "transparent",
-                        borderBottomWidth: 2,
-                      }}
+                      onClick={() => { setEditingWs(null); setWsModalOpen(true); }}
+                      className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                      style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}
                     >
-                      <Icon size={11} />
-                      {label}
+                      <Plus size={13} />Add Event
                     </button>
-                  ))}
-                </div>
+                  </div>
 
-                {/* ── Tab content ── */}
-                <AnimatePresence mode="wait">
-                  {/* REST */}
-                  {tab === "rest" && (
-                    <motion.div
-                      key="rest"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="flex flex-col gap-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p
-                          className="text-[9px] font-bold uppercase tracking-[0.22em]"
-                          style={{
-                            color: C.label,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
+                  {(api.realtime ?? []).length === 0 ? (
+                    <div className="border p-8 text-center" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                      <p className="text-base" style={{ ...INTER, color: MUTED }}>No WebSocket events defined yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {(api.realtime ?? []).map((e) => (
+                        <motion.div key={e.id} layout
+                          className="group border p-5 transition-colors"
+                          style={{ borderColor: BORDER, background: INNER_BG }}
+                          onMouseEnter={(ev) => (ev.currentTarget.style.borderColor = `${ACCENT}40`)}
+                          onMouseLeave={(ev) => (ev.currentTarget.style.borderColor = BORDER)}
                         >
-                          Active Routes
-                        </p>
-                        <button
-                          onClick={addRoute}
-                          className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                          style={{
-                            borderColor: C.accent,
-                            background: C.accentDim,
-                            color: C.accent,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
-                        >
-                          <Plus size={11} />
-                          Add Endpoint
-                        </button>
-                      </div>
-
-                      {api.rest.length === 0 ? (
-                        <div
-                          className="flex flex-col items-center justify-center gap-3 border py-14 px-4"
-                          style={{
-                            borderColor: C.border,
-                            borderStyle: "dashed",
-                          }}
-                        >
-                          <Globe size={22} style={{ color: C.border }} />
-                          <p
-                            className="text-[12px]"
-                            style={{ color: C.whiteFaint }}
-                          >
-                            No endpoints yet.
-                          </p>
-                        </div>
-                      ) : (
-                        <div
-                          className="border"
-                          style={{ borderColor: C.border }}
-                        >
-                          {api.rest.map((r, i) => {
-                            const s = METHOD_STYLE[r.method];
-                            return (
-                              <motion.div
-                                key={r.id}
-                                layout
-                                className="flex items-center gap-3 px-4 py-3 group transition-colors"
-                                style={{
-                                  borderBottom:
-                                    i < api.rest.length - 1
-                                      ? `1px solid ${C.border}`
-                                      : undefined,
-                                  background: "transparent",
-                                }}
-                                onMouseEnter={(e) =>
-                                  (e.currentTarget.style.background = C.inner)
-                                }
-                                onMouseLeave={(e) =>
-                                  (e.currentTarget.style.background =
-                                    "transparent")
-                                }
-                              >
-                                {/* Method badge */}
-                                <span
-                                  className="shrink-0 px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] border min-w-[46px] text-center"
-                                  style={{
-                                    background: s.bg,
-                                    borderColor: s.border,
-                                    color: s.color,
-                                    fontFamily: "'Roboto Mono',monospace",
-                                  }}
-                                >
-                                  {r.method}
-                                </span>
-
-                                {/* Path + desc */}
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className="text-[13px] font-mono truncate"
-                                    style={{ color: C.white }}
-                                  >
-                                    {r.path}
-                                  </p>
-                                  {r.description && (
-                                    <p
-                                      className="text-[11px] truncate mt-0.5"
-                                      style={{ color: C.label }}
-                                    >
-                                      {r.description}
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Auth badge */}
-                                {r.authRequired && (
-                                  <div
-                                    className="flex items-center gap-1 border px-2 py-0.5 text-[9px] font-bold tracking-[0.1em] shrink-0"
-                                    style={{
-                                      borderColor: C.accentMid,
-                                      background: C.accentDim,
-                                      color: C.accent,
-                                      fontFamily: "'Roboto Mono',monospace",
-                                    }}
-                                  >
-                                    <Lock size={9} />
-                                    AUTH
-                                  </div>
-                                )}
-
-                                {/* Actions */}
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => editRoute(r)}
-                                    className="p-1.5 border transition hover:opacity-70"
-                                    style={{
-                                      borderColor: C.border,
-                                      color: C.label,
-                                    }}
-                                  >
-                                    <ChevronDown
-                                      size={12}
-                                      className="-rotate-90"
-                                    />
-                                  </button>
-                                  <button
-                                    onClick={() => delRoute(r.id)}
-                                    className="p-1.5 border transition hover:opacity-70"
-                                    style={{
-                                      borderColor: "rgba(239,68,68,0.3)",
-                                      color: "rgba(239,68,68,0.6)",
-                                    }}
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {/* WebSocket */}
-                  {tab === "realtime" && (
-                    <motion.div
-                      key="realtime"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="flex flex-col gap-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p
-                          className="text-[9px] font-bold uppercase tracking-[0.22em]"
-                          style={{
-                            color: C.label,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
-                        >
-                          WebSocket Events
-                        </p>
-                        <button
-                          onClick={addEvent}
-                          className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                          style={{
-                            borderColor: C.accent,
-                            background: C.accentDim,
-                            color: C.accent,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
-                        >
-                          <Plus size={11} />
-                          Add Event
-                        </button>
-                      </div>
-
-                      {(api.realtime ?? []).length === 0 ? (
-                        <div
-                          className="flex flex-col items-center justify-center gap-3 border py-14 px-4"
-                          style={{
-                            borderColor: C.border,
-                            borderStyle: "dashed",
-                          }}
-                        >
-                          <Wifi size={22} style={{ color: C.border }} />
-                          <p
-                            className="text-[12px]"
-                            style={{ color: C.whiteFaint }}
-                          >
-                            No WebSocket events defined.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                          {(api.realtime ?? []).map((e) => (
-                            <motion.div
-                              key={e.id}
-                              layout
-                              className="flex flex-col gap-3 border p-4 group transition-colors"
-                              style={{
-                                borderColor: C.border,
-                                background: C.inner,
-                              }}
-                              onMouseEnter={(ev) =>
-                                (ev.currentTarget.style.borderColor =
-                                  C.accentMid)
-                              }
-                              onMouseLeave={(ev) =>
-                                (ev.currentTarget.style.borderColor = C.border)
-                              }
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0 flex-1">
-                                  <p
-                                    className="font-mono text-[13px] truncate"
-                                    style={{ color: C.accent }}
-                                  >
-                                    {e.name}
-                                  </p>
-                                  <p
-                                    className="mt-1 text-[11px] line-clamp-2"
-                                    style={{ color: C.label }}
-                                  >
-                                    {e.description}
-                                  </p>
-                                </div>
-                                <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={() => editEvent(e)}
-                                    className="p-1.5 border"
-                                    style={{
-                                      borderColor: C.border,
-                                      color: C.label,
-                                    }}
-                                  >
-                                    <ChevronDown
-                                      size={12}
-                                      className="-rotate-90"
-                                    />
-                                  </button>
-                                  <button
-                                    onClick={() => delEvent(e.id)}
-                                    className="p-1.5 border"
-                                    style={{
-                                      borderColor: "rgba(239,68,68,0.3)",
-                                      color: "rgba(239,68,68,0.6)",
-                                    }}
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {Object.entries(e.payload).length > 0 && (
-                                <div
-                                  className="border p-2"
-                                  style={{
-                                    borderColor: C.border,
-                                    background: C.bg,
-                                  }}
-                                >
-                                  <p
-                                    className="text-[8px] font-bold uppercase tracking-[0.2em] mb-1.5"
-                                    style={{
-                                      color: C.label,
-                                      fontFamily: "'Roboto Mono',monospace",
-                                    }}
-                                  >
-                                    Payload
-                                  </p>
-                                  <div className="space-y-1">
-                                    {Object.entries(e.payload)
-                                      .slice(0, 2)
-                                      .map(([k, v]) => (
-                                        <div
-                                          key={k}
-                                          className="text-[10px] font-mono"
-                                          style={{
-                                            fontFamily:
-                                              "'Roboto Mono',monospace",
-                                          }}
-                                        >
-                                          <span style={{ color: C.accent }}>
-                                            {k}
-                                          </span>
-                                          <span style={{ color: C.border }}>
-                                            :{" "}
-                                          </span>
-                                          <span style={{ color: C.label }}>
-                                            {v}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    {Object.entries(e.payload).length > 2 && (
-                                      <div
-                                        className="text-[10px]"
-                                        style={{ color: C.whiteFaint }}
-                                      >
-                                        +{Object.entries(e.payload).length - 2}{" "}
-                                        more fields
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </motion.div>
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
-
-                  {/* Auth */}
-                  {tab === "auth" && (
-                    <motion.div
-                      key="auth"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.18 }}
-                      className="flex flex-col gap-5"
-                    >
-                      <p
-                        className="text-[9px] font-bold uppercase tracking-[0.22em]"
-                        style={{
-                          color: C.label,
-                          fontFamily: "'Roboto Mono',monospace",
-                        }}
-                      >
-                        Authentication Flow
-                      </p>
-
-                      {/* Auth hero block (like screenshot) */}
-                      <div
-                        className="border p-5"
-                        style={{ borderColor: C.accent, background: C.inner }}
-                      >
-                        <div className="flex items-center gap-2 mb-3">
-                          <Lock size={12} style={{ color: C.accent }} />
-                          <span
-                            className="text-[9px] font-bold uppercase tracking-[0.22em]"
-                            style={{
-                              color: C.accent,
-                              fontFamily: "'Roboto Mono',monospace",
-                            }}
-                          >
-                            Authentication Flow
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {AUTH_TYPES.map((t) => {
-                            const { color, Icon } = AUTH_STYLE[t];
-                            const active = api.auth.type === t;
-                            return (
-                              <button
-                                key={t}
-                                onClick={() =>
-                                  setApi((p) => ({
-                                    ...p,
-                                    auth: { ...p.auth, type: t },
-                                  }))
-                                }
-                                className="flex items-center gap-1.5 border px-3 py-1.5 text-[11px] font-bold tracking-[0.1em] transition-all"
-                                style={{
-                                  fontFamily: "'Roboto Mono',monospace",
-                                  background: active
-                                    ? `${color}18`
-                                    : "transparent",
-                                  borderColor: active ? color : C.border,
-                                  color: active ? color : C.label,
-                                }}
-                              >
-                                <Icon size={11} />
-                                {t}
+                          <div className="flex items-start justify-between gap-2 mb-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-mono text-[13px] truncate" style={{ color: ACCENT }}>{e.name}</p>
+                              <p className="mt-1 text-[11px] line-clamp-2" style={{ color: MUTED }}>{e.description}</p>
+                            </div>
+                            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => { setEditingWs(e); setWsModalOpen(true); }}
+                                className="p-1.5 border" style={{ borderColor: BORDER, color: MUTED }}>
+                                <ChevronDown size={12} className="-rotate-90" />
                               </button>
-                            );
-                          })}
-                        </div>
-
-                        {/* Description */}
-                        <div
-                          className="border p-3 mb-0"
-                          style={{ borderColor: C.border, background: C.bg }}
-                        >
-                          <EditField
-                            value={api.auth.description}
-                            onChange={(v) =>
-                              setApi((p) => ({
-                                ...p,
-                                auth: { ...p.auth, description: v },
-                              }))
-                            }
-                            placeholder="Describe the auth strategy…"
-                            className="text-[13px] leading-relaxed w-full"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Protected routes */}
-                      <div
-                        className="border p-4"
-                        style={{ borderColor: C.border, background: C.inner }}
-                      >
-                        <p
-                          className="text-[9px] font-bold uppercase tracking-[0.22em] mb-3"
-                          style={{
-                            color: C.label,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
-                        >
-                          Active Routes
-                        </p>
-                        <div className="space-y-1.5 mb-3">
-                          {api.auth.routes.map((r, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center gap-2 group border px-3 py-2"
-                              style={{ borderColor: C.border }}
-                            >
-                              <ArrowRight
-                                size={10}
-                                style={{ color: C.accent }}
-                                className="shrink-0"
-                              />
-                              <code
-                                className="flex-1 text-[12px] font-mono"
-                                style={{
-                                  fontFamily: "'Roboto Mono',monospace",
-                                  color: C.whiteDim,
-                                }}
-                              >
-                                <EditField
-                                  value={r}
-                                  onChange={(v) => {
-                                    const routes = [...api.auth.routes];
-                                    routes[i] = v;
-                                    setApi((p) => ({
-                                      ...p,
-                                      auth: { ...p.auth, routes },
-                                    }));
-                                  }}
-                                  placeholder="/api/v1/…"
-                                  mono
-                                  className="text-[12px]"
-                                />
-                              </code>
-                              <button
-                                onClick={() =>
-                                  setApi((p) => ({
-                                    ...p,
-                                    auth: {
-                                      ...p.auth,
-                                      routes: p.auth.routes.filter(
-                                        (_, j) => j !== i,
-                                      ),
-                                    },
-                                  }))
-                                }
-                                className="p-1 transition opacity-0 group-hover:opacity-100"
-                                style={{ color: C.label }}
-                              >
-                                <X size={10} />
+                              <button onClick={() => delEvent(e.id)} className="p-1.5 border"
+                                style={{ borderColor: "rgba(239,68,68,0.3)", color: "rgba(239,68,68,0.6)" }}>
+                                <Trash2 size={12} />
                               </button>
                             </div>
-                          ))}
-                        </div>
-                        <button
-                          onClick={() =>
-                            setApi((p) => ({
-                              ...p,
-                              auth: {
-                                ...p.auth,
-                                routes: [...p.auth.routes, "/api/v1/"],
-                              },
-                            }))
-                          }
-                          className="flex items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                          style={{
-                            borderColor: C.border,
-                            background: "transparent",
-                            color: C.label,
-                            fontFamily: "'Roboto Mono',monospace",
-                          }}
-                        >
-                          <Plus size={10} />
-                          Add Route
-                        </button>
-                      </div>
-                    </motion.div>
+                          </div>
+                          {Object.entries(e.payload).length > 0 && (
+                            <div className="border p-3" style={{ borderColor: BORDER, background: BG }}>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] mb-2" style={{ ...MONO, color: MUTED }}>Payload</p>
+                              <div className="space-y-1">
+                                {Object.entries(e.payload).slice(0, 3).map(([k, v]) => (
+                                  <div key={k} className="text-[10px]" style={MONO}>
+                                    <span style={{ color: ACCENT }}>{k}</span>
+                                    <span style={{ color: BORDER }}>: </span>
+                                    <span style={{ color: MUTED }}>{v}</span>
+                                  </div>
+                                ))}
+                                {Object.entries(e.payload).length > 3 && (
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                    +{Object.entries(e.payload).length - 3} more fields
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
                   )}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                </motion.div>
+              )}
 
-          {/* ── Empty nudge ── */}
-          {!shown && (
-            <motion.div
-              variants={fadeUp(4)}
-              className="flex flex-col items-center text-center gap-4 border py-20 px-4"
-              style={{ borderColor: C.border, borderStyle: "dashed" }}
-            >
-              <div
-                className="w-11 h-11 border flex items-center justify-center"
-                style={{ borderColor: C.accent, background: C.accentDim }}
-              >
-                <Code2 size={18} style={{ color: C.accent }} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <p
-                  className="text-[13px] font-bold uppercase tracking-[0.1em]"
-                  style={{ color: C.label, fontFamily: "'Roboto',sans-serif" }}
-                >
-                  No API defined yet
-                </p>
-                <p
-                  className="text-[11px] max-w-xs leading-relaxed"
-                  style={{ color: C.whiteFaint }}
-                >
-                  Click "Show API Fields" above or use the AI Copilot to
-                  generate your API structure.
-                </p>
-              </div>
-            </motion.div>
-          )}
+              {/* Auth Flow */}
+              {tab === "auth" && (
+                <motion.div key="auth" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} className="flex flex-col gap-5">
+                  <div className="mb-2 flex items-center gap-3">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0" style={{ ...MONO, color: MUTED }}>Authentication Strategy</span>
+                    <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+                  </div>
+
+                  <div className="border p-5" style={{ borderColor: ACCENT, background: INNER_BG }}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Lock size={12} style={{ color: ACCENT }} />
+                      <span className="text-[9px] font-bold uppercase tracking-[0.22em]" style={{ ...MONO, color: ACCENT }}>Auth Flow Config</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-5">
+                      {AUTH_TYPES.map((t) => {
+                        const { color, Icon } = AUTH_STYLE[t];
+                        const active = api.auth.type === t;
+                        return (
+                          <button key={t}
+                            onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, type: t } }))}
+                            className="flex items-center gap-1.5 border px-3 py-1.5 text-[11px] font-bold tracking-[0.1em] transition-all"
+                            style={{ ...MONO, background: active ? `${color}18` : "transparent", borderColor: active ? color : BORDER, color: active ? color : MUTED }}
+                          >
+                            <Icon size={11} />{t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="border p-4" style={{ borderColor: BORDER, background: BG }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] mb-2" style={{ ...MONO, color: MUTED }}>Description</p>
+                      <EditField
+                        value={api.auth.description}
+                        onChange={(v) => setApi((p) => ({ ...p, auth: { ...p.auth, description: v } }))}
+                        placeholder="Describe the auth strategy…"
+                        className="text-[13px] leading-relaxed w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="border p-5" style={{ borderColor: BORDER, background: INNER_BG }}>
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] shrink-0" style={{ ...MONO, color: MUTED }}>Protected Routes</span>
+                      <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+                    </div>
+                    <div className="space-y-1.5 mb-4">
+                      {api.auth.routes.length === 0 ? (
+                        <p className="text-sm py-2" style={{ ...INTER, color: MUTED }}>No routes added yet.</p>
+                      ) : (
+                        api.auth.routes.map((r, i) => (
+                          <div key={i} className="group flex items-center gap-2 border px-3 py-2" style={{ borderColor: BORDER }}>
+                            <ArrowRight size={10} style={{ color: ACCENT }} className="shrink-0" />
+                            <code className="flex-1 text-[12px] font-mono" style={{ ...MONO, color: "rgba(255,255,255,0.55)" }}>
+                              <EditField value={r}
+                                onChange={(v) => { const routes = [...api.auth.routes]; routes[i] = v; setApi((p) => ({ ...p, auth: { ...p.auth, routes } })); }}
+                                placeholder="/api/v1/…" mono className="text-[12px]" />
+                            </code>
+                            <button
+                              onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: p.auth.routes.filter((_, j) => j !== i) } }))}
+                              className="p-1 transition opacity-0 group-hover:opacity-100" style={{ color: MUTED }}>
+                              <X size={10} />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: [...p.auth.routes, "/api/v1/"] } }))}
+                      className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                      style={{ ...MONO, borderColor: BORDER, color: MUTED, background: "transparent" }}
+                    >
+                      <Plus size={13} />Add Route
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
         </motion.div>
       </div>
 
@@ -2301,159 +1120,56 @@ export default function ApiDesignPage() {
         {previewData && (
           <>
             <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={handleRejectPreview}
-              className="fixed inset-0 z-40"
-              style={{ background: "rgba(0,0,0,0.72)" }}
-              aria-label="Close preview"
-            />
-
+              className="fixed inset-0 z-40 bg-black/60" aria-label="Close preview" />
             <motion.div
-              initial={{ opacity: 0, y: 18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 shadow-2xl"
-              style={{ background: C.bg, borderColor: C.accent }}
+              initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 no-scrollbar"
+              style={{ borderColor: ACCENT, backgroundColor: BG, ...INTER }}
             >
-              <div
-                className="mb-6 flex items-center justify-between border-b pb-4"
-                style={{ borderColor: C.border }}
-              >
+              <div className="mb-6 flex items-center justify-between">
                 <div>
-                  <p
-                    className="text-[9px] font-bold uppercase tracking-[0.3em] mb-1"
-                    style={{
-                      color: C.accent,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Section // 02 / Preview
-                  </p>
-                  <p
-                    className="text-lg font-black uppercase tracking-[0.06em] text-white"
-                    style={{ fontFamily: "'Roboto', sans-serif" }}
-                  >
-                    Generated API
-                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-1" style={{ ...MONO, color: ACCENT }}>Section // 03 / Preview</p>
+                  <p className="text-lg font-black uppercase leading-none text-white" style={INTER_TIGHT}>Generated API</p>
                 </div>
-                <button
-                  onClick={handleRejectPreview}
-                  className="p-1 transition hover:opacity-60"
-                  style={{ color: C.label }}
-                >
-                  <X size={16} />
-                </button>
+                <button onClick={handleRejectPreview} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
               </div>
 
               <div className="space-y-6">
-                {previewData.rest.length > 0 ? (
+                {previewData.rest.length > 0 && (
                   <div>
-                    <p
-                      className="mb-3 text-[9px] font-bold uppercase tracking-[0.22em]"
-                      style={{
-                        color: C.label,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
-                      REST Endpoints
-                    </p>
-                    <div className="border" style={{ borderColor: C.border }}>
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>REST Endpoints</p>
+                    <div className="border" style={{ borderColor: BORDER }}>
                       {previewData.rest.map((route, i) => {
                         const s = METHOD_STYLE[route.method];
                         return (
-                          <div
-                            key={route.id}
-                            className="flex flex-wrap items-center gap-3 px-4 py-3"
-                            style={{
-                              borderBottom:
-                                i < previewData.rest.length - 1
-                                  ? `1px solid ${C.border}`
-                                  : undefined,
-                            }}
-                          >
-                            <span
-                              className="px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] border min-w-[46px] text-center"
-                              style={{
-                                background: s.bg,
-                                borderColor: s.border,
-                                color: s.color,
-                                fontFamily: "'Roboto Mono',monospace",
-                              }}
-                            >
-                              {route.method}
-                            </span>
-                            <span
-                              className="font-mono text-[12px]"
-                              style={{ color: C.whiteDim }}
-                            >
-                              {route.path}
-                            </span>
+                          <div key={route.id} className="flex flex-wrap items-center gap-3 px-4 py-3"
+                            style={{ borderBottom: i < previewData.rest.length - 1 ? `1px solid ${BORDER}` : undefined }}>
+                            <span className="px-2 py-0.5 text-[9px] font-bold tracking-[0.12em] border min-w-[46px] text-center"
+                              style={{ ...MONO, background: s.bg, borderColor: s.border, color: s.color }}>{route.method}</span>
+                            <span className="font-mono text-[12px]" style={{ color: "rgba(255,255,255,0.55)" }}>{route.path}</span>
                             {route.authRequired && (
-                              <span
-                                className="border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
-                                style={{
-                                  borderColor: C.accentMid,
-                                  background: C.accentDim,
-                                  color: C.accent,
-                                  fontFamily: "'Roboto Mono',monospace",
-                                }}
-                              >
-                                Auth Required
-                              </span>
+                              <span className="border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+                                style={{ ...MONO, borderColor: `${ACCENT}40`, background: `${ACCENT}12`, color: ACCENT }}>Auth</span>
                             )}
-                            <span
-                              className="text-[12px] ml-auto"
-                              style={{ color: C.label }}
-                            >
-                              {route.name}
-                            </span>
+                            <span className="text-[12px] ml-auto" style={{ color: MUTED }}>{route.name}</span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ) : (
-                  <div
-                    className="border p-4 text-[12px]"
-                    style={{ borderColor: C.border, color: C.label }}
-                  >
-                    No REST endpoints were generated.
-                  </div>
                 )}
 
                 {(previewData.realtime ?? []).length > 0 && (
                   <div>
-                    <p
-                      className="mb-3 text-[9px] font-bold uppercase tracking-[0.22em]"
-                      style={{
-                        color: C.label,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
-                      WebSocket Events
-                    </p>
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>WebSocket Events</p>
                     <div className="space-y-2">
                       {(previewData.realtime ?? []).map((ev) => (
-                        <div
-                          key={ev.id}
-                          className="border p-3"
-                          style={{ borderColor: C.border, background: C.inner }}
-                        >
-                          <p
-                            className="text-[13px] font-mono"
-                            style={{ color: C.accent }}
-                          >
-                            {ev.name}
-                          </p>
-                          <p
-                            className="mt-1 text-[11px]"
-                            style={{ color: C.label }}
-                          >
-                            {ev.description}
-                          </p>
+                        <div key={ev.id} className="border p-3" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                          <p className="text-[13px] font-mono" style={{ color: ACCENT }}>{ev.name}</p>
+                          <p className="mt-1 text-[11px]" style={{ color: MUTED }}>{ev.description}</p>
                         </div>
                       ))}
                     </div>
@@ -2461,52 +1177,20 @@ export default function ApiDesignPage() {
                 )}
 
                 <div>
-                  <p
-                    className="mb-3 text-[9px] font-bold uppercase tracking-[0.22em]"
-                    style={{
-                      color: C.label,
-                      fontFamily: "'Roboto Mono',monospace",
-                    }}
-                  >
-                    Auth Flow
-                  </p>
-                  <div
-                    className="border p-4"
-                    style={{ borderColor: C.border, background: C.inner }}
-                  >
-                    <span
-                      className="border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
-                      style={{
-                        borderColor: C.accentMid,
-                        background: C.accentDim,
-                        color: C.accent,
-                        fontFamily: "'Roboto Mono',monospace",
-                      }}
-                    >
+                  <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Auth Flow</p>
+                  <div className="border p-4" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                    <span className="border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+                      style={{ ...MONO, borderColor: `${ACCENT}40`, background: `${ACCENT}12`, color: ACCENT }}>
                       {previewData.auth.type}
                     </span>
-                    <p
-                      className="mt-3 text-[13px]"
-                      style={{ color: C.whiteDim }}
-                    >
-                      {previewData.auth.description ||
-                        "No auth description provided."}
+                    <p className="mt-3 text-[13px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                      {previewData.auth.description || "No auth description provided."}
                     </p>
                     {previewData.auth.routes.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {previewData.auth.routes.map((r) => (
-                          <span
-                            key={r}
-                            className="border px-2 py-1 font-mono text-[11px]"
-                            style={{
-                              borderColor: C.border,
-                              background: C.bg,
-                              color: C.label,
-                              fontFamily: "'Roboto Mono',monospace",
-                            }}
-                          >
-                            {r}
-                          </span>
+                          <span key={r} className="border px-2 py-1 font-mono text-[11px]"
+                            style={{ ...MONO, borderColor: BORDER, background: BG, color: MUTED }}>{r}</span>
                         ))}
                       </div>
                     )}
@@ -2514,46 +1198,19 @@ export default function ApiDesignPage() {
                 </div>
               </div>
 
-              <div
-                className="mt-6 flex justify-end gap-3 border-t pt-6"
-                style={{ borderColor: C.border }}
-              >
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="border px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80 disabled:opacity-50"
-                  style={{
-                    borderColor: "rgba(96,165,250,0.4)",
-                    background: "rgba(96,165,250,0.08)",
-                    color: "#93c5fd",
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
+              <div className="mt-8 flex justify-end gap-3 border-t pt-6" style={{ borderColor: BORDER }}>
+                <button onClick={handleRegenerate} disabled={isJobLoading}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
+                  style={{ ...MONO, borderColor: "#60a5fa55", color: "#60a5fa", backgroundColor: "#60a5fa12" }}>
                   Regenerate
                 </button>
-                <button
-                  onClick={handleRejectPreview}
-                  className="border px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                  style={{
-                    borderColor: C.border,
-                    background: "transparent",
-                    color: C.label,
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={handleAcceptPreview}
-                  className="border px-6 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:opacity-80"
-                  style={{
-                    borderColor: "rgba(34,197,94,0.4)",
-                    background: "rgba(34,197,94,0.1)",
-                    color: "#4ade80",
-                    fontFamily: "'Roboto Mono',monospace",
-                  }}
-                >
-                  Accept
+                <button onClick={handleRejectPreview}
+                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Reject</button>
+                <button onClick={handleAcceptPreview}
+                  className="flex items-center gap-2 border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
+                  style={{ ...MONO, borderColor: "#22c55e55", color: "#22c55e", backgroundColor: "#22c55e12" }}>
+                  <Check size={15} />Accept & Apply
                 </button>
               </div>
             </motion.div>
@@ -2562,28 +1219,20 @@ export default function ApiDesignPage() {
       </AnimatePresence>
 
       <AIRightSidebar
-        onApplySuggestion={applyAI}
-        projectDescription="Design your API endpoints, WebSocket events, and authentication flow."
         isOpen={aiOpen}
         onOpenChange={setAiOpen}
+        onApplySuggestion={applyAI}
+        projectDescription="Design your API endpoints, WebSocket events, and authentication flow."
       />
 
       <RouteModal
-        route={editingRoute}
-        isOpen={routeModalOpen}
-        onClose={() => {
-          setRouteModalOpen(false);
-          setEditingRoute(null);
-        }}
+        route={editingRoute} isOpen={routeModalOpen}
+        onClose={() => { setRouteModalOpen(false); setEditingRoute(null); }}
         onSave={saveRoute}
       />
       <WsModal
-        event={editingWs}
-        isOpen={wsModalOpen}
-        onClose={() => {
-          setWsModalOpen(false);
-          setEditingWs(null);
-        }}
+        event={editingWs} isOpen={wsModalOpen}
+        onClose={() => { setWsModalOpen(false); setEditingWs(null); }}
         onSave={saveEvent}
       />
     </div>

@@ -5,7 +5,7 @@ import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
 import type { RootState } from "@/src/store/store";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@/src/store/store";
 import { fetchProjectById } from "@/src/store/slices/projectSlice";
@@ -20,6 +20,8 @@ export default function ProjectIdLayout({
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
   );
+  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -31,12 +33,19 @@ export default function ProjectIdLayout({
 
   return (
     <div
-      className="min-h-screen bg-[#05070d]"
+      className="h-[100dvh] flex flex-col bg-[#05070d]"
       style={{ fontFamily: "'Rajdhani', sans-serif", color: "#e0d5c5" }}
     >
-      <ProjectHeader projectName={projectName} />
-      <div className="flex min-h-[calc(100vh-3.5rem)] relative">
-        <Sidebar projectId={projectId} />
+      <ProjectHeader 
+        projectName={projectName} 
+        onMobileMenuToggle={() => setMobileMenuOpen((prev) => !prev)} 
+      />
+      <div className="flex flex-1 relative min-h-0">
+        <Sidebar 
+          projectId={projectId} 
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
+        />
         <div className="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden">
           {children}
         </div>

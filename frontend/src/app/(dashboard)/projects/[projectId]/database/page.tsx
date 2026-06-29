@@ -17,6 +17,9 @@ import {
   Check,
   X,
   Download,
+  AlertCircle,
+  CheckCircle,
+  Zap,
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams } from "next/navigation";
@@ -449,6 +452,7 @@ export default function DatabasePage() {
   const [isSampleView, setIsSampleView] = useState(false);
   const [indexExpanded, setIndexExpanded] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
   const [editingEntityIndex, setEditingEntityIndex] = useState<number | null>(
     null,
   );
@@ -526,14 +530,16 @@ export default function DatabasePage() {
   }, [fetchDatabaseSection]);
 
   useEffect(() => {
-    if (!status) return;
-    const timer = setTimeout(() => setStatus(null), 3500);
-    return () => clearTimeout(timer);
+    if (status) {
+      const timer = setTimeout(() => { setStatus(null); setStatusType(null); }, 3500);
+      return () => clearTimeout(timer);
+    }
   }, [status]);
 
   const handleGenerate = async () => {
     if (!resolvedProjectId) {
       setStatus("Select a project before generating database suggestions.");
+      setStatusType("error");
       return;
     }
 
@@ -543,18 +549,20 @@ export default function DatabasePage() {
         generateDatabase({ projectId: resolvedProjectId }),
       ).unwrap();
       setStatus("Database generation queued. We are processing it now.");
+      setStatusType("success");
     } catch (error: unknown) {
       setStatus(getErrorMessage(error, "Failed to queue database generation."));
+      setStatusType("error");
     }
   };
 
   const handleRegenerate = async () => {
     if (!resolvedProjectId) {
       setStatus("Select a project before regenerating the database section.");
+      setStatusType("error");
       return;
     }
 
-    setStatus(null);
     setPreviewData(null);
 
     try {
@@ -566,10 +574,12 @@ export default function DatabasePage() {
         }),
       ).unwrap();
       setStatus("Database regeneration queued. We are processing it now.");
+      setStatusType("success");
     } catch (error: unknown) {
       setStatus(
         getErrorMessage(error, "Failed to queue database regeneration."),
       );
+      setStatusType("error");
     }
   };
 
@@ -595,8 +605,10 @@ export default function DatabasePage() {
         setPreviewData(normalized);
         setHasGeneratedOnce(true);
         setStatus("Database generation completed. Review the preview below.");
+        setStatusType("success");
       } else {
         setStatus("Database generation returned invalid schema.");
+        setStatusType("error");
       }
     }
 
@@ -606,6 +618,7 @@ export default function DatabasePage() {
   useEffect(() => {
     if (jobState.status !== "failed") return;
     setStatus(jobState.error ?? "Database generation failed.");
+    setStatusType("error");
   }, [jobState.error, jobState.status]);
 
   const addEntity = () => {
@@ -862,8 +875,10 @@ export default function DatabasePage() {
       }
 
       setStatus("Database section saved.");
+      setStatusType("success");
     } catch (error: unknown) {
       setStatus(getErrorMessage(error, "Failed to save database section."));
+      setStatusType("error");
     }
   };
 
@@ -914,10 +929,10 @@ export default function DatabasePage() {
   return (
     <div
       ref={scrollRef}
-      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden"
+      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar"
       style={{ ...INTER, backgroundColor: BG }}
     >
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-y-auto no-scrollbar">
         <motion.div
           className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
           initial="hidden"
@@ -983,7 +998,7 @@ export default function DatabasePage() {
             </button>
           </motion.div>
 
-          {/* Loading */}
+          {/* ── Loading bar (matches Idea page) ── */}
           <AnimatePresence>
             {loading && (
               <motion.div
@@ -1010,130 +1025,67 @@ export default function DatabasePage() {
                   className="text-[11px] font-bold uppercase tracking-[0.18em]"
                   style={{ ...MONO, color: ACCENT }}
                 >
-                  {isSaving
-                    ? "Saving database section"
-                    : isJobLoading
-                      ? "Generating database section"
-                      : "Loading database section"}
+                  {isJobLoading ? "Generating database section" : isSaving ? "Saving database section" : "Loading database section"}
                 </p>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Error / status */}
+          {/* ── Error (matches Idea page) ── */}
           <AnimatePresence>
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mb-6 border px-4 py-2.5 text-sm"
-                style={{
-                  borderColor: "rgba(239,68,68,0.3)",
-                  backgroundColor: "rgba(239,68,68,0.08)",
-                  color: "#fca5a5",
-                  ...INTER,
-                }}
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                className="mb-6 flex items-start gap-3 border p-4"
+                style={{ borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }}
               >
-                {error}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {status && !error && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mb-6 border px-4 py-2.5 text-sm"
-                style={{
-                  borderColor: "#60a5fa40",
-                  backgroundColor: "#60a5fa10",
-                  color: "#93c5fd",
-                  ...INTER,
-                }}
-              >
-                {status}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Builder guide strip */}
-          <motion.div
-            variants={fadeUp(1)}
-            className="mb-12 border p-6"
-            style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-          >
-            <p
-              className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em]"
-              style={{ ...MONO, color: ACCENT }}
-            >
-              Section // 02 / Schema
-            </p>
-            <h2
-              className="text-2xl font-bold text-white mb-2"
-              style={INTER_TIGHT}
-            >
-              Manual Schema Builder
-            </h2>
-            <p
-              className="text-sm leading-relaxed max-w-2xl mb-6"
-              style={{ ...INTER, color: MUTED }}
-            >
-              Start with singular entities, add their columns, connect entities
-              with relationships, and finish by adding indexes for frequently
-              queried fields.
-            </p>
-
-            <div
-              className="grid grid-cols-1 gap-px sm:grid-cols-3"
-              style={{ backgroundColor: BORDER }}
-            >
-              {[
-                { label: "Entities", value: schemaOverview.entities },
-                { label: "Relations", value: schemaOverview.relationships },
-                { label: "Indexes", value: schemaOverview.indexes },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="p-4"
-                  style={{ backgroundColor: INNER_BG }}
-                >
-                  <p
-                    className="text-2xl font-black text-white"
-                    style={INTER_TIGHT}
-                  >
-                    {stat.value}
-                  </p>
-                  <p
-                    className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-                    style={{ ...MONO, color: MUTED }}
-                  >
-                    {stat.label}
-                  </p>
+                <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-500" />
+                <div className="flex-1">
+                  <p className="font-semibold text-red-400 text-sm" style={INTER}>Error</p>
+                  <p className="mt-1 text-sm text-red-400/75" style={INTER}>{error}</p>
                 </div>
-              ))}
-            </div>
-          </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* Page heading */}
-          <motion.div variants={fadeUp(2)} className="mb-3">
-            <p
-              className="text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ ...MONO, color: ACCENT }}
-            >
-              Section // 02 / Database
+          {/* ── Status (matches Idea page) ── */}
+          <AnimatePresence>
+            {status && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }} transition={{ duration: 0.25 }}
+                className="mb-6 flex items-center gap-3 border px-4 py-3"
+                style={{
+                  borderColor: statusType === "success" ? "rgba(34,197,94,0.3)" : "rgba(245,158,11,0.3)",
+                  backgroundColor: statusType === "success" ? "rgba(34,197,94,0.08)" : "rgba(245,158,11,0.08)",
+                }}
+              >
+                {statusType === "success"
+                  ? <CheckCircle size={16} className="text-emerald-500 shrink-0" />
+                  : <Zap size={16} className="text-amber-500 shrink-0" />}
+                <p className="text-sm font-medium" style={{ ...INTER, color: statusType === "success" ? "#34d399" : "#fbbf24" }}>
+                  {status}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Breadcrumb (matches Idea page exactly) ── */}
+          <motion.div variants={fadeUp(1)} className="mb-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ ...MONO, color: ACCENT }}>
+              Section // 02 / Database Design
             </p>
           </motion.div>
-          <motion.div variants={fadeUp(3)} className="mb-10">
+
+          {/* ── Giant headline (matches Idea page) ── */}
+          <motion.div variants={fadeUp(2)} className="mb-8">
             <h1
-              className="text-[3rem] sm:text-[3.6rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
+              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
               style={INTER_TIGHT}
             >
               Database
             </h1>
-            <p className="mt-3 text-sm" style={{ ...INTER, color: MUTED }}>
+            <p className="mt-4 text-sm max-w-2xl" style={{ ...INTER, color: MUTED }}>
               Model entities, relationships, and indexes for your backend.
             </p>
           </motion.div>
@@ -1886,6 +1838,58 @@ export default function DatabasePage() {
               string, text, integer, boolean, datetime, float, and json.
             </p>
           </motion.div>
+
+          {/* ── Manual Schema Builder Overview ── */}
+          <motion.div
+            variants={fadeUp(8)}
+            className="mt-10 border p-6"
+            style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+          >
+            <h2
+              className="text-2xl font-bold text-white mb-2"
+              style={INTER_TIGHT}
+            >
+              Manual Schema Builder
+            </h2>
+            <p
+              className="text-sm leading-relaxed max-w-2xl mb-6"
+              style={{ ...INTER, color: MUTED }}
+            >
+              Start with singular entities, add their columns, connect entities
+              with relationships, and finish by adding indexes for frequently
+              queried fields.
+            </p>
+
+            <div
+              className="grid grid-cols-1 gap-px sm:grid-cols-3"
+              style={{ backgroundColor: BORDER }}
+            >
+              {[
+                { label: "Entities", value: schemaOverview.entities },
+                { label: "Relations", value: schemaOverview.relationships },
+                { label: "Indexes", value: schemaOverview.indexes },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="p-4"
+                  style={{ backgroundColor: INNER_BG }}
+                >
+                  <p
+                    className="text-2xl font-black text-white"
+                    style={INTER_TIGHT}
+                  >
+                    {stat.value}
+                  </p>
+                  <p
+                    className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]"
+                    style={{ ...MONO, color: MUTED }}
+                  >
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
       </div>
 
@@ -1913,7 +1917,7 @@ export default function DatabasePage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 no-scrollbar"
               style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
             >
               <div className="mb-6 flex items-center justify-between">

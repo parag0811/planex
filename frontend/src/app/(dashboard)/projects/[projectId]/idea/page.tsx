@@ -253,7 +253,7 @@ export default function IdeaPage() {
   );
 
   const [ideaData, setIdeaData] = useState<IdeaSectionContent>(EMPTY_IDEA);
-  const [aiOpen, setAiOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(
     null,
@@ -657,10 +657,10 @@ export default function IdeaPage() {
   return (
     <div
       ref={scrollRef}
-      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden"
+      className="relative w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar"
       style={{ ...INTER, backgroundColor: BG }}
     >
-      <div className="min-w-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 flex-1 overflow-y-auto no-scrollbar">
         <motion.div
           className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
           variants={stagger}
@@ -1579,7 +1579,7 @@ export default function IdeaPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.98 }}
               transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6"
+              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 no-scrollbar"
               style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
             >
               <div className="mb-6 flex items-center justify-between">

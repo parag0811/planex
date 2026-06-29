@@ -63,3 +63,12 @@ textarea.auth-input:-moz-autofill {
   box-shadow: 0 0 0 1000px #110d00 inset !important;
   color: #ffffff !important;
 }
+
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
