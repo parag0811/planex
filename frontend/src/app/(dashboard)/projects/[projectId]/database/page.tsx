@@ -919,7 +919,7 @@ export default function DatabasePage() {
     >
       <div className="min-w-0 flex-1 overflow-y-auto">
         <motion.div
-          className={`mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-8 lg:px-10}`}
+          className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
           initial="hidden"
           animate="show"
         >

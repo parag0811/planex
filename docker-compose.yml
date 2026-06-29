@@ -24,6 +24,8 @@ services:
       - ./backend:/app
       - /app/node_modules
     restart: unless-stopped
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
   frontend:
     build:
@@ -40,5 +42,8 @@ services:
       - /app/node_modules
       - frontend_next:/app/.next
     restart: unless-stopped
+    environment:
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
 volumes:
-  frontend_next: 
+  frontend_next:

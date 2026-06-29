@@ -10,6 +10,7 @@ import {
   FolderOpen,
   User,
   X,
+  LayoutDashboard,
 } from "lucide-react";
 import type { RootState } from "@/src/store/store";
 
@@ -28,35 +29,36 @@ const INTER: React.CSSProperties = {
   fontFamily: '"Inter", system-ui, sans-serif',
 };
 
-const NAV_ITEMS: {
-  id: SidebarPage;
-  label: string;
-  icon: React.ElementType;
-  href: (id: string) => string;
-}[] = [
+const NAV_ITEMS = [
+  {
+    id: "dashboard",
+    label: "OVERVIEW",
+    icon: LayoutDashboard,
+    href: (id: string) => `/projects/${id}`,
+  },
   {
     id: "idea",
     label: "IDEA",
     icon: Lightbulb,
-    href: (id) => `/projects/${id}/idea`,
-  },
-  {
-    id: "api",
-    label: "API",
-    icon: Sparkles,
-    href: (id) => `/projects/${id}/api`,
+    href: (id: string) => `/projects/${id}/idea`,
   },
   {
     id: "database",
     label: "DB",
     icon: Database,
-    href: (id) => `/projects/${id}/database`,
+    href: (id: string) => `/projects/${id}/database`,
+  },
+  {
+    id: "api",
+    label: "API",
+    icon: Sparkles,
+    href: (id: string) => `/projects/${id}/api`,
   },
   {
     id: "folder",
     label: "FOLDER",
     icon: FolderOpen,
-    href: (id) => `/projects/${id}/folder`,
+    href: (id: string) => `/projects/${id}/folder`,
   },
 ];
 
@@ -73,6 +75,9 @@ function RailContent({
 }) {
   const isActiveRoute = (item: (typeof NAV_ITEMS)[number]) => {
     const href = item.href(projectId);
+    if (item.id === "dashboard") {
+      return pathname === href;
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -102,11 +107,10 @@ function RailContent({
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.03 * i }}
               onClick={() => onNavigate(href)}
-              className={`flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 ${
-                isActive
+              className={`flex items-center gap-3 px-3 py-2.5 text-left transition-colors duration-150 ${isActive
                   ? "bg-[#2b2321] text-white"
                   : "text-white/45 hover:text-white/80 hover:bg-white/[0.03]"
-              }`}
+                }`}
             >
               <Icon
                 size={15}
