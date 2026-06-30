@@ -8,57 +8,52 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchProjects } from "@/src/store/slices/projectSlice";
 import type { RootState, AppDispatch } from "@/src/store/store";
 
-const EASE: [number, number, number, number] = [0.25, 0, 0, 1];
+// ─── Design tokens — identical to Idea / Overview pages ──────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
 
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
 const INTER: React.CSSProperties = {
   fontFamily: '"Inter", system-ui, sans-serif',
 };
 const INTER_TIGHT: React.CSSProperties = {
   fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
 };
-const MONO: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+const fadeUp = (i: number) => ({
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.08, duration: 0.45, ease: EASE },
+  },
+});
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.08 } },
 };
 
 const SECTION_BADGES = ["IDEA", "API", "DB", "FOLDER"] as const;
 
-const MOCK_MEMBERS = [
-  { initials: "JD", bg: "#ff3d00" },
-  { initials: "AK", bg: "#6366f1" },
-  { initials: "+3", bg: "#374151" },
-];
-
 function SectionBadges() {
   return (
-    <div className="flex flex-wrap gap-1.5 mt-3">
+    <div className="mt-3 flex flex-wrap gap-1.5">
       {SECTION_BADGES.map((badge) => (
         <span
           key={badge}
-          className="px-2 py-0.5 text-[10px] font-semibold tracking-[0.08em] border border-white/15 text-white/70 bg-transparent"
-          style={INTER}
+          className="border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+          style={{ ...MONO, borderColor: BORDER, color: MUTED }}
         >
           {badge}
         </span>
-      ))}
-    </div>
-  );
-}
-
-function MemberAvatars() {
-  return (
-    <div className="flex -space-x-2">
-      {MOCK_MEMBERS.map((m, i) => (
-        <div
-          key={i}
-          className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-[#10141d] text-[8px] font-bold text-white"
-          style={{
-            backgroundColor: m.bg,
-            fontFamily: '"Inter", system-ui, sans-serif',
-            zIndex: MOCK_MEMBERS.length - i,
-          }}
-        >
-          {m.initials}
-        </div>
       ))}
     </div>
   );
@@ -85,172 +80,189 @@ export default function ProjectsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] pb-20 md:pb-0">
-      <div className="max-w-[1400px] mx-auto px-5 md:px-8 lg:px-10">
-        {/* Page header */}
-        <div className="pt-10 md:pt-14">
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: EASE }}
-            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#E09F8F] mb-3"
-            style={INTER}
-          >
-            Your Workspace
-          </motion.p>
+    <div
+      className="flex min-h-screen flex-col"
+      style={{ ...INTER, backgroundColor: BG }}
+    >
+      {/* ── Main content ── */}
+      <div className="flex-1">
+        <motion.div
+          className="mx-auto w-full max-w-[1400px] px-5 py-10 sm:px-8 lg:px-10"
+          variants={stagger}
+          initial="hidden"
+          animate="show"
+        >
+          {/* Breadcrumb */}
+          <motion.div variants={fadeUp(0)} className="mb-3">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ ...MONO, color: ACCENT }}
+            >
+              Workspace // Projects
+            </p>
+          </motion.div>
 
-          <div className="flex items-center justify-between gap-4 mb-10">
-            <motion.h1
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04, duration: 0.45, ease: EASE }}
-              className="text-[2.6rem] md:text-[3.5rem] font-bold leading-none tracking-tight text-white"
+          {/* Header row */}
+          <motion.div
+            variants={fadeUp(1)}
+            className="mb-10 flex items-center justify-between gap-4"
+          >
+            <h1
+              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
               style={INTER_TIGHT}
             >
               Projects
-            </motion.h1>
+            </h1>
 
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.08, duration: 0.35 }}
-              type="button"
-              onClick={() => router.push("/projects/create-project")}
-              className="cursor-pointer shrink-0 flex items-center gap-2 border border-white/20 px-4 py-2 text-[11px] font-semibold tracking-[0.08em] text-white hover:border-white/40 hover:bg-white/5 transition-all duration-150"
-              style={INTER}
-            >
-              NEW PROJECT
-              <span className="text-[#ff3d00] font-bold text-sm leading-none">
-                +
-              </span>
-            </motion.button>
-          </div>
-
-          {/* Thin separator */}
-          <div className="h-1 w-full bg-[#281D1B] mb-8" />
-        </div>
-
-        {/* Projects grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="border border-white/8 bg-[#10141d] p-6 h-64 animate-pulse"
-              />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="border border-dashed border-white/10 p-16 text-center">
-            <p
-              className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/30"
-              style={INTER}
-            >
-              No projects yet — create your first
-            </p>
             <button
               type="button"
               onClick={() => router.push("/projects/create-project")}
-              className="mt-5 inline-flex items-center gap-2 border border-[#ff3d00] px-5 py-2.5 text-[11px] font-semibold tracking-[0.08em] text-[#ff3d00] hover:bg-[#ff3d00] hover:text-black transition-all duration-150"
-              style={INTER}
+              className="flex shrink-0 cursor-pointer items-center gap-2 border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+              style={{
+                ...MONO,
+                borderColor: ACCENT,
+                color: ACCENT,
+                backgroundColor: `${ACCENT}12`,
+              }}
             >
-              <Plus size={12} strokeWidth={2} /> Create Project
+              <Plus size={13} />
+              New Project
             </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map((project, index) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, y: 18 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.07, duration: 0.45, ease: EASE }}
-                className="group border border-white/8 bg-[#0F0F0F] hover:border-white/20 hover:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transition-all duration-200 flex flex-col"
+          </motion.div>
+
+          {/* Divider */}
+          <motion.div variants={fadeUp(2)} className="mb-10">
+            <div className="h-px w-full" style={{ backgroundColor: BORDER }} />
+          </motion.div>
+
+          {/* Projects grid */}
+          {loading ? (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-64 animate-pulse border p-6"
+                  style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <motion.div
+              variants={fadeUp(3)}
+              className="border border-dashed p-16 text-center"
+              style={{ borderColor: BORDER }}
+            >
+              <p className="text-base" style={{ ...INTER, color: MUTED }}>
+                No projects yet. Create your first to get started.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push("/projects/create-project")}
+                className="mt-5 inline-flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition"
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
-                <div className="p-5 md:p-6 flex flex-col flex-1">
-                  {/* Top row — name + kebab */}
-                  <div className="flex items-start justify-between gap-3">
-                    <h3
-                      className="text-[15px] font-semibold leading-snug text-white line-clamp-2"
-                      style={INTER_TIGHT}
-                    >
-                      {String(project.name || "")}
-                    </h3>
-                    <button
-                      type="button"
-                      className="shrink-0 mt-0.5 text-white/25 hover:text-white/60 transition-colors duration-150"
-                      aria-label="Project options"
-                    >
-                      <MoreVertical size={15} strokeWidth={1.5} />
-                    </button>
-                  </div>
-
-                  {/* Section badges */}
-                  <SectionBadges />
-
-                  {/* Description */}
-                  <p
-                    className="mt-4 text-[13px] leading-relaxed text-white/40 line-clamp-3 flex-1"
-                    style={INTER}
-                  >
-                    {String(
-                      (project as any).description ||
-                        "No description provided.",
-                    )}
-                  </p>
-
-                  {/* Card footer */}
-                  <div className="mt-5 pt-4 border-t border-white/5 flex items-center justify-between gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <p
-                        className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/25"
-                        style={INTER}
+                <Plus size={13} />
+                Create Project
+              </button>
+            </motion.div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((project, index) => (
+                <motion.div
+                  key={project.id}
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.06, duration: 0.4, ease: EASE }}
+                  className="group flex flex-col border transition-colors duration-200"
+                  style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${ACCENT}40`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = BORDER)}
+                >
+                  <div className="flex flex-1 flex-col p-6">
+                    {/* Top row — name + kebab */}
+                    <div className="flex items-start justify-between gap-3">
+                      <h3
+                        className="line-clamp-2 text-lg font-bold leading-snug text-white"
+                        style={INTER_TIGHT}
                       >
-                        Last edited 2h ago
-                      </p>
-                      <MemberAvatars />
+                        {String(project.name || "")}
+                      </h3>
+                      <button
+                        type="button"
+                        className="mt-0.5 shrink-0 transition-colors hover:text-white"
+                        style={{ color: MUTED }}
+                        aria-label="Project options"
+                      >
+                        <MoreVertical size={15} strokeWidth={1.5} />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/projects/${project.id}`)}
-                      className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#ff3d00] hover:text-[#ff6030] transition-colors duration-150 whitespace-nowrap"
-                      style={INTER}
+                    <SectionBadges />
+
+                    {/* Description */}
+                    <p
+                      className="mt-4 flex-1 text-sm leading-relaxed line-clamp-3"
+                      style={{ ...INTER, color: MUTED }}
                     >
-                      Open Project
-                    </button>
+                      {String(
+                        (project as any).description ||
+                        "No description provided.",
+                      )}
+                    </p>
+
+                    {/* Card footer */}
+                    <div
+                      className="mt-5 flex items-center justify-between gap-3 border-t pt-4"
+                      style={{ borderColor: BORDER }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
+                        style={{ ...MONO, color: ACCENT }}
+                      >
+                        Open Project →
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </div>
 
-      {/* Footer — matches screenshot bottom section */}
-      <footer className="mt-50 border-t-2 border-[#281D1B]">
-        <div className="max-w-[1400px] mx-auto px-5 md:px-8 lg:px-10 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* ── Fixed-at-bottom footer (inside page, not overlay) ── */}
+      <footer className="border-t" style={{ borderColor: BORDER }}>
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col items-start justify-between gap-4 px-5 py-6 sm:flex-row sm:items-center sm:px-8 lg:px-10">
           <div>
             <p
-              className="text-[15px] font-bold uppercase tracking-[0.2em] text-white"
-              style={INTER}
+              className="text-[11px] font-bold uppercase tracking-[0.18em] text-white"
+              style={MONO}
             >
-              Planex Architectural Systems
+              Planex
             </p>
             <p
-              className="mt-1 text-[10px] uppercase tracking-[0.12em] text-white/60"
-              style={INTER}
+              className="mt-1 text-[10px] uppercase tracking-[0.1em]"
+              style={{ ...MONO, color: MUTED }}
             >
-              © 2024 All rights reserved
+              © 2026 All rights reserved
             </p>
           </div>
-          <div className="flex gap-6">
+          <div className="flex gap-5">
             {["Documentation", "Privacy", "Terms"].map((item) => (
               <button
                 key={item}
                 type="button"
-                className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white hover:text-white/60 transition-colors duration-150"
-                style={INTER}
+                className="cursor-pointer text-[10px] font-bold uppercase tracking-[0.12em] transition-colors"
+                style={{ ...MONO, color: MUTED }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
               >
                 {item}
               </button>
