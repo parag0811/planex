@@ -98,14 +98,11 @@ interface AuthState {
   registerError: string | null;
 }
 
-const initialToken =
-  typeof window !== "undefined" ? localStorage.getItem("token") : null;
-
 const initialState: AuthState = {
   user: null,
-  token: initialToken,
+  token: null,
   isAuth: false,
-  authCheckLoading: Boolean(initialToken),
+  authCheckLoading: true, 
   loginLoading: false,
   profileLoading: false,
   error: null,

@@ -14,7 +14,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { authCheckLoading, isAuth, token } = useSelector(
+  const { authCheckLoading, isAuth } = useSelector(
     (state: RootState) => state.auth,
   );
   const isProjectDetailPage = /^\/projects\/[^/]+(?:\/.*)?$/.test(
@@ -22,22 +22,17 @@ export default function DashboardLayout({
   );
 
   useEffect(() => {
-    if (authCheckLoading) return; // still loading, do nothing
-
-    const token = localStorage.getItem("token");
-    if (!token) {
-      router.replace("/login"); // definitively no token, redirect
-      return;
+    if (authCheckLoading) return;
+    if (!isAuth) {
+      router.replace("/login");
     }
-
-    if (!isAuth) return; // has token but fetchUser not done yet, wait
   }, [authCheckLoading, isAuth, router]);
 
   if (authCheckLoading) {
     return <FullPageLoader />;
   }
 
-  if (!token || !isAuth) {
+  if (!isAuth) {
     return <FullPageLoader subtitle="Redirecting to login..." />;
   }
 

@@ -2,10 +2,8 @@
 
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { fetchUser } from "../store/slices/authSlice";
+import { fetchUser, logout } from "../store/slices/authSlice";
 import type { AppDispatch } from "../store/store";
-import { useSelector } from "react-redux";
-import type { RootState } from "../store/store";
 
 export default function AuthProvider({
   children,
@@ -13,15 +11,16 @@ export default function AuthProvider({
   children: React.ReactNode;
 }) {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuth } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
-    if (token && !isAuth) {
+    if (token) {
       dispatch(fetchUser());
+    } else {
+      dispatch(logout());
     }
-  }, [dispatch, isAuth]);
+  }, []); // empty deps — runs once only, on mount
 
   return <>{children}</>;
 }
