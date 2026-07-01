@@ -2,7 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { logout } from "@/src/store/slices/authSlice";
 import {
   Lightbulb,
   Sparkles,
@@ -11,6 +12,8 @@ import {
   User,
   X,
   LayoutDashboard,
+  Settings,
+  LogOut,
 } from "lucide-react";
 import type { RootState } from "@/src/store/store";
 
@@ -66,11 +69,13 @@ function RailContent({
   projectId,
   pathname,
   onNavigate,
+  onLogout,
   displayName,
 }: {
   projectId: string;
   pathname: string;
   onNavigate: (href: string) => void;
+  onLogout: () => void;
   displayName: string;
 }) {
   const isActiveRoute = (item: (typeof NAV_ITEMS)[number]) => {
@@ -130,16 +135,44 @@ function RailContent({
 
       {/* User footer */}
       <div className="shrink-0 border-t border-[#2b2321] px-4 py-4">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 mb-3">
           <div className="flex h-6 w-6 items-center justify-center bg-[#2b2321] text-[#a6786d] shrink-0">
             <User size={12} strokeWidth={1.5} />
           </div>
           <span
-            className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40"
+            className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/40 truncate"
             style={MONO}
+            title={displayName}
           >
             {displayName}
           </span>
+        </div>
+        
+        <div className="flex flex-col gap-0.5">
+          <button 
+            onClick={() => onNavigate('/profile')} 
+            className="flex items-center gap-2.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40 hover:text-white hover:bg-white/[0.03] transition-colors"
+            style={INTER}
+          >
+            <User size={12} className="shrink-0" />
+            Profile
+          </button>
+          <button 
+            onClick={() => onNavigate('/settings')} 
+            className="flex items-center gap-2.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40 hover:text-white hover:bg-white/[0.03] transition-colors"
+            style={INTER}
+          >
+            <Settings size={12} className="shrink-0" />
+            Settings
+          </button>
+          <button 
+            onClick={onLogout} 
+            className="flex items-center gap-2.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-red-400/60 hover:text-red-400 hover:bg-red-400/[0.03] transition-colors"
+            style={INTER}
+          >
+            <LogOut size={12} className="shrink-0" />
+            Sign Out
+          </button>
         </div>
       </div>
     </div>
@@ -153,6 +186,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const dispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
   const displayName = (() => {
@@ -165,6 +199,12 @@ export default function Sidebar({
     onMobileClose?.();
   };
 
+  const handleLogout = () => {
+    dispatch(logout());
+    router.push("/login");
+    onMobileClose?.();
+  };
+
   return (
     <>
       {/* Desktop sidebar */}
@@ -173,6 +213,7 @@ export default function Sidebar({
           projectId={projectId}
           pathname={pathname}
           onNavigate={handleNavigate}
+          onLogout={handleLogout}
           displayName={displayName}
         />
       </aside>
@@ -208,6 +249,7 @@ export default function Sidebar({
                 projectId={projectId}
                 pathname={pathname}
                 onNavigate={handleNavigate}
+                onLogout={handleLogout}
                 displayName={displayName}
               />
             </motion.aside>

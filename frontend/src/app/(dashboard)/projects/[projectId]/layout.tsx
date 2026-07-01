@@ -4,11 +4,13 @@ import { useSelector } from "react-redux";
 import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
 import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
 import type { RootState } from "@/src/store/store";
-import { useParams } from "next/navigation";
+import { usePathname, useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "@/src/store/store";
-import { fetchProjectById } from "@/src/store/slices/projectSlice";
+import { fetchProjectById, clearProjectErrors } from "@/src/store/slices/projectSlice";
+import { clearAllSectionErrors } from "@/src/store/slices/sectionSlice";
+import { clearJobState } from "@/src/store/slices/jobSlice";
 
 export default function ProjectIdLayout({
   children,
@@ -16,6 +18,7 @@ export default function ProjectIdLayout({
   children: React.ReactNode;
 }) {
   const { projectId } = useParams<{ projectId: string }>();
+  const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
@@ -28,6 +31,12 @@ export default function ProjectIdLayout({
       dispatch(fetchProjectById(projectId));
     }
   }, [dispatch, projectId]);
+
+  useEffect(() => {
+    dispatch(clearProjectErrors());
+    dispatch(clearAllSectionErrors());
+    dispatch(clearJobState());
+  }, [dispatch, pathname]);
 
   const projectName = currentProject?.name || "Project";
 

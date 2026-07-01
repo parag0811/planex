@@ -175,6 +175,18 @@ const sectionSlice = createSlice({
 			record.fetch.error = null;
 			record.save.error = null;
 		},
+		clearAllSectionErrors: (state) => {
+			for (const projectId in state.projects) {
+				const projectSections = state.projects[projectId];
+				for (const sectionType in projectSections) {
+					const record = projectSections[sectionType as keyof ProjectSectionsState];
+					if (record) {
+						record.fetch.error = null;
+						record.save.error = null;
+					}
+				}
+			}
+		},
 	},
 	extraReducers: (builder) => {
 		builder
@@ -225,5 +237,5 @@ const sectionSlice = createSlice({
 	},
 });
 
-export const { clearSectionError } = sectionSlice.actions;
+export const { clearSectionError, clearAllSectionErrors } = sectionSlice.actions;
 export default sectionSlice.reducer;

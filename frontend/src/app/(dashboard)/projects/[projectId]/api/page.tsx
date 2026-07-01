@@ -31,6 +31,7 @@ import AIRightSidebar, {
 import {
   fetchSectionByType,
   upsertSection,
+  clearAllSectionErrors,
 } from "@/src/store/slices/sectionSlice";
 import {
   clearJobState,
@@ -785,14 +786,38 @@ export default function ApiDesignPage() {
           <AnimatePresence>
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                className="mb-6 flex items-start gap-3 border p-4"
-                style={{ borderColor: "rgba(239,68,68,0.3)", backgroundColor: "rgba(239,68,68,0.08)" }}
+                initial={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
+                className="mb-6 relative overflow-hidden"
               >
-                <AlertCircle size={18} className="mt-0.5 shrink-0 text-red-500" />
-                <div className="flex-1">
-                  <p className="font-semibold text-red-400 text-sm" style={INTER}>Error</p>
-                  <p className="mt-1 text-sm text-red-400/75" style={INTER}>{error}</p>
+                <div className="absolute inset-0 bg-red-500/10 backdrop-blur-md" />
+                <div 
+                  className="relative border p-4 flex items-start gap-4"
+                  style={{ borderColor: "rgba(239, 68, 68, 0.4)" }}
+                >
+                  <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400 mb-1"
+                      style={MONO}
+                    >
+                      Error Detected
+                    </p>
+                    <p className="text-sm text-red-200/90 leading-relaxed" style={INTER}>
+                      {error}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      dispatch(clearAllSectionErrors());
+                      dispatch(clearJobState());
+                    }}
+                    className="shrink-0 p-1.5 text-red-400 hover:text-white hover:bg-red-500/20 transition-colors border border-transparent hover:border-red-500/30"
+                    title="Dismiss"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
               </motion.div>
             )}

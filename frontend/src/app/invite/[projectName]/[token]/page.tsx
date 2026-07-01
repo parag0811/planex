@@ -97,13 +97,13 @@ export default function InvitePage() {
         </button>
 
         <div className="mt-8 pt-6 border-t flex justify-center" style={{ borderColor: BORDER }}>
-           <button
-             onClick={() => router.push("/projects")}
-             className="text-[10px] font-bold uppercase tracking-[0.2em] transition hover:text-white"
-             style={{ ...MONO, color: MUTED }}
-           >
-             Cancel & Return to Dashboard
-           </button>
+          <button
+            onClick={() => router.push("/projects")}
+            className="text-[10px] font-bold uppercase tracking-[0.2em] transition hover:text-white"
+            style={{ ...MONO, color: MUTED }}
+          >
+            Cancel & Return to Dashboard
+          </button>
         </div>
       </motion.div>
     </div>
