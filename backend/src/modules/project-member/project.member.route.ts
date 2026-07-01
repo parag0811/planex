@@ -20,7 +20,7 @@ const router = Router();
 
 // remove member
 router.delete(
-  "/projects/:projectId/members/:memberId",
+  "/:projectId/members/:memberId",
   isAuth,
   projectAccess,
   ownerAccess,
@@ -29,7 +29,7 @@ router.delete(
 
 // update role
 router.patch(
-  "/projects/:projectId/members/:memberId/role",
+  "/:projectId/members/:memberId/role",
   isAuth,
   memberRoleValidation,
   handleValidationErrors,

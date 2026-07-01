@@ -5,6 +5,8 @@ import authRoutes from "./modules/auth/auth.route";
 import projectRoutes from "./modules/project/project.route";
 import sectionRoutes from "./modules/project-sections/section.routes";
 import jobsRoutes from "./modules/jobs/jobs.route";
+import projectMemberRoutes from "./modules/project-member/project.member.route";
+import activityRoutes from "./modules/project-activity/activity.route";
 import errorHandler from "./middleware/error.middleware";
 import { aiWorker } from "./modules/queues/aiWorker";
 import { globalLimiter } from "./middleware/rateLimit.middleware";
@@ -24,6 +26,8 @@ app.use(passport.initialize());
 app.use("/auth", authRoutes);
 app.use("/projects", projectRoutes);
 app.use("/projects", sectionRoutes);
+app.use("/projects", projectMemberRoutes);
+app.use("/projects", activityRoutes);
 app.use("/jobs", jobsRoutes);
 
 app.use(errorHandler);

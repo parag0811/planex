@@ -8,28 +8,30 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(uuid())
+  id             String            @id @default(uuid())
   name           String?
-  email          String          @unique
+  email          String            @unique
   password       String?
   avatarUrl      String?
   provider       PROVIDER?
   providerId     String?
-  created_at     DateTime        @default(now())
+  created_at     DateTime          @default(now())
   projects_owned Project[]
   memberships    ProjectMember[]
+  activities     ProjectActivity[]
 }
 
 model Project {
-  id                String           @id @default(uuid())
+  id                String            @id @default(uuid())
   name              String
   owner_id          String
-  inviteToken       String?          @unique
+  inviteToken       String?           @unique
   inviteTokenExpiry DateTime?
-  createdAt         DateTime         @default(now())
-  owner             User             @relation(fields: [owner_id], references: [id])
+  createdAt         DateTime          @default(now())
+  owner             User              @relation(fields: [owner_id], references: [id])
   members           ProjectMember[]
   projectSections   ProjectSection[]
+  activities        ProjectActivity[]
 }
 
 model ProjectMember {
@@ -72,4 +74,18 @@ enum TYPES {
   API
   DATABASE
   FOLDER
+}
+
+model ProjectActivity {
+  id         String   @id @default(uuid())
+  project_id String
+  user_id    String?
+  action     String
+  details    String?
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([project_id])
+  @@index([createdAt])
 }

@@ -19,6 +19,7 @@ import {
   showInviteLink,
   updateMemberRole,
   updateProject,
+  fetchProjectActivities,
 } from "@/src/store/slices/projectSlice";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
@@ -55,6 +56,23 @@ const stagger = {
   hidden: {},
   show: { transition: { staggerChildren: 0.08 } },
 };
+
+function getRelativeTime(dateString: string) {
+  const date = new Date(dateString);
+  const diffInSeconds = Math.floor((date.getTime() - Date.now()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+  
+  if (Math.abs(diffInSeconds) < 60) return "just now";
+  const diffInMinutes = Math.round(diffInSeconds / 60);
+  if (Math.abs(diffInMinutes) < 60) return rtf.format(diffInMinutes, 'minute');
+  const diffInHours = Math.round(diffInMinutes / 60);
+  if (Math.abs(diffInHours) < 24) return rtf.format(diffInHours, 'hour');
+  const diffInDays = Math.round(diffInHours / 24);
+  if (Math.abs(diffInDays) < 30) return rtf.format(diffInDays, 'day');
+  const diffInMonths = Math.round(diffInDays / 30);
+  if (Math.abs(diffInMonths) < 12) return rtf.format(diffInMonths, 'month');
+  return date.toLocaleDateString();
+}
 
 // ─── Invite Modal ─────────────────────────────────────────────────
 interface InviteModalProps {
@@ -331,7 +349,7 @@ export default function ProjectOverviewPage() {
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
   );
-  const { update, remove, inviteLink, inviteLinkVisible, inviteLinkState } =
+  const { update, remove, inviteLink, inviteLinkVisible, inviteLinkState, activities } =
     useSelector((state: RootState) => state.project);
 
   const [projectNameDraft, setProjectNameDraft] = useState("");
@@ -354,6 +372,16 @@ export default function ProjectOverviewPage() {
       return () => clearTimeout(timer);
     }
   }, [status]);
+
+  useEffect(() => {
+    if (projectId) {
+      dispatch(fetchProjectActivities(projectId));
+      const interval = setInterval(() => {
+        dispatch(fetchProjectActivities(projectId));
+      }, 30000); // 30 seconds polling
+      return () => clearInterval(interval);
+    }
+  }, [projectId, dispatch]);
 
   const members = currentProject?.members ?? [];
   const projectName = currentProject?.name ?? "Project";
@@ -617,6 +645,71 @@ export default function ProjectOverviewPage() {
                 <UserPlus size={13} />
                 Manage Team
               </button>
+            </motion.div>
+
+            {/* Activity Feed */}
+            <motion.div variants={fadeUp(5)} className="mb-12">
+              <div className="mb-4 flex items-center gap-3">
+                <span
+                  className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
+                  style={{ ...MONO, color: MUTED }}
+                >
+                  Activity / Changes
+                </span>
+                <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
+              </div>
+
+              {(!activities || activities.length === 0) ? (
+                <div
+                  className="border p-8 text-center"
+                  style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                >
+                  <p className="text-base" style={{ ...INTER, color: MUTED }}>
+                    No activity recorded yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="border" style={{ borderColor: BORDER }}>
+                  {activities.map((activity, i) => {
+                    const name = activity.user?.name ?? activity.user?.email ?? "Unknown User";
+                    const initials = String(name)
+                      .split(" ")
+                      .map((p: string) => p[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
+
+                    return (
+                      <div
+                        key={activity.id}
+                        className="flex items-start gap-4 border-t px-5 py-4 first:border-t-0"
+                        style={{ borderColor: BORDER }}
+                      >
+                        <div
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-[11px] font-bold text-white mt-0.5"
+                          style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+                        >
+                          {initials || "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-base font-semibold text-white" style={INTER}>
+                            {name}
+                          </p>
+                          <p className="text-sm mt-0.5" style={{ ...INTER, color: MUTED }}>
+                            {activity.details || activity.action}
+                          </p>
+                        </div>
+                        <span
+                          className="shrink-0 text-[9px] font-bold uppercase tracking-[0.1em]"
+                          style={{ ...MONO, color: MUTED }}
+                        >
+                          {getRelativeTime(activity.createdAt)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
 
           </motion.div>

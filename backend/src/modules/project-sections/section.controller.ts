@@ -5,6 +5,7 @@ import {
   getSectionByTypeService,
   upsertSectionService,
 } from "./section.service";
+import { logActivity } from "../project-activity/activity.service";
 import { TYPES } from "../../generated/prisma/enums";
 import { aiQueue } from "../queues/aiQueue";
 import redis from "../../db/redis";
@@ -88,6 +89,13 @@ export const upsertSection = async (
     const cacheKey = `section:${projectId}:${type}`;
 
     await redis.del(cacheKey);
+
+    logActivity(
+      projectId,
+      req.user?.id ? String(req.user.id) : null,
+      "UPDATED_SECTION",
+      `Updated the ${type} section`,
+    );
 
     return res.status(200).json({
       data: section,
@@ -509,6 +517,13 @@ export const acceptIdeaPreview = async (
     // Cache the accepted section
     const cacheKey = `section:${projectId}:${TYPES.IDEA}`;
     await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+
+    logActivity(
+      projectId,
+      req.user?.id ? String(req.user.id) : null,
+      "ACCEPTED_IDEA",
+      `Accepted AI generated IDEA section`,
+    );
 
     return res.status(200).json({
       data: section,

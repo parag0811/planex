@@ -1,6 +1,20 @@
 import axiosInstance from "@/src/lib/axios";
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 
+export interface ProjectActivity {
+  id: string;
+  project_id: string;
+  user_id: string | null;
+  action: string;
+  details: string | null;
+  createdAt: string;
+  user?: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -222,6 +236,20 @@ export const joinProjectByToken = createAsyncThunk(
   }
 );
 
+export const fetchProjectActivities = createAsyncThunk(
+  "project/fetchProjectActivities",
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get(`/projects/${projectId}/activities`);
+      return res.data.data as ProjectActivity[];
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to fetch activities"),
+      );
+    }
+  }
+);
+
 interface ProjectState {
   projects: Project[];
   loading: boolean;
@@ -235,6 +263,8 @@ interface ProjectState {
   inviteLinkVisible: boolean;
   inviteLinkState: OperationState;
   currentProject: Project | null;
+  activities: ProjectActivity[];
+  fetchActivities: OperationState;
 }
 
 const initialState: ProjectState = {
@@ -268,6 +298,11 @@ const initialState: ProjectState = {
     error: null,
   },
   currentProject: null,
+  activities: [],
+  fetchActivities: {
+    loading: false,
+    error: null,
+  },
 };
 
 const projectSlice = createSlice({
@@ -427,6 +462,18 @@ const projectSlice = createSlice({
       .addCase(joinProjectByToken.rejected, (state, action) => {
         state.join.loading = false;
         state.join.error = action.payload as string;
+      })
+      .addCase(fetchProjectActivities.pending, (state) => {
+        state.fetchActivities.loading = true;
+        state.fetchActivities.error = null;
+      })
+      .addCase(fetchProjectActivities.fulfilled, (state, action) => {
+        state.fetchActivities.loading = false;
+        state.activities = action.payload;
+      })
+      .addCase(fetchProjectActivities.rejected, (state, action) => {
+        state.fetchActivities.loading = false;
+        state.fetchActivities.error = action.payload as string;
       });
   },
 });
