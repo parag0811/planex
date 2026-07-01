@@ -87,7 +87,10 @@ export const fetchProjectById = createAsyncThunk(
     try {
       const res = await axiosInstance.get(`/projects/${projectId}`);
 
-      return res.data.project as Project;
+      return {
+        project: res.data.project as Project,
+        inviteLink: (res.data.inviteLink as string) || null,
+      };
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to fetch projects"),
@@ -204,6 +207,21 @@ export const generateInviteLink = createAsyncThunk(
   },
 );
 
+export const joinProjectByToken = createAsyncThunk(
+  "project/joinProjectByToken",
+  async (token: string, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post(`/projects/join/${token}`);
+      await dispatch(fetchProjects()).unwrap();
+      return res.data.message;
+    } catch (error: any) {
+      return rejectWithValue(
+        getErrorMessage(error, "Failed to join project"),
+      );
+    }
+  }
+);
+
 interface ProjectState {
   projects: Project[];
   loading: boolean;
@@ -212,6 +230,7 @@ interface ProjectState {
   create: OperationState;
   update: OperationState;
   remove: OperationState;
+  join: OperationState;
   inviteLink: string | null;
   inviteLinkVisible: boolean;
   inviteLinkState: OperationState;
@@ -238,6 +257,10 @@ const initialState: ProjectState = {
     loading: false,
     error: null,
   },
+  join: {
+    loading: false,
+    error: null,
+  },
   inviteLink: null,
   inviteLinkVisible: false,
   inviteLinkState: {
@@ -260,6 +283,7 @@ const projectSlice = createSlice({
       state.create.error = null;
       state.update.error = null;
       state.remove.error = null;
+      state.join.error = null;
       state.inviteLinkState.error = null;
     },
     showInviteLink: (state) => {
@@ -297,8 +321,8 @@ const projectSlice = createSlice({
         state.fetch.error = action.payload as string;
       })
       .addCase(fetchProjectById.fulfilled, (state, action) => {
-        state.currentProject = action.payload;
-        state.inviteLink = null;
+        state.currentProject = action.payload.project;
+        state.inviteLink = action.payload.inviteLink;
         state.inviteLinkVisible = false;
         state.inviteLinkState.error = null;
       })
@@ -392,6 +416,17 @@ const projectSlice = createSlice({
       .addCase(generateInviteLink.rejected, (state, action) => {
         state.inviteLinkState.loading = false;
         state.inviteLinkState.error = action.payload as string;
+      })
+      .addCase(joinProjectByToken.pending, (state) => {
+        state.join.loading = true;
+        state.join.error = null;
+      })
+      .addCase(joinProjectByToken.fulfilled, (state) => {
+        state.join.loading = false;
+      })
+      .addCase(joinProjectByToken.rejected, (state, action) => {
+        state.join.loading = false;
+        state.join.error = action.payload as string;
       });
   },
 });

@@ -22,7 +22,7 @@ const store = new RedisStore({
 // AUTH Limiter will use IP as key
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 5, // 5 attempts per window
+  max: 20, // increased from 5 to 20 for development stability
 
   store: store, // use Redis, not memory
 

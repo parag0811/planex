@@ -18,7 +18,9 @@ export default function AuthLayout({
 
   useEffect(() => {
     if (!authCheckLoading && token && isAuth) {
-      router.replace("/projects");
+      const redirect = sessionStorage.getItem("postLoginRedirect") || "/projects";
+      sessionStorage.removeItem("postLoginRedirect");
+      router.replace(redirect);
     }
   }, [authCheckLoading, token, isAuth, router]);
 

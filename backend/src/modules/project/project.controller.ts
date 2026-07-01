@@ -84,7 +84,22 @@ export const getProjectById = async (
       },
     });
 
-    return res.status(200).json({ message: "Project loaded.", project });
+    let inviteLink = null;
+    if (
+      project &&
+      project.inviteToken &&
+      project.inviteTokenExpiry &&
+      project.inviteTokenExpiry > new Date()
+    ) {
+      const frontendBaseUrl = getFrontendBaseUrl(req);
+      const slug = project.name
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[^\w-]/g, "");
+      inviteLink = `${frontendBaseUrl}/invite/${slug}/${project.inviteToken}`;
+    }
+
+    return res.status(200).json({ message: "Project loaded.", project, inviteLink });
   } catch (error) {
     next(error);
   }
