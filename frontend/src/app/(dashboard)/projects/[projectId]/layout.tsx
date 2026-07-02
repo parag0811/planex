@@ -11,6 +11,7 @@ import type { AppDispatch } from "@/src/store/store";
 import { fetchProjectById, clearProjectErrors } from "@/src/store/slices/projectSlice";
 import { clearAllSectionErrors } from "@/src/store/slices/sectionSlice";
 import { clearJobState } from "@/src/store/slices/jobSlice";
+import FullPageLoader from "@/src/components/common/FullPageLoader";
 
 export default function ProjectIdLayout({
   children,
@@ -22,6 +23,9 @@ export default function ProjectIdLayout({
   const dispatch = useDispatch<AppDispatch>();
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
+  );
+  const { authCheckLoading, isAuth } = useSelector(
+    (state: RootState) => state.auth,
   );
   
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -56,7 +60,13 @@ export default function ProjectIdLayout({
           onMobileClose={() => setMobileMenuOpen(false)}
         />
         <div className="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden">
-          {children}
+          {authCheckLoading ? (
+            <FullPageLoader />
+          ) : !isAuth ? (
+            <FullPageLoader subtitle="Redirecting to login..." />
+          ) : (
+            children
+          )}
         </div>
       </div>
     </div>

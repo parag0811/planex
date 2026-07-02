@@ -28,18 +28,21 @@ export default function DashboardLayout({
     }
   }, [authCheckLoading, isAuth, router]);
 
-  if (authCheckLoading) {
-    return <FullPageLoader />;
-  }
-
-  if (!isAuth) {
-    return <FullPageLoader subtitle="Redirecting to login..." />;
+  let content = children;
+  if (!isProjectDetailPage) {
+    if (authCheckLoading) {
+      content = <FullPageLoader />;
+    } else if (!isAuth) {
+      content = <FullPageLoader subtitle="Redirecting to login..." />;
+    }
   }
 
   return (
     <>
       {!isProjectDetailPage && <Header />}
-      <div className={isProjectDetailPage ? "" : "pt-16"}>{children}</div>
+      <div className={isProjectDetailPage ? "h-full w-full flex flex-col" : "pt-16 min-h-screen flex flex-col"}>
+        {content}
+      </div>
     </>
   );
 }

@@ -10,13 +10,39 @@ export default function FullPageLoader({
   subtitle = "Preparing your dashboard...",
 }: FullPageLoaderProps) {
   return (
-    <div className="min-h-screen bg-[#06070c] flex items-center justify-center px-6">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#10141d] p-8 text-center shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
-        <div className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#f97316]" />
-        <p className="text-sm font-semibold tracking-[0.12em] uppercase text-[#f97316]">
+    <div 
+      className="flex flex-1 w-full h-full min-h-[50vh] items-center justify-center px-6"
+      style={{ backgroundColor: "#141414" }}
+    >
+      <div 
+        className="w-full max-w-md border p-8 text-center"
+        style={{ 
+          borderColor: "#2b2321", 
+          backgroundColor: "#101010",
+        }}
+      >
+        <div 
+          className="mx-auto mb-5 h-10 w-10 animate-spin rounded-full border-2 border-t-[#d84c28]"
+          style={{ borderColor: "rgba(216, 76, 40, 0.2)", borderTopColor: "#d84c28" }}
+        />
+        <p 
+          className="text-[11px] font-bold tracking-[0.2em] uppercase"
+          style={{ 
+            fontFamily: '"JetBrains Mono", "Fira Code", monospace', 
+            color: "#d84c28" 
+          }}
+        >
           {title}
         </p>
-        <p className="mt-2 text-sm text-[#8b93a6]">{subtitle}</p>
+        <p 
+          className="mt-3 text-[13px]"
+          style={{ 
+            fontFamily: '"Inter", system-ui, sans-serif',
+            color: "#a6786d" 
+          }}
+        >
+          {subtitle}
+        </p>
       </div>
     </div>
   );

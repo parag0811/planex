@@ -25,11 +25,19 @@ export default function AuthLayout({
   }, [authCheckLoading, token, isAuth, router]);
 
   if (authCheckLoading) {
-    return <FullPageLoader subtitle="Restoring your session..." />;
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <FullPageLoader subtitle="Restoring your session..." />
+      </div>
+    );
   }
 
   if (token && isAuth) {
-    return <FullPageLoader subtitle="Redirecting to projects..." />;
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <FullPageLoader subtitle="Redirecting to projects..." />
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -38,7 +38,11 @@ export default function InvitePage() {
   }, [isAuth, authCheckLoading, router]);
 
   if (authCheckLoading || !isAuth) {
-    return <FullPageLoader subtitle="Verifying authentication..." />;
+    return (
+      <div className="min-h-screen w-full flex flex-col">
+        <FullPageLoader subtitle="Verifying authentication..." />
+      </div>
+    );
   }
 
   const handleJoin = async () => {
