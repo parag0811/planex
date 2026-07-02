@@ -35,7 +35,13 @@ const errorHandler = (
   } else if ((status === 401 || status === 403) && !error.message) {
     message = "Authentication failed! Login Again.";
   } else {
-    message = error.message || "Something went wrong";
+    const isThirdPartyOrRaw =
+      error.name !== "Error" ||
+      (error.message && (error.message.includes("{") || error.message.length > 200));
+
+    message = isThirdPartyOrRaw
+      ? "An unexpected error occurred while processing your request."
+      : error.message || "Something went wrong";
   }
 
   const isOAuthCallback =

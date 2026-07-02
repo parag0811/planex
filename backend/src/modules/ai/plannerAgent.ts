@@ -6,6 +6,9 @@ export const generateSection = async (prompt : string) => {
         console.log(`🔄 generateSection: Starting with prompt length ${prompt.length}`);
         
         const text = await callLLM(prompt);
+        if (!text) {
+            throw new Error("LLM response is undefined");
+        }
         
         console.log(`🔄 generateSection: LLM returned, parsing JSON...`);
         const parsed = parseJson(text);

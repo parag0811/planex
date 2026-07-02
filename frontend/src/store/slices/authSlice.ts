@@ -63,7 +63,10 @@ export const fetchUser = createAsyncThunk(
 
       return res.data.user;
     } catch (error: any) {
-      return rejectWithValue("Failed to fetch user");
+      return rejectWithValue({
+        status: error.response?.status,
+        message: "Failed to fetch user"
+      });
     }
   },
 );
@@ -172,11 +175,19 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuth = true;
       })
-      .addCase(fetchUser.rejected, (state) => {
+      .addCase(fetchUser.rejected, (state, action) => {
         state.authCheckLoading = false;
-        state.user = null;
-        state.isAuth = false;
-        state.token = null;
+        const payload: any = action.payload;
+        
+        // Only log out if explicitly Unauthorized. Otherwise, ignore network/500 errors.
+        if (payload?.status === 401) {
+          state.user = null;
+          state.isAuth = false;
+          state.token = null;
+        } else if (localStorage.getItem("token")) {
+          // Optimistically keep them logged in if it's just a backend restart
+          state.isAuth = true;
+        }
       })
 
       // UPDATE PROFILE

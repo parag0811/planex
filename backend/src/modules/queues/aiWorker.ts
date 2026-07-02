@@ -79,9 +79,13 @@ aiWorker.on("failed", async (job, error) => {
   const jobId = job.id;
   const cacheKey = `job:${jobId}`;
 
+  // To guarantee absolute safety and a clean UI, we completely hide ALL technical 
+  // backend errors (like "Failed to parse JSON" or API limits) from the frontend.
+  const errorMessage = "AI generation failed. Please try again.";
+
   const jobState: JobStatus = {
     status: "failed",
-    error: error.message,
+    error: errorMessage,
     jobName: job.name,
     jobData: job.data,
   };

@@ -14,9 +14,10 @@ import redis from "../db/redis";
 //   return redis.call(...args);
 // } As it sends command and express rl creates redis key itself
 
-const store = new RedisStore({
+const createStore = (prefix: string) => new RedisStore({
   sendCommand: (...args: string[]) =>
     redis.call(...(args as [string, ...string[]])) as Promise<any>, // RedisStore talks to our redis client
+  prefix
 });
 
 // AUTH Limiter will use IP as key
@@ -24,7 +25,7 @@ export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
   max: 20, // increased from 5 to 20 for development stability
 
-  store: store, // use Redis, not memory
+  store: createStore("rl_auth:"), // use Redis, not memory
 
   keyGenerator: (req) => req.ip ?? "unknown",
   //             ↑ count by IP address
@@ -44,7 +45,7 @@ export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // same window
   max: 100, // 100 requests per 15 min (much more relaxed)
 
-  store: store, // same Redis store
+  store: createStore("rl_global:"), // same Redis store
 
   keyGenerator: (req) => req.ip ?? "unknown",
 
@@ -62,7 +63,7 @@ export const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
 
-  store: store,
+  store: createStore("rl_ai:"),
 
   keyGenerator: (req) => {
     const user = (req as any).user;
