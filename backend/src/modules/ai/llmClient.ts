@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 const isDev = process.env.NODE_ENV !== "production";
 
 let groq: Groq;
@@ -28,6 +28,8 @@ export const callLLM = async (prompt: string, maxRetries = 3) => {
         messages: [{ role: "user", content: prompt }],
         model: GROQ_MODEL,
         temperature: 0.2,
+        max_tokens: 8192,
+        response_format: { type: "json_object" }
       });
 
       const text = chatCompletion.choices[0]?.message?.content?.trim();

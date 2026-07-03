@@ -585,6 +585,8 @@ export default function ApiDesignPage() {
   const [editingRoute, setEditingRoute] = useState<ApiRoute | null>(null);
   const [wsModalOpen, setWsModalOpen] = useState(false);
   const [editingWs, setEditingWs] = useState<WebSocketEvent | null>(null);
+  const [authRouteModalOpen, setAuthRouteModalOpen] = useState(false);
+  const [newAuthRoute, setNewAuthRoute] = useState("");
 
   const isFetching = Boolean(apiSectionState?.fetch.loading);
   const isSaving = Boolean(apiSectionState?.save.loading);
@@ -971,15 +973,15 @@ export default function ApiDesignPage() {
                                 <Lock size={9} />AUTH
                               </div>
                             )}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-2 transition-opacity">
                               <button onClick={() => { setEditingRoute(r); setRouteModalOpen(true); }}
                                 className="p-1.5 border transition hover:opacity-70" style={{ borderColor: BORDER, color: MUTED }}>
-                                <ChevronDown size={12} className="-rotate-90" />
+                                <ChevronDown size={18} className="-rotate-90" />
                               </button>
                               <button onClick={() => delRoute(r.id)}
                                 className="p-1.5 border transition hover:opacity-70"
                                 style={{ borderColor: "rgba(239,68,68,0.3)", color: "rgba(239,68,68,0.6)" }}>
-                                <Trash2 size={12} />
+                                <Trash2 size={18} />
                               </button>
                             </div>
                           </motion.div>
@@ -1022,14 +1024,14 @@ export default function ApiDesignPage() {
                               <p className="font-mono text-[13px] truncate" style={{ color: ACCENT }}>{e.name}</p>
                               <p className="mt-1 text-[11px] line-clamp-2" style={{ color: MUTED }}>{e.description}</p>
                             </div>
-                            <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-2 shrink-0 transition-opacity">
                               <button onClick={() => { setEditingWs(e); setWsModalOpen(true); }}
                                 className="p-1.5 border" style={{ borderColor: BORDER, color: MUTED }}>
-                                <ChevronDown size={12} className="-rotate-90" />
+                                <ChevronDown size={18} className="-rotate-90" />
                               </button>
-                              <button onClick={() => delEvent(e.id)} className="p-1.5 border"
+                              <button onClick={() => delEvent(e.id)} className="p-1.5 border hover:opacity-70"
                                 style={{ borderColor: "rgba(239,68,68,0.3)", color: "rgba(239,68,68,0.6)" }}>
-                                <Trash2 size={12} />
+                                <Trash2 size={18} />
                               </button>
                             </div>
                           </div>
@@ -1117,15 +1119,15 @@ export default function ApiDesignPage() {
                             </code>
                             <button
                               onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: p.auth.routes.filter((_, j) => j !== i) } }))}
-                              className="p-1 transition opacity-0 group-hover:opacity-100" style={{ color: MUTED }}>
-                              <X size={10} />
+                              className="p-1 transition hover:opacity-70" style={{ color: MUTED }}>
+                              <X size={16} />
                             </button>
                           </div>
                         ))
                       )}
                     </div>
                     <button
-                      onClick={() => setApi((p) => ({ ...p, auth: { ...p.auth, routes: [...p.auth.routes, "/api/v1/"] } }))}
+                      onClick={() => { setNewAuthRoute(""); setAuthRouteModalOpen(true); }}
                       className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
                       style={{ ...MONO, borderColor: BORDER, color: MUTED, background: "transparent" }}
                     >
@@ -1139,6 +1141,37 @@ export default function ApiDesignPage() {
 
         </motion.div>
       </div>
+
+      {/* ── Add Auth Route Modal ── */}
+      <AnimatePresence>
+        {authRouteModalOpen && (
+          <>
+            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAuthRouteModalOpen(false)} className="fixed inset-0 z-40 bg-black/60" />
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }} className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6" style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}>
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>Add Auth Route</p>
+                <button onClick={() => setAuthRouteModalOpen(false)} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (newAuthRoute.trim()) {
+                  setApi((p) => ({ ...p, auth: { ...p.auth, routes: [...p.auth.routes, newAuthRoute.trim()] } }));
+                  setAuthRouteModalOpen(false);
+                }
+              }} className="space-y-4">
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Route Path</p>
+                  <input value={newAuthRoute} onChange={(e) => setNewAuthRoute(e.target.value)} placeholder="e.g. /api/v1/admin/*" className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30 font-mono" style={{ borderColor: BORDER, backgroundColor: INNER_BG }} autoFocus />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setAuthRouteModalOpen(false)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
+                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Route</button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Preview modal ── */}
       <AnimatePresence>

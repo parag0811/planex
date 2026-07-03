@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import redis from "../db/redis";
 
@@ -27,7 +27,7 @@ export const authLimiter = rateLimit({
 
   store: createStore("rl_auth:"), // use Redis, not memory
 
-  keyGenerator: (req) => req.ip ?? "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
   //             ↑ count by IP address
   //               each IP gets its own counter in Redis
 
@@ -47,7 +47,7 @@ export const globalLimiter = rateLimit({
 
   store: createStore("rl_global:"), // same Redis store
 
-  keyGenerator: (req) => req.ip ?? "unknown",
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
 
   message: {
     success: false,
@@ -72,7 +72,7 @@ export const aiLimiter = rateLimit({
       return `ai:${user.id}`; // ← key by user ID
     }
 
-    return req.ip ?? "unknown";
+    return ipKeyGenerator(req.ip ?? "unknown");
   },
 
   message: {

@@ -1127,10 +1127,10 @@ export default function IdeaPage() {
                       </span>
                       <button
                         onClick={() => removeFeature(i)}
-                        className="text-[9px] uppercase tracking-[0.1em] opacity-0 group-hover:opacity-100 transition"
+                        className="text-[9px] uppercase tracking-[0.1em] transition hover:text-red-400"
                         style={{ ...MONO, color: "#737373" }}
                       >
-                        <Trash2 size={12} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </motion.div>
@@ -1194,9 +1194,9 @@ export default function IdeaPage() {
                     </p>
                     <button
                       onClick={() => removeRequirement(i)}
-                      className="opacity-0 group-hover:opacity-100 transition text-white/30 hover:text-red-400"
+                      className="transition text-white/50 hover:text-red-400"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={18} />
                     </button>
                   </motion.div>
                 ))}

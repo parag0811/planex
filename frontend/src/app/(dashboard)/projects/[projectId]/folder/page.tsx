@@ -321,7 +321,7 @@ function TreeNode({
         {/* Expand chevron */}
         <button
           onClick={() => isFolder && onToggle(node.id)}
-          className="flex h-4 w-4 shrink-0 items-center justify-center transition"
+          className="flex h-4 w-4 shrink-0 items-center justify-center transition cursor-pointer"
           style={{ color: isFolder ? MUTED : "transparent" }}
         >
           <ChevronRight
@@ -339,7 +339,7 @@ function TreeNode({
 
         {/* Index */}
         <span
-          className="shrink-0 text-[10px] font-bold"
+          className="shrink-0 text-xs font-bold"
           style={{ ...MONO, color: BORDER }}
         >
           {String(index + 1).padStart(2, "0")}
@@ -355,7 +355,7 @@ function TreeNode({
 
         {/* Type badge */}
         <span
-          className="shrink-0 border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+          className="shrink-0 border px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]"
           style={{
             ...MONO,
             borderColor: isFolder ? "#f59e0b30" : "#60a5fa30",
@@ -366,12 +366,12 @@ function TreeNode({
           {isFolder ? "dir" : "file"}
         </span>
 
-        {/* Actions — visible on hover */}
-        <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+        {/* Actions */}
+        <div className="flex items-center gap-2 transition">
           {isFolder && (
             <button
               onClick={() => onAddChild(node.id)}
-              className="border p-1.5 transition"
+              className="border p-1.5 transition cursor-pointer"
               style={{
                 borderColor: `${ACCENT}40`,
                 color: ACCENT,
@@ -379,27 +379,27 @@ function TreeNode({
               }}
               title="Add child"
             >
-              <Plus size={11} />
+              <Plus size={16} />
             </button>
           )}
           <button
             onClick={() => onEdit(node)}
-            className="border p-1.5 transition hover:text-white"
+            className="border p-1.5 transition hover:text-white cursor-pointer"
             style={{ borderColor: BORDER, color: MUTED }}
             title="Edit"
           >
-            <Edit2 size={11} />
+            <Edit2 size={16} />
           </button>
           <button
             onClick={() => onDelete(node.id)}
-            className="border p-1.5 transition hover:text-red-400"
+            className="border p-1.5 transition hover:text-red-400 cursor-pointer"
             style={{
               borderColor: "rgba(239,68,68,0.2)",
               color: MUTED,
             }}
             title="Delete"
           >
-            <Trash2 size={11} />
+            <Trash2 size={16} />
           </button>
         </div>
       </motion.div>

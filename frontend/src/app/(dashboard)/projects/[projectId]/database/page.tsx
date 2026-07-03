@@ -458,6 +458,27 @@ export default function DatabasePage() {
     null,
   );
   const [entityNameDraft, setEntityNameDraft] = useState("");
+  const [addEntityModalOpen, setAddEntityModalOpen] = useState(false);
+  const [newEntityName, setNewEntityName] = useState("");
+  const [newEntityDescription, setNewEntityDescription] = useState("");
+
+  const [addFieldEntityIndex, setAddFieldEntityIndex] = useState<number | null>(null);
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState<DatabaseFieldType>("string");
+  const [newFieldRequired, setNewFieldRequired] = useState(false);
+  const [newFieldUnique, setNewFieldUnique] = useState(false);
+
+  const [addRelModalOpen, setAddRelModalOpen] = useState(false);
+  const [newRelFrom, setNewRelFrom] = useState("");
+  const [newRelTo, setNewRelTo] = useState("");
+  const [newRelType, setNewRelType] = useState<RelationType>("one-to-many");
+  const [newRelDesc, setNewRelDesc] = useState("");
+
+  const [addIndexModalOpen, setAddIndexModalOpen] = useState(false);
+  const [newIndexEntity, setNewIndexEntity] = useState("");
+  const [newIndexFields, setNewIndexFields] = useState("");
+  const [newIndexUnique, setNewIndexUnique] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const draftSnapshotRef = useRef<DatabaseSectionContent | null>(null);
 
@@ -622,12 +643,31 @@ export default function DatabasePage() {
     setStatusType("error");
   }, [jobState.error, jobState.status]);
 
-  const addEntity = () => {
+  const submitNewEntity = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newEntityName.trim()) {
+      setStatus("Entity name is required.");
+      setStatusType("error");
+      return;
+    }
     setSchema((current) => ({
       ...current,
-      entities: [...current.entities, createEmptyEntity()],
+      entities: [
+        ...current.entities, 
+        { ...createEmptyEntity(), name: newEntityName.trim(), description: newEntityDescription.trim() }
+      ],
     }));
     setStatus("Entity added.");
+    setStatusType("success");
+    setAddEntityModalOpen(false);
+    setNewEntityName("");
+    setNewEntityDescription("");
+  };
+
+  const addEntity = () => {
+    setNewEntityName("");
+    setNewEntityDescription("");
+    setAddEntityModalOpen(true);
   };
 
   const updateEntity = (index: number, patch: Partial<DatabaseEntity>) => {
@@ -672,18 +712,49 @@ export default function DatabasePage() {
     setStatus("Entity removed.");
   };
 
-  const addField = (
-    entityIndex: number,
-    field: DatabaseField = createEmptyField(),
-  ) => {
+  const submitNewField = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (addFieldEntityIndex === null) return;
+    if (!newFieldName.trim()) {
+      setStatus("Field name is required.");
+      setStatusType("error");
+      return;
+    }
     setSchema((current) => ({
       ...current,
       entities: current.entities.map((entity, idx) =>
-        idx === entityIndex
-          ? { ...entity, fields: [...entity.fields, field] }
+        idx === addFieldEntityIndex
+          ? {
+              ...entity,
+              fields: [
+                ...entity.fields,
+                {
+                  name: newFieldName.trim(),
+                  type: newFieldType,
+                  required: newFieldRequired,
+                  unique: newFieldUnique,
+                  description: "",
+                },
+              ],
+            }
           : entity,
       ),
     }));
+    setAddFieldEntityIndex(null);
+    setNewFieldName("");
+    setNewFieldType("string");
+    setNewFieldRequired(false);
+    setNewFieldUnique(false);
+    setStatus("Field added.");
+    setStatusType("success");
+  };
+
+  const addField = (entityIndex: number) => {
+    setAddFieldEntityIndex(entityIndex);
+    setNewFieldName("");
+    setNewFieldType("string");
+    setNewFieldRequired(false);
+    setNewFieldUnique(false);
   };
 
   const addPresetField = (entityIndex: number, preset: DatabaseField) => {
@@ -788,19 +859,40 @@ export default function DatabasePage() {
     }
   };
 
-  const addRelationship = () => {
+  const submitNewRelationship = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newRelFrom || !newRelTo) {
+      setStatus("Both source and target entities are required.");
+      setStatusType("error");
+      return;
+    }
     setSchema((current) => ({
       ...current,
       relationships: [
         ...current.relationships,
         {
-          from: entityNames[0] || "",
-          to: entityNames[1] || entityNames[0] || "",
-          type: "one-to-many",
-          description: "",
+          from: newRelFrom,
+          to: newRelTo,
+          type: newRelType,
+          description: newRelDesc.trim(),
         },
       ],
     }));
+    setAddRelModalOpen(false);
+    setNewRelFrom("");
+    setNewRelTo("");
+    setNewRelType("one-to-many");
+    setNewRelDesc("");
+    setStatus("Relationship added.");
+    setStatusType("success");
+  };
+
+  const addRelationship = () => {
+    setNewRelFrom(entityNames[0] || "");
+    setNewRelTo(entityNames[1] || entityNames[0] || "");
+    setNewRelType("one-to-many");
+    setNewRelDesc("");
+    setAddRelModalOpen(true);
   };
 
   const updateRelationship = (
@@ -822,14 +914,39 @@ export default function DatabasePage() {
     }));
   };
 
-  const addIndex = () => {
+  const submitNewIndex = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newIndexEntity) {
+      setStatus("Entity is required for an index.");
+      setStatusType("error");
+      return;
+    }
+    const fieldsArray = newIndexFields.split(",").map((f) => f.trim()).filter(Boolean);
+    if (fieldsArray.length === 0) {
+      setStatus("At least one field is required for an index.");
+      setStatusType("error");
+      return;
+    }
     setSchema((current) => ({
       ...current,
       indexes: [
         ...(current.indexes ?? []),
-        { entity: entityNames[0] || "", fields: [], unique: false },
+        { entity: newIndexEntity, fields: fieldsArray, unique: newIndexUnique },
       ],
     }));
+    setAddIndexModalOpen(false);
+    setNewIndexEntity("");
+    setNewIndexFields("");
+    setNewIndexUnique(false);
+    setStatus("Index added.");
+    setStatusType("success");
+  };
+
+  const addIndex = () => {
+    setNewIndexEntity(entityNames[0] || "");
+    setNewIndexFields("");
+    setNewIndexUnique(false);
+    setAddIndexModalOpen(true);
   };
 
   const updateIndex = (index: number, patch: Partial<DatabaseIndex>) => {
@@ -1195,11 +1312,11 @@ export default function DatabasePage() {
                           </h2>
                           <button
                             onClick={() => startEditEntityName(entityIndex)}
-                            className="mt-3 opacity-0 group-hover:opacity-100 transition shrink-0"
+                            className="mt-3 transition shrink-0 hover:text-white"
                             style={{ color: MUTED }}
                             aria-label="Edit entity name"
                           >
-                            <Pencil size={16} />
+                            <Pencil size={18} />
                           </button>
                         </div>
                       )}
@@ -1230,7 +1347,7 @@ export default function DatabasePage() {
                         style={{ borderColor: BORDER, color: MUTED }}
                         aria-label="Remove entity"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -1408,7 +1525,7 @@ export default function DatabasePage() {
                           style={{ color: MUTED }}
                           aria-label="Remove field"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={18} />
                         </button>
                       </div>
                     ))}
@@ -1483,7 +1600,7 @@ export default function DatabasePage() {
                                   style={{ color: MUTED }}
                                   className="hover:text-red-400 transition"
                                 >
-                                  <Link2 size={14} />
+                                  <Link2 size={18} />
                                 </button>
                               </div>
                             );
@@ -1549,7 +1666,7 @@ export default function DatabasePage() {
                                   style={{ color: MUTED }}
                                   className="hover:text-red-400 transition shrink-0"
                                 >
-                                  <X size={13} />
+                                  <X size={18} />
                                 </button>
                               </div>
                             );
@@ -2114,6 +2231,270 @@ export default function DatabasePage() {
                   Accept
                 </button>
               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Add Entity Modal */}
+      <AnimatePresence>
+        {addEntityModalOpen && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAddEntityModalOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60"
+              aria-label="Close modal backdrop"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
+              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <p
+                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
+                  style={INTER_TIGHT}
+                >
+                  Add New Entity
+                </p>
+                <button
+                  onClick={() => setAddEntityModalOpen(false)}
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={submitNewEntity} className="space-y-4">
+                <div>
+                  <p
+                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                    style={{ ...MONO, color: MUTED }}
+                  >
+                    Entity Name
+                  </p>
+                  <input
+                    value={newEntityName}
+                    onChange={(e) => setNewEntityName(e.target.value)}
+                    placeholder="e.g. User, Product, Order"
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                    style={{
+                      borderColor: BORDER,
+                      backgroundColor: INNER_BG,
+                      ...INTER,
+                    }}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <p
+                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
+                    style={{ ...MONO, color: MUTED }}
+                  >
+                    Description
+                  </p>
+                  <textarea
+                    value={newEntityDescription}
+                    onChange={(e) => setNewEntityDescription(e.target.value)}
+                    rows={3}
+                    placeholder="Describe what this entity represents..."
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                    style={{
+                      borderColor: BORDER,
+                      backgroundColor: INNER_BG,
+                      ...INTER,
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setAddEntityModalOpen(false)}
+                    className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white"
+                    style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80"
+                    style={{
+                      ...MONO,
+                      borderColor: ACCENT,
+                      color: ACCENT,
+                      backgroundColor: `${ACCENT}12`,
+                    }}
+                  >
+                    Add Entity
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      {/* Add Field Modal */}
+      <AnimatePresence>
+        {addFieldEntityIndex !== null && (
+          <>
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setAddFieldEntityIndex(null)}
+              className="fixed inset-0 z-40 bg-black/60"
+              aria-label="Close modal backdrop"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: EASE }}
+              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
+              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
+            >
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>
+                  Add New Field
+                </p>
+                <button
+                  onClick={() => setAddFieldEntityIndex(null)}
+                  className="p-1 transition hover:text-white"
+                  style={{ color: MUTED }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <form onSubmit={submitNewField} className="space-y-4">
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Field Name</p>
+                  <input
+                    value={newFieldName}
+                    onChange={(e) => setNewFieldName(e.target.value)}
+                    placeholder="e.g. user_id, price"
+                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Field Type</p>
+                  <select
+                    value={newFieldType}
+                    onChange={(e) => setNewFieldType(e.target.value as DatabaseFieldType)}
+                    className="w-full border px-4 py-3 text-base text-white outline-none"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }}
+                  >
+                    {["uuid", "string", "text", "integer", "boolean", "datetime", "float", "json"].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
+                    <input type="checkbox" checked={newFieldRequired} onChange={(e) => setNewFieldRequired(e.target.checked)} />
+                    Required
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
+                    <input type="checkbox" checked={newFieldUnique} onChange={(e) => setNewFieldUnique(e.target.checked)} />
+                    Unique
+                  </label>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setAddFieldEntityIndex(null)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
+                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Field</button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Add Relationship Modal */}
+      <AnimatePresence>
+        {addRelModalOpen && (
+          <>
+            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddRelModalOpen(false)} className="fixed inset-0 z-40 bg-black/60" />
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }} className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6" style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}>
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>Add Relationship</p>
+                <button onClick={() => setAddRelModalOpen(false)} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
+              </div>
+              <form onSubmit={submitNewRelationship} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>From</p>
+                    <select value={newRelFrom} onChange={(e) => setNewRelFrom(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                      {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>To</p>
+                    <select value={newRelTo} onChange={(e) => setNewRelTo(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                      {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Type</p>
+                  <select value={newRelType} onChange={(e) => setNewRelType(e.target.value as RelationType)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                    {RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Description</p>
+                  <input value={newRelDesc} onChange={(e) => setNewRelDesc(e.target.value)} placeholder="e.g. Users have many posts" className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30" style={{ borderColor: BORDER, backgroundColor: INNER_BG }} />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setAddRelModalOpen(false)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
+                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Relationship</button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Add Index Modal */}
+      <AnimatePresence>
+        {addIndexModalOpen && (
+          <>
+            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddIndexModalOpen(false)} className="fixed inset-0 z-40 bg-black/60" />
+            <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }} className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6" style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}>
+              <div className="mb-5 flex items-center justify-between">
+                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>Add Index</p>
+                <button onClick={() => setAddIndexModalOpen(false)} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
+              </div>
+              <form onSubmit={submitNewIndex} className="space-y-4">
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Entity</p>
+                  <select value={newIndexEntity} onChange={(e) => setNewIndexEntity(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
+                    {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Fields (comma separated)</p>
+                  <input value={newIndexFields} onChange={(e) => setNewIndexFields(e.target.value)} placeholder="e.g. email, user_id" className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30" style={{ borderColor: BORDER, backgroundColor: INNER_BG }} autoFocus />
+                </div>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
+                    <input type="checkbox" checked={newIndexUnique} onChange={(e) => setNewIndexUnique(e.target.checked)} />
+                    Unique Index
+                  </label>
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setAddIndexModalOpen(false)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
+                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Index</button>
+                </div>
+              </form>
             </motion.div>
           </>
         )}
