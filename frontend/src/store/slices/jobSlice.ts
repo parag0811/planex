@@ -252,7 +252,7 @@ export const getAiJobStatusThunk = createAsyncThunk(
     try {
       const { jobId } = params;
 
-      const res = await axiosInstance.get(`/ai/job/${jobId}`);
+      const res = await axiosInstance.get(`/jobs/${jobId}`);
 
       return {
         status: (res.data?.status ?? "idle") as JobStatusType,

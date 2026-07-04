@@ -14,9 +14,16 @@ export interface AiSuggestionResponse {
 
 export type AiResponse = AiUpdateResponse | AiSuggestionResponse;
 
-export const parseAiResponse = (raw: string): AiResponse => {
+export const parseAiResponse = (raw: any): AiResponse => {
   try {
-    const json = JSON.parse(raw) as any;
+    const json = typeof raw === "string" ? JSON.parse(raw) : raw;
+
+    if (!json || typeof json !== "object" || Array.isArray(json)) {
+      return {
+        type: "suggestion",
+        message: "Invalid response format. Please try again.",
+      };
+    }
 
     if (!json.type) {
       return {

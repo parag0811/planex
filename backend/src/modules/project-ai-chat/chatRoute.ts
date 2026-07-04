@@ -3,7 +3,6 @@ import isAuth from "../../middleware/auth.middleware";
 import { projectAccess } from "../../middleware/project-middleware/projectAccess";
 import { editorAccess } from "../../middleware/project-middleware/editorAccess";
 import { chatController } from "../../modules/project-ai-chat/chatController";
-// import { getJobStatus } from "../../modules/queues/aiQueue";
 
 const router = Router();
 
@@ -15,9 +14,4 @@ router.post(
   chatController,
 );
 
-router.get(
-  "/ai/job/:jobId",
-  // getJobStatus
-)
-
-export default router
+export default router;

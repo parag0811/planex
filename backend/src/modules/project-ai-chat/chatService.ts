@@ -19,7 +19,14 @@ export const chatService = async ({
   context,
 }: ChatServiceParams): Promise<AiResponse> => {
   try {
-    const sections = await getProjectSectionsService(projectId);
+    const sectionsData = await getProjectSectionsService(projectId);
+    
+    const sections: Record<string, any> = {};
+    for (const section of sectionsData) {
+      if (section.type) {
+        sections[section.type.toLowerCase()] = section;
+      }
+    }
     
     let currentContent = null;
     if (context?.section && context.section !== "none") {

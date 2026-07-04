@@ -57,18 +57,7 @@ const fadeUp = (delay = 0) => ({
   transition: { duration: 0.3, delay, ease: EASE } as Transition,
 });
 
-const SUGGESTED_ACTIONS = [
-  "GENERATE_API_SPEC",
-  "SIMULATE_THERMAL_LOAD",
-  "REVIEW_MATERIAL_COSTS",
-];
 
-const SCHEMA_PREVIEW = `{
-  "engine": "decentralized",
-  "version": "4.2.8",
-  "nodes": ["alpha", "beta"],
-  "optimization": "thermal"
-}`;
 
 const getSectionContext = (pathname: string): ChatSectionType => {
   if (pathname.includes("/idea")) return "idea";
@@ -105,13 +94,20 @@ export default function AIRightSidebar({
 
   const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(true);
   const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
+  const sectionContext = getSectionContext(pathname);
+  const contextLabel = getContextLabel(pathname);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
       timestamp: timeNow(),
       content:
-        'Analyzing the "Decentralized Geometry Engine". Initial simulation suggests a 14% improvement in thermal load distribution if kinetic panels are aligned with current project coordinates. Shall I generate a prototype API spec for this?',
+        sectionContext === "none"
+          ? "You're viewing the Project Dashboard. How can I assist you with this project?"
+          : `You're viewing the ${
+              sectionContext.charAt(0).toUpperCase() + sectionContext.slice(1)
+            } section. How can I help you improve it?`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -121,8 +117,6 @@ export default function AIRightSidebar({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const sectionContext = getSectionContext(pathname);
-  const contextLabel = getContextLabel(pathname);
 
   const setSidebarOpen = (open: boolean) => {
     if (controlledIsOpen === undefined) setUncontrolledIsOpen(open);
@@ -287,7 +281,7 @@ export default function AIRightSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setSidebarOpen(true)}
-            className="fixed bottom-6 right-3 z-30 flex flex-col items-center gap-1 border border-[#2b2321] bg-[#2a2a2a] px-2 py-3 text-[#ff3d00] hover:bg-[#2b2321] transition-all duration-150 md:right-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
+            className="fixed bottom-6 right-3 z-30 flex flex-col items-center gap-1 border border-[#2b2321] bg-[#2a2a2a] px-2 py-3 text-[#ff3d00] hover:bg-[#2b2321] transition-all duration-150 cursor-pointer md:right-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
           >
             <Sparkles size={13} strokeWidth={1.5} />
             <span
@@ -312,7 +306,7 @@ export default function AIRightSidebar({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-10 bg-black/60 md:hidden"
+            className="fixed inset-0 z-10 bg-black/60 md:hidden cursor-pointer"
             aria-label="Close AI sidebar backdrop"
           />
         )}
@@ -343,7 +337,7 @@ export default function AIRightSidebar({
                 </div>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="text-white/30 hover:text-white/70 transition-colors duration-150"
+                  className="text-white/30 hover:text-white/70 transition-colors duration-150 cursor-pointer"
                 >
                   <X size={14} strokeWidth={1.5} />
                 </button>
@@ -405,7 +399,7 @@ export default function AIRightSidebar({
                             className="text-[9px] font-bold uppercase tracking-[0.16em] text-white/30"
                             style={MONO}
                           >
-                            Node_01_Feedback
+                            AI_Assistant
                           </p>
                           <span
                             className="text-[9px] text-white/20"
@@ -451,7 +445,7 @@ export default function AIRightSidebar({
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleApply(msg)}
-                            className="flex-1 border border-[#22c55e]/35 bg-[#22c55e]/10 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#22c55e] hover:bg-[#22c55e]/20 transition-all duration-150"
+                            className="flex-1 border border-[#22c55e]/35 bg-[#22c55e]/10 px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-[#22c55e] hover:bg-[#22c55e]/20 transition-all duration-150 cursor-pointer"
                             style={MONO}
                           >
                             Accept
@@ -460,7 +454,7 @@ export default function AIRightSidebar({
                             onClick={() =>
                               setApplied((prev) => new Set([...prev, msg.id]))
                             }
-                            className="flex-1 border border-white/15 bg-white/[0.03] px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white/50 hover:bg-white/[0.07] transition-all duration-150"
+                            className="flex-1 border border-white/15 bg-white/[0.03] px-2 py-2 text-[10px] font-bold uppercase tracking-[0.1em] text-white/50 hover:bg-white/[0.07] transition-all duration-150 cursor-pointer"
                             style={MONO}
                           >
                             Deny
@@ -506,66 +500,7 @@ export default function AIRightSidebar({
                 <div ref={bottomRef} />
               </div>
 
-              {/* Suggested actions */}
-              <div className="shrink-0 px-4 pb-4">
-                <p
-                  className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-white/30"
-                  style={MONO}
-                >
-                  Suggested_Actions
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {SUGGESTED_ACTIONS.map((action) => (
-                    <button
-                      key={action}
-                      onClick={() =>
-                        sendMessage(action.replace(/_/g, " ").toLowerCase())
-                      }
-                      className="w-full border border-[#2b2321] bg-[#131313] px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-[0.1em] text-white/55 hover:border-[#ff3d00]/35 hover:text-white/85 transition-all duration-150"
-                      style={MONO}
-                    >
-                      {action}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Schema preview */}
-              <div className="shrink-0 px-4 pb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p
-                    className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30"
-                    style={MONO}
-                  >
-                    Schema_Preview
-                  </p>
-                </div>
-                <pre
-                  className="border border-[#2b2321] bg-[#131313] px-3 py-3 text-[11px] leading-[1.7] overflow-x-auto text-white/50"
-                  style={MONO}
-                >
-                  {SCHEMA_PREVIEW.split("\n").map((line, i) => {
-                    const keyMatch = line.match(/"(\w+)":/);
-                    const valMatch = line.match(/:\s*(".*?"|\[.*?\])/);
-                    return (
-                      <div key={i}>
-                        {keyMatch ? (
-                          <span className="text-[#ff3d00]/80">
-                            {line.split(":")[0]}:
-                          </span>
-                        ) : (
-                          line.split(":")[0]
-                        )}
-                        {valMatch && (
-                          <span className="text-white/60">
-                            {line.slice(line.indexOf(":") + 1)}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </pre>
-              </div>
             </div>
 
             {/* Input — bottom fixed */}
@@ -586,10 +521,10 @@ export default function AIRightSidebar({
                   whileTap={{ scale: 0.92 }}
                   onClick={() => sendMessage()}
                   disabled={!input.trim() || isThinking || !projectId}
-                  className={`flex items-center justify-center w-7 h-7 shrink-0 transition-all duration-150 ${
+                  className={`flex items-center justify-center w-7 h-7 shrink-0 transition-all duration-150 cursor-pointer disabled:cursor-not-allowed ${
                     input.trim() && !isThinking && projectId
                       ? "bg-[#ff3d00] text-white hover:bg-[#ff5a26]"
-                      : "bg-white/8 text-white/20 cursor-not-allowed"
+                      : "bg-white/8 text-white/20"
                   }`}
                 >
                   <Send size={12} strokeWidth={1.5} />
@@ -608,7 +543,7 @@ export default function AIRightSidebar({
                   className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/25"
                   style={MONO}
                 >
-                  Lens_v1.4
+                  Planex_Copilot
                 </span>
               </div>
             </div>
