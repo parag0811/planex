@@ -13,15 +13,14 @@ export const registerUser = createAsyncThunk(
 
       return res.data.message;
     } catch (error: any) {
-      const validationErrors = error.response?.data?.data;
+      const fieldErrors = error.response?.data?.fieldErrors;
+      const message = error.response?.data?.message || "Registration failed";
 
-      if (validationErrors?.length > 0) {
-        return rejectWithValue(validationErrors[0].msg);
+      if (fieldErrors) {
+        return rejectWithValue({ fieldErrors, message });
       }
 
-      return rejectWithValue(
-        error.response?.data?.message || "Registration failed",
-      );
+      return rejectWithValue(message);
     }
   },
 );
@@ -45,11 +44,15 @@ export const loginUser = createAsyncThunk(
       return token;
     } catch (error: any) {
       localStorage.removeItem("token");
-      return rejectWithValue(
-        typeof error === "string"
-          ? error
-          : error.response?.data?.message || "Login Failed",
-      );
+      
+      const fieldErrors = error.response?.data?.fieldErrors;
+      const message = typeof error === "string" ? error : (error.response?.data?.message || "Login Failed");
+
+      if (fieldErrors) {
+        return rejectWithValue({ fieldErrors, message });
+      }
+
+      return rejectWithValue(message);
     }
   },
 );
@@ -149,7 +152,12 @@ const authSlice = createSlice({
 
       .addCase(registerUser.rejected, (state, action) => {
         state.registerLoading = false;
-        state.registerError = action.payload as string;
+        const payload = action.payload as any;
+        if (payload?.message) {
+           state.registerError = payload.message;
+        } else {
+           state.registerError = payload as string;
+        }
       });
     // LOGIN
     builder
@@ -163,7 +171,12 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loginLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as any;
+        if (payload?.message) {
+           state.error = payload.message;
+        } else {
+           state.error = payload as string;
+        }
       })
 
       // FETCH USER

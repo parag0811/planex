@@ -18,11 +18,32 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFieldErrors({});
 
-    await dispatch(loginUser({ email, password }));
+    const errors: Record<string, string> = {};
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      errors.email = "Enter a valid email.";
+    }
+    if (!password) {
+      errors.password = "Password is required.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    try {
+      await dispatch(loginUser({ email, password })).unwrap();
+    } catch (err: any) {
+      if (err?.fieldErrors) {
+        setFieldErrors(err.fieldErrors);
+      }
+    }
   };
 
   const handleOAuth = (provider: "github" | "google") => {
@@ -132,15 +153,21 @@ export default function LoginPage() {
                   Identifier
                 </label>
 
-                <div className="h-12 border border-[#d6d6d6] bg-[#f3f3f3] flex items-center px-4">
+                <div className={`h-12 border ${fieldErrors.email ? "border-red-500/60" : "border-[#d6d6d6] focus-within:border-[#ff3d00]"} bg-[#f3f3f3] flex items-center px-4 transition-colors`}>
                   <input
                     type="email"
                     placeholder="architect@planex.dev"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: "" }));
+                    }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />
                 </div>
+                {fieldErrors.email && (
+                  <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.email}</p>
+                )}
               </div>
 
               <div className="mb-4">
@@ -157,12 +184,15 @@ export default function LoginPage() {
                   </Link>
                 </div>
 
-                <div className="h-12 border border-[#d6d6d6] bg-[#f3f3f3] flex items-center px-4">
+                <div className={`h-12 border ${fieldErrors.password ? "border-red-500/60" : "border-[#d6d6d6] focus-within:border-[#ff3d00]"} bg-[#f3f3f3] flex items-center px-4 transition-colors`}>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: "" }));
+                    }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />
 
@@ -174,6 +204,9 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {fieldErrors.password && (
+                  <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.password}</p>
+                )}
               </div>
 
               <div className="mb-10 flex items-center gap-2">

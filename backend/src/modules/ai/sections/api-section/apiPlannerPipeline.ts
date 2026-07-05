@@ -60,10 +60,10 @@ export const runApiPipeline = async (
         const apiSection = ApiSectionContentSchema.safeParse(parsed);
 
         if (!apiSection.success) {
+          console.error("Cached AI Validation Failed:", apiSection.error.issues);
           throw createAppError(
-            "Cached api section failed validation",
-            422,
-            apiSection.error.issues,
+            "Failed to generate a valid AI response. Please try again.",
+            422
           );
         }
 
@@ -91,10 +91,10 @@ export const runApiPipeline = async (
     const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
 
     if (!validatedApiSection.success) {
+      console.error("AI Validation Failed:", validatedApiSection.error.issues);
       throw createAppError(
-        "Api section failed validation",
-        422,
-        validatedApiSection.error.issues,
+        "Failed to generate a valid AI response. Please try again.",
+        422
       );
     }
 

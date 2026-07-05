@@ -41,10 +41,10 @@ export const runPlannerPipeline = async (
       const ideaSection = IdeaSectionContentSchema.safeParse(parsed);
 
       if (!ideaSection.success) {
+        console.error("Cached AI Validation Failed:", ideaSection.error.issues);
         throw createAppError(
-          "Cached idea section failed validation",
-          422,
-          ideaSection.error.issues,
+          "Failed to generate a valid AI response. Please try again.",
+          422
         );
       }
 
@@ -67,10 +67,10 @@ export const runPlannerPipeline = async (
   const validatedIdeaSection = IdeaSectionContentSchema.safeParse(ideaSection);
 
   if (!validatedIdeaSection.success) {
+    console.error("AI Validation Failed:", validatedIdeaSection.error.issues);
     throw createAppError(
-      "Idea section failed validation",
-      422,
-      validatedIdeaSection.error.issues,
+      "Failed to generate a valid AI response. Please try again.",
+      422
     );
   }
 

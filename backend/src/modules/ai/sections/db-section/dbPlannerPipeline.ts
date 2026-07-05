@@ -46,12 +46,11 @@ export const runDatabasePipeline = async (
       const parsed = JSON.parse(cachedData);
       const databaseSection = DatabaseSectionContentSchema.safeParse(parsed);
 
-      if (!databaseSection.success)
-      {
+      if (!databaseSection.success) {
+         console.error("Cached AI Validation Failed:", databaseSection.error.issues);
          throw createAppError(
-          "Cached database section failed validation",
-          422,
-          databaseSection.error.issues,
+          "Failed to generate a valid AI response. Please try again.",
+          422
         );
       }
       return databaseSection.data;
@@ -77,10 +76,10 @@ export const runDatabasePipeline = async (
   );
 
   if (!validatedDatabaseSection.success) {
+    console.error("AI Validation Failed:", validatedDatabaseSection.error.issues);
     throw createAppError(
-      "Database section failed validation",
-      422,
-      validatedDatabaseSection.error.issues,
+      "Failed to generate a valid AI response. Please try again.",
+      422
     );
   }
 

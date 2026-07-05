@@ -17,6 +17,7 @@ export const aiWorker = new Worker(
     connection: {
       host: (process.env.REDIS_HOST as string) || "127.0.0.1",
       port: Number(process.env.REDIS_PORT) || 6379,
+      maxRetriesPerRequest: null,
     },
   },
 );

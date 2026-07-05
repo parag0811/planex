@@ -30,6 +30,8 @@ export default function RegisterPage() {
     (state: RootState) => state.auth,
   );
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -38,14 +40,29 @@ export default function RegisterPage() {
   });
 
   const handleChange =
-    (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      if (fieldErrors[field]) {
+        setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+      }
+    };
 
   const passwordMatch =
     form.password && form.confirm && form.password === form.confirm;
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFieldErrors({});
+
+    const errors: Record<string, string> = {};
+    if (!form.name || form.name.length < 2) errors.name = "Name must be at least 2 characters.";
+    if (!form.email || !/^\S+@\S+\.\S+$/.test(form.email)) errors.email = "Enter a valid email.";
+    if (!form.password || form.password.length < 6) errors.password = "Password must be at least 6 characters.";
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
 
     if (!passwordMatch) return;
 
@@ -59,8 +76,10 @@ export default function RegisterPage() {
       ).unwrap();
 
       router.push("/login");
-    } catch (error) {
-      // Redux already stores registerError
+    } catch (err: any) {
+      if (err?.fieldErrors) {
+        setFieldErrors(err.fieldErrors);
+      }
     }
   };
 
@@ -188,9 +207,12 @@ export default function RegisterPage() {
                   value={form.name}
                   onChange={handleChange("name")}
                   required
-                  className="w-full h-12 border border-[#d6d6d6] bg-[#f3f3f3] px-4 text-sm text-[#111111] placeholder-[#b0b0b0] outline-none focus:border-[#ff3d00] transition-colors duration-150"
+                  className={`w-full h-12 border ${fieldErrors.name ? "border-red-500/60" : "border-[#d6d6d6] focus:border-[#ff3d00]"} bg-[#f3f3f3] px-4 text-sm text-[#111111] placeholder-[#b0b0b0] outline-none transition-colors duration-150`}
                   style={MONO}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.name}</p>
+                )}
               </div>
 
               {/* Email */}
@@ -207,9 +229,12 @@ export default function RegisterPage() {
                   value={form.email}
                   onChange={handleChange("email")}
                   required
-                  className="w-full h-12 border border-[#d6d6d6] bg-[#f3f3f3] px-4 text-sm text-[#111111] placeholder-[#b0b0b0] outline-none focus:border-[#ff3d00] transition-colors duration-150"
+                  className={`w-full h-12 border ${fieldErrors.email ? "border-red-500/60" : "border-[#d6d6d6] focus:border-[#ff3d00]"} bg-[#f3f3f3] px-4 text-sm text-[#111111] placeholder-[#b0b0b0] outline-none transition-colors duration-150`}
                   style={MONO}
                 />
+                {fieldErrors.email && (
+                  <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.email}</p>
+                )}
               </div>
 
               {/* Password */}
@@ -220,7 +245,7 @@ export default function RegisterPage() {
                 >
                   Password
                 </label>
-                <div className="flex h-12 items-center border border-[#d6d6d6] bg-[#f3f3f3] px-4 focus-within:border-[#ff3d00] transition-colors duration-150">
+                <div className={`flex h-12 items-center border ${fieldErrors.password ? "border-red-500/60" : "border-[#d6d6d6] focus-within:border-[#ff3d00]"} bg-[#f3f3f3] px-4 transition-colors duration-150`}>
                   <input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
@@ -242,6 +267,9 @@ export default function RegisterPage() {
                     )}
                   </button>
                 </div>
+                {fieldErrors.password && (
+                  <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.password}</p>
+                )}
               </div>
 
               {/* Confirm password */}

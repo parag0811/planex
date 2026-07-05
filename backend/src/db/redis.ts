@@ -3,6 +3,7 @@ import { Redis } from "ioredis";
 const redis = new Redis({
   port: Number(process.env.REDIS_PORT),
   host: process.env.REDIS_HOST as string,
+  maxRetriesPerRequest: null,
 
   // username: process.env.REDIS_USERNAME || undefined,
   // password: process.env.REDIS_PASSWORD || undefined,

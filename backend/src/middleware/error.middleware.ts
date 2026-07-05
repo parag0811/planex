@@ -1,14 +1,17 @@
 import { Request, Response, NextFunction } from "express";
+import { ZodError } from "zod";
 
 interface AppError extends Error {
   status?: number;
   data?: unknown;
+  fieldErrors?: Record<string, string>;
 }
 
 interface ErrorResponse {
   status: number;
   message: string;
-  data? : unknown
+  data? : unknown;
+  fieldErrors?: Record<string, string>;
 }
 
 const getFrontendBaseUrl = () => {
@@ -17,31 +20,38 @@ const getFrontendBaseUrl = () => {
 
 
 const errorHandler = (
-  error: AppError,
+  error: AppError | ZodError,
   req: Request,
   res: Response<ErrorResponse>,
   next: NextFunction,
 ) => {
   console.error(`[Error] ${req.method} ${req.originalUrl}:`, error);
 
-  const prismaError = error as AppError & { code?: string };
-  const status = prismaError.code === "P1001" ? 503 : error.status || 500;
-  let message: string;
+  let status = 500;
+  let message = "An unexpected error occurred while processing your request.";
+  let fieldErrors: Record<string, string> | undefined = undefined;
 
-  if (prismaError.code === "P1001") {
-    message = "Database unavailable. Please try again shortly.";
-  } else if (status >= 500) {
-    message = "Internal Server Error";
-  } else if ((status === 401 || status === 403) && !error.message) {
-    message = "Authentication failed! Login Again.";
+  if (error instanceof ZodError) {
+    status = 400;
+    message = error.issues.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(", ");
   } else {
-    const isThirdPartyOrRaw =
-      error.name !== "Error" ||
-      (error.message && (error.message.includes("{") || error.message.length > 200));
+    const appError = error as AppError;
+    const prismaError = error as AppError & { code?: string };
+    
+    status = prismaError.code === "P1001" ? 503 : appError.status || 500;
+    if (appError.fieldErrors) {
+      fieldErrors = appError.fieldErrors;
+    }
 
-    message = isThirdPartyOrRaw
-      ? "An unexpected error occurred while processing your request."
-      : error.message || "Something went wrong";
+    if (prismaError.code === "P1001") {
+      message = "Database unavailable. Please try again shortly.";
+    } else if (status >= 500) {
+      message = "Internal Server Error";
+    } else if ((status === 401 || status === 403) && !appError.message) {
+      message = "Authentication failed! Login Again.";
+    } else if (appError.status !== undefined) {
+      message = appError.message || "Something went wrong";
+    }
   }
 
   const isOAuthCallback =
@@ -54,7 +64,12 @@ const errorHandler = (
     return res.redirect(redirectUrl);
   }
 
-  return res.status(status).json({ status, message , data: error.data});
+  const responsePayload: ErrorResponse = { status, message };
+  if (fieldErrors) {
+    responsePayload.fieldErrors = fieldErrors;
+  }
+
+  return res.status(status).json(responsePayload);
 };
 
 export default errorHandler;

@@ -16,6 +16,7 @@ passport.use(
       clientID: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
       callbackURL: "/auth/github/callback",
+      scope: ["user:email"],
     },
     async (
       _accessToken: string,
@@ -29,11 +30,12 @@ passport.use(
           error.status = status;
           return error;
         };
-        const email = profile.emails?.[0]?.value;
+        const emailObj = profile.emails?.find((e) => (e as any).primary) || profile.emails?.[0];
+        const email = emailObj?.value;
         const providerId = profile.id;
 
         if (!email) {
-          return done(makeAuthError("No email from github.", 400));
+          return done(makeAuthError("No public or private email found from your GitHub account. Please ensure your email is verified.", 400));
         }
 
         let user = await prisma.user.findUnique({

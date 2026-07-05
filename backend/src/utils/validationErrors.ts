@@ -4,6 +4,7 @@ import { validationResult } from "express-validator";
 interface AppError extends Error {
   status?: number;
   data?: unknown;
+  fieldErrors?: Record<string, string>;
 }
 
 export const handleValidationErrors = async (
@@ -18,7 +19,18 @@ export const handleValidationErrors = async (
       "Validation failed. Enter fields correctly.",
     ) as AppError;
     error.status = 422;
-    error.data = errors.array();
+    
+    const fieldErrors: Record<string, string> = {};
+    errors.array().forEach((err: any) => {
+      if (err.type === 'field' && !fieldErrors[err.path]) {
+        fieldErrors[err.path] = err.msg;
+      } else if (!fieldErrors[err.param || err.path]) {
+         // Fallback for older express-validator versions
+         fieldErrors[err.param || err.path] = err.msg;
+      }
+    });
+    
+    error.fieldErrors = fieldErrors;
     return next(error);
   }
   next();
