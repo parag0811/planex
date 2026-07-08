@@ -832,21 +832,16 @@ export default function IdeaPage() {
             variants={fadeUp(3)}
             className="mb-10 flex flex-wrap items-center gap-3"
           >
-            <span
-              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-            >
-              Ver: {hasAnyContent ? "4.2.0" : "0.0.0"}
-            </span>
+
             <span
               className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
               style={{ ...MONO, borderColor: BORDER, color: MUTED }}
             >
               {ideaData.estimated_complexity === "high"
-                ? "High_Complexity_Core"
+                ? "High_Complexity"
                 : ideaData.estimated_complexity === "low"
-                  ? "Low_Complexity_Core"
-                  : "Stable_Diffusion_Core"}
+                  ? "Low_Complexity"
+                  : "Medium_Complexity"}
             </span>
           </motion.div>
 

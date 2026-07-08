@@ -72,3 +72,15 @@ textarea.auth-input:-moz-autofill {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Ensure all clickable items have a pointer cursor */
+button, 
+a, 
+select, 
+input[type="submit"], 
+input[type="button"], 
+input[type="checkbox"], 
+input[type="radio"] {
+  cursor: pointer !important;
+}
+

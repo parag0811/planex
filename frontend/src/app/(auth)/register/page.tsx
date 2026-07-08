@@ -132,8 +132,7 @@ export default function RegisterPage() {
 
           <div className="relative z-10 flex justify-between text-[10px] uppercase tracking-[0.25em] text-[#52525B]">
             <div>
-              <p>VER: 1.0.0</p>
-              <p className="mt-1">STATUS: OPERATIONAL</p>
+              <p>STATUS: OPERATIONAL</p>
             </div>
 
             <div className="border border-[#2A2A2E] p-4">

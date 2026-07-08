@@ -68,11 +68,11 @@ const getSectionContext = (pathname: string): ChatSectionType => {
 };
 
 const getContextLabel = (pathname: string): string => {
-  if (pathname.includes("/idea")) return "IDEATION_SECTION_4.2.0";
-  if (pathname.includes("/database")) return "DATABASE_SECTION_4.2.0";
-  if (pathname.includes("/api")) return "API_SECTION_4.2.0";
-  if (pathname.includes("/folder")) return "FOLDER_SECTION_4.2.0";
-  return "DASHBOARD_4.2.0";
+  if (pathname.includes("/idea")) return "IDEATION_SECTION";
+  if (pathname.includes("/database")) return "DATABASE_SECTION";
+  if (pathname.includes("/api")) return "API_SECTION";
+  if (pathname.includes("/folder")) return "FOLDER_SECTION";
+  return "DASHBOARD";
 };
 
 function timeNow() {

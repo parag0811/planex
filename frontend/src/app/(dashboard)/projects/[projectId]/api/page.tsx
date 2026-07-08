@@ -866,12 +866,7 @@ export default function ApiDesignPage() {
 
           {/* ── Tag pills (matches Idea page) ── */}
           <motion.div variants={fadeUp(3)} className="mb-10 flex flex-wrap items-center gap-3">
-            <span
-              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-            >
-              Ver: {hasApiContent(api) ? "4.2.0" : "0.0.0"}
-            </span>
+
             <span
               className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
               style={{ ...MONO, borderColor: BORDER, color: MUTED }}

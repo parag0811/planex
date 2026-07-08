@@ -95,8 +95,7 @@ export default function LoginPage() {
 
           <div className="relative z-10 flex justify-between text-[10px] uppercase tracking-[0.25em] text-[#52525B]">
             <div>
-              <p>VER: 1.0.0</p>
-              <p className="mt-1">STATUS: OPERATIONAL</p>
+              <p>STATUS: OPERATIONAL</p>
             </div>
 
             <div className="border border-[#2A2A2E] p-4">
@@ -209,12 +208,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <div className="mb-10 flex items-center gap-2">
-                <input type="checkbox" className="cursor-pointer" />
-                <span className="text-[10px] uppercase tracking-[0.2em] text-[#71717A]">
-                  Maintain session for 30 days
-                </span>
-              </div>
+
 
               <button
                 type="submit"

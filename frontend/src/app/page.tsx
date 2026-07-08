@@ -11,10 +11,11 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
-import { fetchProjects } from "@/src/store/slices/projectSlice";
+import { fetchProjects, setCurrentProject } from "@/src/store/slices/projectSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 type ProjectPreview = {
@@ -298,7 +299,7 @@ function HeroStatusPanel() {
               fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
             }}
           >
-            v2.4.0 "AURORA"
+            v1.0 "PLANEX"
           </p>
         </div>
 
@@ -414,10 +415,12 @@ function LoggedInLanding({
   displayName,
   projectCards,
   loadingProjects,
+  onProjectClick,
 }: {
   displayName: string;
   projectCards: ProjectPreview[];
   loadingProjects: boolean;
+  onProjectClick: (id: string) => void;
 }) {
   return (
     <>
@@ -576,10 +579,11 @@ function LoggedInLanding({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-px bg-[#262626] md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {projectCards.map((project, index) => (
                 <motion.div
                   key={project.id}
+                  onClick={() => onProjectClick(project.id)}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -588,7 +592,7 @@ function LoggedInLanding({
                     duration: 0.45,
                     ease: EASE,
                   }}
-                  className="group bg-[#0a0a0a] hover:bg-[#1a1a1a] transition-colors duration-150 cursor-pointer"
+                  className="group bg-[#0a0a0a] border border-[#262626] hover:bg-[#1a1a1a] transition-colors duration-150 cursor-pointer"
                 >
                   <div className="relative h-32 border-b border-[#262626] px-6 flex items-end gap-1 pb-4">
                     {[40, 65, 45, 80, 55, 70, 50, 90, 60].map(
@@ -663,8 +667,9 @@ function LoggedInLanding({
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuth, loading, token, user } = useSelector(
+  const { isAuth, authCheckLoading: loading, token, user } = useSelector(
     (state: RootState) => state.auth,
   );
   const { projects, fetch } = useSelector((state: RootState) => state.project);
@@ -681,6 +686,14 @@ export default function LandingPage() {
     () => buildProjectPreviews(projects),
     [projects],
   );
+
+  const handleProjectClick = (projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+    if (project) {
+      dispatch(setCurrentProject(project as any));
+      router.push(`/projects/${projectId}`);
+    }
+  };
 
   if (authPending) {
     return (
@@ -709,11 +722,15 @@ export default function LandingPage() {
       <NoiseOverlay />
       <Header />
       {isAuth ? (
-        <LoggedInLanding
-          displayName={user?.name ? String(user.name) : "Architect"}
-          projectCards={projectCards}
-          loadingProjects={fetch.loading}
-        />
+        <>
+          <LoggedInLanding
+            displayName={user?.name ? String(user.name) : "Architect"}
+            projectCards={projectCards}
+            loadingProjects={fetch.loading}
+            onProjectClick={handleProjectClick}
+          />
+          <Footer />
+        </>
       ) : (
         <>
           <GuestLanding />

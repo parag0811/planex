@@ -40,7 +40,7 @@ export default function DashboardLayout({
   return (
     <>
       {!isProjectDetailPage && <Header />}
-      <div className={isProjectDetailPage ? "h-full w-full flex flex-col" : "pt-16 min-h-screen flex flex-col"}>
+      <div className={isProjectDetailPage ? "h-full w-full flex flex-col" : "pt-14 min-h-screen flex flex-col"}>
         {content}
       </div>
     </>

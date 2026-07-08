@@ -238,7 +238,7 @@ export default function ProjectsPage() {
       </div>
 
       {/* ── Fixed-at-bottom footer (inside page, not overlay) ── */}
-      <footer className="border-t" style={{ borderColor: BORDER }}>
+      <footer className="sticky bottom-0 border-t z-10" style={{ borderColor: BORDER, backgroundColor: BG }}>
         <div className="mx-auto flex w-full max-w-[1400px] flex-col items-start justify-between gap-4 px-5 py-6 sm:flex-row sm:items-center sm:px-8 lg:px-10">
           <div>
             <p

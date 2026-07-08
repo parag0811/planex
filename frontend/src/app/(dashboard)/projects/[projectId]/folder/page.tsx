@@ -962,13 +962,7 @@ export default function FolderStructurePage() {
               className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
               style={{ ...MONO, borderColor: BORDER, color: MUTED }}
             >
-              Ver: {folder.root.length > 0 ? "1.0.0" : "0.0.0"}
-            </span>
-            <span
-              className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-            >
-              {folder.root.length > 0 ? "Active_Tree" : "Empty_State_Core"}
+              {folder.root.length > 0 ? "Active_Tree" : "Empty_Tree"}
             </span>
           </motion.div>
 

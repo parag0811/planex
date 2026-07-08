@@ -13,6 +13,23 @@ import { useDispatch, useSelector } from "react-redux";
 import { createProject } from "@/src/store/slices/projectSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
+// ─── Design tokens ──────────────────────
+const BG = "#141414";
+const ACCENT = "#d84c28";
+const BORDER = "#2b2321";
+const MUTED = "#a6786d";
+const INNER_BG = "#101010";
+
+const MONO: React.CSSProperties = {
+  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
+};
+const INTER: React.CSSProperties = {
+  fontFamily: '"Inter", system-ui, sans-serif',
+};
+const INTER_TIGHT: React.CSSProperties = {
+  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+};
+
 export default function CreateProjectPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
@@ -62,17 +79,25 @@ export default function CreateProjectPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#06070c] pt-28 pb-16">
-      <div className="max-w-2xl mx-auto px-6">
+    <div
+      className="flex flex-1 flex-col pt-16 pb-16"
+      style={{ ...INTER, backgroundColor: BG }}
+    >
+      <div className="max-w-2xl mx-auto px-6 w-full">
         {/* Back Button */}
         <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-[#8b93a6] hover:text-white transition-colors mb-8"
+          className="flex cursor-pointer items-center gap-2 transition-colors mb-10"
+          style={{ color: MUTED }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = MUTED)}
         >
-          <ArrowLeft size={20} />
-          <span className="text-sm font-semibold">Back to Projects</span>
+          <ArrowLeft size={16} />
+          <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={MONO}>
+            Back to Projects
+          </span>
         </motion.button>
 
         {/* Main Card */}
@@ -80,39 +105,48 @@ export default function CreateProjectPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="bg-[#10141d] border border-white/10 rounded-2xl p-8 md:p-12"
+          className="border p-8 md:p-12"
+          style={{ backgroundColor: INNER_BG, borderColor: BORDER }}
         >
           {/* Header */}
-          <div className="mb-8">
-            <p className="text-[#8b93a6] text-sm font-semibold uppercase tracking-widest mb-3">
+          <div className="mb-10">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em] mb-3"
+              style={{ ...MONO, color: ACCENT }}
+            >
               Create New Project
             </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
+            <h1
+              className="text-3xl md:text-4xl font-black uppercase text-white mb-4"
+              style={INTER_TIGHT}
+            >
               Initialize Workspace
             </h1>
-            <p className="text-[#8b93a6] text-sm">
+            <p className="text-sm leading-relaxed" style={{ color: MUTED }}>
               Set up a new project to start building and planning your next system.
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleCreateProject} className="flex flex-col gap-6">
+          <form onSubmit={handleCreateProject} className="flex flex-col gap-8">
             {/* Project Name Field */}
-            <div className="flex flex-col gap-2.5">
-              <label className="text-sm font-semibold text-white uppercase tracking-widest">
+            <div className="flex flex-col gap-3">
+              <label
+                className="text-[10px] font-bold text-white uppercase tracking-[0.14em]"
+                style={MONO}
+              >
                 Project Name
               </label>
 
               <motion.div
                 animate={{
-                  boxShadow: isFocused
-                    ? "0 0 0 1px #f97316, 0 0 20px rgba(249,115,22,0.15)"
-                    : "0 0 0 1px rgba(255,255,255,0.07)",
+                  borderColor: isFocused ? ACCENT : BORDER,
                 }}
                 transition={{ duration: 0.2 }}
-                className="flex items-center gap-3 bg-[#0b0f16] rounded-lg px-4 py-3 border border-white/10"
+                className="flex items-center gap-3 border px-4 py-3.5"
+                style={{ backgroundColor: BG }}
               >
-                <Edit3 size={18} className="text-[#8b93a6] shrink-0" />
+                <Edit3 size={16} style={{ color: MUTED }} className="shrink-0" />
                 <input
                   type="text"
                   value={projectName}
@@ -120,7 +154,8 @@ export default function CreateProjectPage() {
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="e.g. Project Obsidian"
-                  className="flex-1 bg-transparent border-none outline-none text-base font-medium text-white placeholder:text-[#6b7280]"
+                  className="flex-1 bg-transparent border-none outline-none text-sm text-white placeholder:text-[#a6786d]"
+                  style={{ ...MONO }}
                 />
                 <AnimatePresence>
                   {projectName && (
@@ -128,7 +163,7 @@ export default function CreateProjectPage() {
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
-                      className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] shrink-0"
+                      className="w-1.5 h-1.5 rounded-full bg-[#22c55e] shrink-0"
                     />
                   )}
                 </AnimatePresence>
@@ -140,7 +175,8 @@ export default function CreateProjectPage() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="text-sm text-red-400"
+                    className="text-xs"
+                    style={{ ...MONO, color: ACCENT }}
                   >
                     {clientError ?? createState.error}
                   </motion.p>
@@ -149,41 +185,50 @@ export default function CreateProjectPage() {
             </div>
 
             {/* Info Box */}
-            <div className="bg-[#0b0f16] border border-white/5 rounded-lg p-4 mb-2">
-              <p className="text-[#8b93a6] text-sm leading-relaxed">
+            <div
+              className="border p-5 mb-2"
+              style={{ backgroundColor: BG, borderColor: BORDER }}
+            >
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
                 Your project workspace will be initialized with default settings. You can customize everything after creation.
               </p>
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4 mt-4">
+            <div className="flex gap-4 mt-2">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 px-6 py-3 bg-[#0b0f16] hover:bg-[#1a2130] border border-white/10 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+                className="flex-1 px-6 py-3.5 border font-bold text-[10px] uppercase tracking-[0.14em] transition-colors cursor-pointer text-white hover:bg-[#141414]"
+                style={{ ...MONO, backgroundColor: INNER_BG, borderColor: BORDER }}
               >
                 Cancel
               </button>
               <motion.button
                 type="submit"
                 disabled={!projectName.trim() || isSubmitting || createState.loading}
-                whileHover={projectName.trim() ? { scale: 1.02 } : {}}
-                whileTap={projectName.trim() ? { scale: 0.98 } : {}}
                 className={`
-                  flex-1 relative py-3 px-6 rounded-lg overflow-hidden
-                  font-semibold transition-all duration-200 flex items-center justify-center gap-2
-                  ${!projectName.trim() ? "opacity-50 cursor-not-allowed bg-[#8b7355]" : "bg-[#f97316] hover:bg-[#ea6c0a] cursor-pointer"}
-                  ${isSubmitting || createState.loading ? "cursor-wait" : ""}
+                  flex-1 px-6 py-3.5 border font-bold text-[10px] uppercase tracking-[0.14em] transition-colors flex items-center justify-center gap-2
+                  ${!projectName.trim() ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
                 `}
+                style={{
+                  ...MONO,
+                  borderColor: ACCENT,
+                  color: ACCENT,
+                  backgroundColor: `${ACCENT}12`,
+                }}
               >
                 {isSubmitting || createState.loading ? (
                   <>
-                    <div className="w-4 h-4 rounded-full border-2 border-black/30 border-t-black animate-spin" />
+                    <div
+                      className="w-3.5 h-3.5 rounded-full border border-transparent animate-spin"
+                      style={{ borderTopColor: ACCENT, borderLeftColor: ACCENT }}
+                    />
                     <span>Creating...</span>
                   </>
                 ) : (
                   <>
-                    <Zap size={18} />
+                    <Zap size={14} />
                     <span>Create Project</span>
                   </>
                 )}
@@ -199,7 +244,7 @@ export default function CreateProjectPage() {
           transition={{ delay: 0.3 }}
           className="mt-8 text-center"
         >
-          <p className="text-[#6b7280] text-xs">
+          <p className="text-[10px] uppercase tracking-[0.1em]" style={{ ...MONO, color: MUTED }}>
             Projects are created instantly and can be accessed from your dashboard.
           </p>
         </motion.div>
