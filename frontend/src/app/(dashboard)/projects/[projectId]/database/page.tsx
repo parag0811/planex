@@ -817,11 +817,29 @@ export default function DatabasePage() {
     }));
   };
 
-  const handleAcceptPreview = () => {
+  const handleAcceptPreview = async () => {
     if (!previewData) return;
     setSchema(previewData);
     setPreviewData(null);
-    setStatus("Preview applied to form. Click Save to persist.");
+    if (resolvedProjectId) {
+      try {
+        await dispatch(
+          upsertSection({
+            projectId: resolvedProjectId,
+            type: "database",
+            content: previewData,
+          }),
+        ).unwrap();
+        setStatus("Preview accepted and saved.");
+        setStatusType("success");
+      } catch {
+        setStatus("Preview applied to form. Click Save to persist.");
+        setStatusType("success");
+      }
+    } else {
+      setStatus("Preview applied to form. Click Save to persist.");
+      setStatusType("success");
+    }
   };
 
   const handleRejectPreview = () => {

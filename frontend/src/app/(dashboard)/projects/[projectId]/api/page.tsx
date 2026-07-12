@@ -685,10 +685,21 @@ export default function ApiDesignPage() {
     }
   };
 
-  const handleAcceptPreview = () => {
+  const handleAcceptPreview = async () => {
     if (!previewData) return;
     setApi(previewData); setPreviewData(null);
-    setStatus("Preview applied. Click Save to persist."); setStatusType("success");
+    if (resolvedProjectId) {
+      try {
+        await dispatch(
+          upsertSection({ projectId: resolvedProjectId, type: "api", content: previewData }),
+        ).unwrap();
+        setStatus("Preview accepted and saved."); setStatusType("success");
+      } catch {
+        setStatus("Preview applied. Click Save to persist."); setStatusType("success");
+      }
+    } else {
+      setStatus("Preview applied. Click Save to persist."); setStatusType("success");
+    }
   };
   const handleRejectPreview = () => { setPreviewData(null); setStatus(null); setStatusType(null); };
 
