@@ -59,7 +59,7 @@ export default function ProjectIdLayout({
           mobileOpen={mobileMenuOpen}
           onMobileClose={() => setMobileMenuOpen(false)}
         />
-        <div className="flex-1 min-w-0 flex flex-col relative z-10 overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
           {authCheckLoading ? (
             <FullPageLoader />
           ) : !isAuth ? (

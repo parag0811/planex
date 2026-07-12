@@ -281,20 +281,29 @@ export default function AIRightSidebar({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             onClick={() => setSidebarOpen(true)}
-            className="fixed bottom-6 right-3 z-30 flex flex-col items-center gap-1 border border-[#2b2321] bg-[#2a2a2a] px-2 py-3 text-[#ff3d00] hover:bg-[#2b2321] transition-all duration-150 cursor-pointer md:right-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2"
+            className="fixed top-3 right-4 z-[100] flex items-center justify-center gap-1.5 rounded-full bg-[#ff3d00]/10 border border-[#ff3d00]/30 px-3 py-1.5 text-[#ff3d00] hover:bg-[#ff3d00]/20 transition-all duration-150 cursor-pointer md:z-40 md:right-0 md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:flex-col md:px-2 md:py-3 md:rounded-none md:border-[#2b2321] md:bg-[#2a2a2a] md:hover:bg-[#2b2321]"
           >
-            <Sparkles size={13} strokeWidth={1.5} />
+            <Sparkles size={14} strokeWidth={1.5} className="md:hidden" />
             <span
-              className="text-[7px] font-bold tracking-[0.15em] uppercase leading-none whitespace-nowrap"
-              style={{
-                ...MONO,
-                writingMode: "vertical-rl",
-                textOrientation: "mixed",
-              }}
+              className="text-[10px] font-bold tracking-[0.1em] uppercase md:hidden"
+              style={MONO}
             >
-              AI Assistant
+              AI Assist
             </span>
-            <PanelRightOpen size={11} strokeWidth={1.5} />
+            <div className="hidden md:flex flex-col items-center gap-1">
+              <Sparkles size={13} strokeWidth={1.5} />
+              <span
+                className="text-[7px] font-bold tracking-[0.15em] uppercase leading-none whitespace-nowrap"
+                style={{
+                  ...MONO,
+                  writingMode: "vertical-rl",
+                  textOrientation: "mixed",
+                }}
+              >
+                AI Assistant
+              </span>
+              <PanelRightOpen size={11} strokeWidth={1.5} />
+            </div>
           </motion.button>
         )}
       </AnimatePresence>

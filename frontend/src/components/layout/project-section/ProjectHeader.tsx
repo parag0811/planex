@@ -140,7 +140,7 @@ export default function ProjectHeader({
         </nav>
 
         {/* Right — Profile button */}
-        <div className="flex items-center gap-3 shrink-0" ref={menuRef}>
+        <div className="hidden md:flex items-center gap-3 shrink-0" ref={menuRef}>
           <div className="relative flex items-center gap-4">
             <button
               type="button"
