@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, LogOut, Settings, User } from "lucide-react";
+import { Menu, LogOut, User } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { logout } from "@/src/store/slices/authSlice";
 import type { RootState } from "@/src/store/store";
@@ -223,15 +223,7 @@ export default function ProjectHeader({
                       <User size={13} strokeWidth={1.5} className="text-[#ff3d00] shrink-0" />
                       Profile
                     </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 text-[13px] text-white/80 hover:bg-white/5 hover:text-white transition-colors duration-150"
-                      role="menuitem"
-                    >
-                      <Settings size={13} strokeWidth={1.5} className="text-[#ff3d00] shrink-0" />
-                      Settings
-                    </Link>
+
                     <div className="my-1 border-t border-white/5" />
                     <button
                       type="button"

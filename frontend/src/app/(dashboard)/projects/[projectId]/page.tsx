@@ -385,9 +385,6 @@ export default function ProjectOverviewPage() {
 
   const members = currentProject?.members ?? [];
   const projectName = currentProject?.name ?? "Project";
-  const projectDescription = String(
-    currentProject?.description ?? "No description provided yet.",
-  );
 
   const handleUpdateProjectName = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -515,12 +512,6 @@ export default function ProjectOverviewPage() {
               </h1>
             </motion.div>
 
-            {/* Description */}
-            <motion.div variants={fadeUp(2)} className="mb-10 max-w-2xl">
-              <p className="text-base leading-relaxed" style={{ ...INTER, color: MUTED }}>
-                {projectDescription}
-              </p>
-            </motion.div>
 
             {/* Edit project name */}
             <motion.div variants={fadeUp(3)} className="mb-12">

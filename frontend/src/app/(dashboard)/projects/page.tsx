@@ -204,16 +204,7 @@ export default function ProjectsPage() {
 
                     <SectionBadges />
 
-                    {/* Description */}
-                    <p
-                      className="mt-4 flex-1 text-sm leading-relaxed line-clamp-3"
-                      style={{ ...INTER, color: MUTED }}
-                    >
-                      {String(
-                        (project as any).description ||
-                        "No description provided.",
-                      )}
-                    </p>
+
 
                     {/* Card footer */}
                     <div

@@ -12,7 +12,6 @@ import {
   User,
   X,
   LayoutDashboard,
-  Settings,
   LogOut,
 } from "lucide-react";
 import type { RootState } from "@/src/store/store";
@@ -157,14 +156,7 @@ function RailContent({
             <User size={12} className="shrink-0" />
             Profile
           </button>
-          <button 
-            onClick={() => onNavigate('/settings')} 
-            className="flex items-center gap-2.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white/40 hover:text-white hover:bg-white/[0.03] transition-colors"
-            style={INTER}
-          >
-            <Settings size={12} className="shrink-0" />
-            Settings
-          </button>
+
           <button 
             onClick={onLogout} 
             className="flex items-center gap-2.5 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-red-400/60 hover:text-red-400 hover:bg-red-400/[0.03] transition-colors"
