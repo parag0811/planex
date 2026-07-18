@@ -46,7 +46,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link
-                  href="https://github.com"
+                  href="https://github.com/parag0811/planex"
                   target="_blank"
                   className="text-[11px] uppercase tracking-[0.25em] text-[#d1d1d1] hover:text-white transition-colors duration-200"
                 >

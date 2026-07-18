@@ -9,6 +9,11 @@ const DatabaseFieldType = [
   "datetime",
   "float",
   "json",
+  "date",
+  "timestamp",
+  "decimal",
+  "enum",
+  "varchar"
 ] as const;
 
 const DatabaseFieldSchema = z.object({
@@ -27,7 +32,7 @@ const DatabaseEntitySchema = z.object({
 });
 
 
-const RelationType = ["one-to-one", "one-to-many", "many-to-many"] as const;
+const RelationType = ["one-to-one", "one-to-many", "many-to-one", "many-to-many"] as const;
 
 const DatabaseRelationSchema = z.object({
   from: z.string(),

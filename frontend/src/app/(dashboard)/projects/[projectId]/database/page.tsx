@@ -47,9 +47,14 @@ type DatabaseFieldType =
   | "boolean"
   | "datetime"
   | "float"
-  | "json";
+  | "json"
+  | "date"
+  | "timestamp"
+  | "decimal"
+  | "enum"
+  | "varchar";
 
-type RelationType = "one-to-one" | "one-to-many" | "many-to-many";
+type RelationType = "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
 
 interface DatabaseField {
   name: string;
@@ -93,11 +98,17 @@ const FIELD_TYPES: DatabaseFieldType[] = [
   "datetime",
   "float",
   "json",
+  "date",
+  "timestamp",
+  "decimal",
+  "enum",
+  "varchar",
 ];
 
 const RELATION_TYPES: RelationType[] = [
   "one-to-one",
   "one-to-many",
+  "many-to-one",
   "many-to-many",
 ];
 
@@ -138,6 +149,11 @@ const TYPE_COLORS: Record<DatabaseFieldType, string> = {
   datetime: "#f59e0b",
   float: "#60a5fa",
   json: "#34d399",
+  date: "#f59e0b",
+  timestamp: "#f59e0b",
+  decimal: "#60a5fa",
+  enum: "#c084fc",
+  varchar: "#fafafa",
 };
 
 const createEmptyField = (): DatabaseField => ({

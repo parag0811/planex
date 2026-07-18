@@ -79,7 +79,7 @@ Schema format:
       "fields": [
         {
           "name": "string",
-          "type": "uuid | string | text | integer | boolean | datetime | float | json",
+          "type": "uuid | string | text | integer | boolean | datetime | float | json | date | timestamp | decimal | enum | varchar",
           "required": true,
           "unique": false,
           "description": "string"
@@ -91,7 +91,7 @@ Schema format:
     {
       "from": "EntityName",
       "to": "EntityName",
-      "type": "one-to-one | one-to-many | many-to-many",
+      "type": "one-to-one | one-to-many | many-to-one | many-to-many",
       "description": "string"
     }
   ],
