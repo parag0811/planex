@@ -9,6 +9,7 @@ import {
   Check,
   Users,
   Link2,
+  Pencil,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -21,6 +22,8 @@ import {
   updateProject,
   fetchProjectActivities,
 } from "@/src/store/slices/projectSlice";
+import { fetchAllSections } from "@/src/store/slices/sectionSlice";
+import ComplexityOverviewCard from "@/src/components/project/ComplexityOverviewCard";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 
@@ -376,6 +379,7 @@ export default function ProjectOverviewPage() {
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProjectActivities(projectId));
+      dispatch(fetchAllSections(projectId));
       const interval = setInterval(() => {
         dispatch(fetchProjectActivities(projectId));
       }, 30000); // 30 seconds polling
@@ -383,8 +387,27 @@ export default function ProjectOverviewPage() {
     }
   }, [projectId, dispatch]);
 
+  const sectionState = useSelector((state: RootState) =>
+    projectId ? state.section.projects[projectId] : undefined,
+  );
+
+  const sectionsMap = {
+    idea: sectionState?.idea?.content,
+    database: sectionState?.database?.content,
+    api: sectionState?.api?.content,
+    folder: sectionState?.folder?.content,
+  };
+
+  const sectionsLoading =
+    Boolean(sectionState?.idea?.fetch.loading) ||
+    Boolean(sectionState?.database?.fetch.loading) ||
+    Boolean(sectionState?.api?.fetch.loading) ||
+    Boolean(sectionState?.folder?.fetch.loading);
+
   const members = currentProject?.members ?? [];
   const projectName = currentProject?.name ?? "Project";
+
+  const [isEditingName, setIsEditingName] = useState(false);
 
   const handleUpdateProjectName = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -396,14 +419,14 @@ export default function ProjectOverviewPage() {
       return;
     }
     if (trimmedName === currentProject?.name) {
-      setStatus("No changes to save yet.");
-      setStatusType("error");
+      setIsEditingName(false);
       return;
     }
     try {
       await dispatch(updateProject({ projectId, name: trimmedName })).unwrap();
       setStatus("Project name updated.");
       setStatusType("success");
+      setIsEditingName(false);
     } catch (err: any) {
       setStatus(typeof err === "string" ? err : "Unable to update project.");
       setStatusType("error");
@@ -502,54 +525,84 @@ export default function ProjectOverviewPage() {
               </p>
             </motion.div>
 
-            {/* Giant headline */}
-            <motion.div variants={fadeUp(1)} className="mb-6">
-              <h1
-                className="text-[3rem] sm:text-[3.8rem] md:text-[4.4rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
-                style={INTER_TIGHT}
-              >
-                {projectName}
-              </h1>
-            </motion.div>
-
-
-            {/* Edit project name */}
-            <motion.div variants={fadeUp(3)} className="mb-12">
-              <div className="mb-4 flex items-center gap-3">
-                <span
-                  className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
-                  style={{ ...MONO, color: MUTED }}
-                >
-                  Project Settings
-                </span>
-                <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
-              </div>
-
-              <form
-                onSubmit={handleUpdateProjectName}
-                className="flex flex-col gap-3 border p-6 sm:flex-row sm:items-end"
-                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-              >
-                <div className="flex-1">
-                  <p
-                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em]"
-                    style={{ ...MONO, color: MUTED }}
+            {/* Giant headline with inline pencil edit */}
+            <motion.div variants={fadeUp(1)} className="mb-8">
+              {isEditingName ? (
+                <form onSubmit={handleUpdateProjectName} className="flex items-center gap-3 max-w-3xl">
+                  <button
+                    type="button"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center border"
+                    style={{ borderColor: ACCENT, backgroundColor: `${ACCENT}12` }}
                   >
-                    Project Name
-                  </p>
+                    <Pencil size={18} style={{ color: ACCENT }} />
+                  </button>
                   <input
                     type="text"
+                    autoFocus
                     value={projectNameDraft}
                     onChange={(e) => setProjectNameDraft(e.target.value)}
                     placeholder="Project name"
-                    className="w-full bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/30"
-                    style={INTER}
+                    className="flex-1 bg-transparent text-[2.2rem] sm:text-[3.2rem] md:text-[3.8rem] font-black uppercase text-white outline-none border-b-2 pb-1"
+                    style={{ ...INTER_TIGHT, borderColor: ACCENT }}
                   />
+                  <button
+                    type="submit"
+                    disabled={update.loading}
+                    className="flex h-11 cursor-pointer items-center gap-1.5 border px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition disabled:opacity-50"
+                    style={{ ...MONO, borderColor: ACCENT, backgroundColor: ACCENT }}
+                  >
+                    <Check size={14} />
+                    {update.loading ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingName(false);
+                      setProjectNameDraft(currentProject?.name ?? "");
+                    }}
+                    className="flex h-11 cursor-pointer items-center justify-center border px-3 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:text-white"
+                    style={{ ...MONO, borderColor: BORDER, color: MUTED }}
+                  >
+                    <X size={14} />
+                  </button>
+                </form>
+              ) : (
+                <div className="flex items-center gap-4 group">
+                  <button
+                    onClick={() => setIsEditingName(true)}
+                    title="Click to edit project name"
+                    className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 cursor-pointer items-center justify-center border transition hover:border-[color:var(--accent)]"
+                    style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+                  >
+                    <Pencil size={18} className="transition group-hover:scale-110" style={{ color: ACCENT }} />
+                  </button>
+                  <h1
+                    onClick={() => setIsEditingName(true)}
+                    className="cursor-pointer text-[2.8rem] sm:text-[3.6rem] md:text-[4.2rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white truncate transition hover:opacity-90"
+                    style={INTER_TIGHT}
+                    title="Click to edit project name"
+                  >
+                    {projectName}
+                  </h1>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Team (Manage Team above Project Complexity) */}
+            <motion.div variants={fadeUp(2)} className="mb-12">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 flex-1">
+                  <span
+                    className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
+                    style={{ ...MONO, color: MUTED }}
+                  >
+                    Team ({members.length})
+                  </span>
+                  <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
                 </div>
                 <button
-                  type="submit"
-                  disabled={update.loading}
-                  className="shrink-0 cursor-pointer border px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
+                  onClick={() => setInviteModalOpen(true)}
+                  className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:border-white/30"
                   style={{
                     ...MONO,
                     borderColor: ACCENT,
@@ -557,21 +610,9 @@ export default function ProjectOverviewPage() {
                     backgroundColor: `${ACCENT}12`,
                   }}
                 >
-                  {update.loading ? "Updating..." : "Update"}
+                  <UserPlus size={13} />
+                  Manage Team
                 </button>
-              </form>
-            </motion.div>
-
-            {/* Team */}
-            <motion.div variants={fadeUp(4)} className="mb-12">
-              <div className="mb-4 flex items-center gap-3">
-                <span
-                  className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
-                  style={{ ...MONO, color: MUTED }}
-                >
-                  Team ({members.length})
-                </span>
-                <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
               </div>
 
               {members.length === 0 ? (
@@ -622,20 +663,15 @@ export default function ProjectOverviewPage() {
                   })}
                 </div>
               )}
+            </motion.div>
 
-              <button
-                onClick={() => setInviteModalOpen(true)}
-                className="mt-4 flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
-                style={{
-                  ...MONO,
-                  borderColor: ACCENT,
-                  color: ACCENT,
-                  backgroundColor: `${ACCENT}12`,
-                }}
-              >
-                <UserPlus size={13} />
-                Manage Team
-              </button>
+            {/* Project Complexity Assessment */}
+            <motion.div variants={fadeUp(3)} className="mb-12">
+              <ComplexityOverviewCard
+                projectId={projectId || ""}
+                sectionsMap={sectionsMap}
+                loading={sectionsLoading}
+              />
             </motion.div>
 
             {/* Activity Feed */}

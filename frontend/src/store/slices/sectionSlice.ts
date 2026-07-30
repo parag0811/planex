@@ -154,6 +154,23 @@ export const upsertSection = createAsyncThunk(
 	},
 );
 
+export const fetchAllSections = createAsyncThunk(
+	"section/fetchAllSections",
+	async (projectId: string, { rejectWithValue }) => {
+		try {
+			const res = await axiosInstance.get(`/projects/${projectId}/sections`);
+			return {
+				projectId,
+				sections: (res.data.data ?? []) as ProjectSection[],
+			};
+		} catch (error: any) {
+			return rejectWithValue(
+				getErrorMessage(error, "Failed to fetch project sections"),
+			);
+		}
+	},
+);
+
 const initialState: SectionState = {
 	projects: {},
 };
@@ -190,6 +207,41 @@ const sectionSlice = createSlice({
 	},
 	extraReducers: (builder) => {
 		builder
+			.addCase(fetchAllSections.pending, (state, action) => {
+				const projectId = action.meta.arg;
+				const projectState = getProjectSectionsState(state, projectId);
+				(["idea", "database", "api", "folder"] as SectionType[]).forEach((t) => {
+					projectState[t].fetch.loading = true;
+					projectState[t].fetch.error = null;
+				});
+			})
+			.addCase(fetchAllSections.fulfilled, (state, action) => {
+				const { projectId, sections } = action.payload;
+				const projectState = getProjectSectionsState(state, projectId);
+
+				const sectionsMap = new Map<string, ProjectSection>();
+				sections.forEach((sec) => {
+					if (sec.type) {
+						sectionsMap.set(sec.type.toLowerCase(), sec);
+					}
+				});
+
+				(["idea", "database", "api", "folder"] as SectionType[]).forEach((type) => {
+					const record = projectState[type];
+					const sec = sectionsMap.get(type) ?? null;
+					record.fetch.loading = false;
+					record.data = sec;
+					record.content = sec?.content ?? null;
+				});
+			})
+			.addCase(fetchAllSections.rejected, (state, action) => {
+				const projectId = action.meta.arg;
+				const projectState = getProjectSectionsState(state, projectId);
+				(["idea", "database", "api", "folder"] as SectionType[]).forEach((t) => {
+					projectState[t].fetch.loading = false;
+					projectState[t].fetch.error = action.payload as string;
+				});
+			})
 			.addCase(fetchSectionByType.pending, (state, action) => {
 				const { projectId, type } = action.meta.arg;
 				const record = getSectionRecord(state, projectId, type);
