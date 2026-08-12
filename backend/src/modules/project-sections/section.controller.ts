@@ -66,7 +66,7 @@ export const getSectionByType = async (
       data: section,
     });
   } catch (err) {
-    console.log("Section Error", err)
+    console.error("Section Error:", err instanceof Error ? err.message : String(err));
     next(err);
   }
 };
@@ -164,7 +164,7 @@ export const generateIdeaSection = async (
     try {
       await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({
@@ -240,7 +240,7 @@ export const generateDatabaseSuggestion = async (
     try {
       await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({
@@ -320,7 +320,7 @@ export const generateApiSuggestion = async (
     try {
       await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({ status: "queued", jobId });
@@ -401,7 +401,7 @@ export const generateFolderSuggestion = async (
     try {
       await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({ status: "queued", jobId });
@@ -479,7 +479,7 @@ export const regenerateSection = async (
     try {
       await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({

@@ -37,7 +37,7 @@ aiWorker.on("active", async (job) => {
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
   } catch (error) {
-    console.log(`Redis cache failed`);
+    // Non-blocking Redis failure
   }
 });
 
@@ -46,7 +46,7 @@ aiWorker.on("completed", async (job, result) => {
     job.finishedOn && job.processedOn ? job.finishedOn - job.processedOn : null;
 
   console.log(
-    ` ✅ Job ${job.id} completed. Type : ${job.name}. Result : ${result}. Duration: ${duration}ms`,
+    `✅ Job ${job.id} completed. Type: ${job.name}. Duration: ${duration ?? 0}ms`,
   );
 
   const jobId = job.id;
@@ -62,18 +62,16 @@ aiWorker.on("completed", async (job, result) => {
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
   } catch (error) {
-    console.log(`Redis cache failed`);
+    // Non-blocking Redis failure
   }
 });
 
 aiWorker.on("failed", async (job, error) => {
   console.error(
-    ` ❌ Job failed: ${job?.id} | Type: ${job?.name} | Attempt: ${job?.attemptsMade}`,
+    `❌ Job failed: ${job?.id} | Type: ${job?.name} | Attempt: ${job?.attemptsMade} | Error: ${error.message}`,
   );
-  console.error(`Error: ${error.message}`);
 
   if (job == undefined) {
-    console.error("Job is undefined.");
     return;
   }
 
@@ -94,6 +92,6 @@ aiWorker.on("failed", async (job, error) => {
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
   } catch (error) {
-    console.log(`Redis cache failed`);
+    // Non-blocking Redis failure
   }
 });

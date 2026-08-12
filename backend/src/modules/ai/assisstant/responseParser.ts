@@ -72,7 +72,7 @@ export const parseAiResponse = (raw: any): AiResponse => {
       message: "Unknown response type. Please try again.",
     };
   } catch (error) {
-    console.error("JSON parse error:", error);
+    console.error("JSON parse error:", error instanceof Error ? error.message : String(error));
     return {
       type: "suggestion",
       message: "Failed to parse AI response. Please try again.",

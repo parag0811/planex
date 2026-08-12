@@ -889,7 +889,6 @@ export default function DatabasePage() {
       setStatus(
         "Failed to apply AI suggestion. Please review the changes manually.",
       );
-      console.error("Error applying suggestion:", error);
     }
   };
 

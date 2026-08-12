@@ -17,7 +17,7 @@ export const logActivity = (
       },
     })
     .catch((error : any) => {
-      console.error("Failed to log project activity:", error);
+      console.error("Failed to log project activity:", error instanceof Error ? error.message : String(error));
     });
 };
 

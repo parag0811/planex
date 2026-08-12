@@ -52,10 +52,7 @@ export const chatService = async ({
     });
 
     const raw = await generateSection(prompt);
-    console.log("AI Raw Response:", raw);
-
     const parsed: AiResponse = parseAiResponse(raw);
-    console.log("AI Parsed Response:", parsed);
 
     if (
       parsed.type === "update" &&
@@ -67,7 +64,7 @@ export const chatService = async ({
 
     return parsed;
   } catch (error) {
-    console.error("Chat service error:", error);
+    console.error("Chat service error:", error instanceof Error ? error.message : String(error));
     return {
       type: "suggestion",
       message: "An error occurred while processing your request. Please try again.",

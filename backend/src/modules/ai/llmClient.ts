@@ -66,11 +66,7 @@ export const callLLM = async (prompt: string, maxRetries = 3) => {
         }
       }
 
-      console.error(`\n❌ GROQ ERROR CAUGHT:`);
-      console.error(`Message: ${errorMsg}`);
-      if (isDev) {
-        console.error(`Full Stack:`, error instanceof Error ? error.stack : "No stack");
-      }
+      console.error(`❌ GROQ Error: ${errorMsg}`);
       
       // Re-throw with full details in dev, generic in prod
       if (isDev) {

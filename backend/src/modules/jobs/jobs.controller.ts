@@ -96,7 +96,7 @@ export const retryJob = async (
     try {
       await redis.set(newJobKey, JSON.stringify(jobState), "EX", 900);
     } catch (error) {
-      console.error("Redis set failed (non-blocking):", error);
+      // Non-blocking Redis failure
     }
 
     return res.status(200).json({

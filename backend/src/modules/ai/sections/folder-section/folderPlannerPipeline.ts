@@ -53,7 +53,7 @@ export const runFolderPipeline = async (
       const folderStructure = FolderSectionContentSchema.safeParse(parsed);
 
       if (!folderStructure.success) {
-        console.error("Cached AI Validation Failed:", folderStructure.error.issues);
+        console.error("Cached AI Validation Failed");
         throw createAppError(
           "Failed to generate a valid AI response. Please try again.",
           422
@@ -82,7 +82,7 @@ export const runFolderPipeline = async (
     FolderSectionContentSchema.safeParse(folderStructure);
 
   if (!validatedFolderStructure.success) {
-    console.error("AI Validation Failed:", validatedFolderStructure.error.issues);
+    console.error("AI Validation Failed");
     throw createAppError(
       "Failed to generate a valid AI response. Please try again.",
       422

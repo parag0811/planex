@@ -5,10 +5,10 @@ const redis = new Redis({
   host: process.env.REDIS_HOST as string,
   maxRetriesPerRequest: null,
 
-  // username: process.env.REDIS_USERNAME || undefined,
-  // password: process.env.REDIS_PASSWORD || undefined,
+  username: process.env.REDIS_USERNAME || undefined,
+  password: process.env.REDIS_PASSWORD || undefined,
 
-  //  tls: process.env.REDIS_TLS === "true" ? {} : undefined,
+   tls: process.env.REDIS_TLS === "true" ? {} : undefined,
 });
 
 redis.on("connect", () => {
@@ -16,7 +16,7 @@ redis.on("connect", () => {
 });
 
 redis.on("error", (err) => {
-  console.log("Redis Error....", err);
+  console.error("Redis Error:", err instanceof Error ? err.message : String(err));
 });
 
 export default redis;

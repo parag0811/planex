@@ -72,21 +72,25 @@ const extractJsonCandidate = (text: string) => {
   return trimmed.slice(startIndex, endIndex);
 };
 
+const isDev = process.env.NODE_ENV !== "production";
+
 export const parseJson = (text: string) => {
   try {
-    console.log(`🔍 parseJson: Attempting to parse LLM response...`);
-    console.log(`📝 Response preview: ${text.substring(0, 100)}...`);
+    if (isDev) {
+      console.log(`🔍 parseJson: Attempting to parse LLM response...`);
+    }
 
     const candidate = extractJsonCandidate(text);
     const repaired = jsonrepair(candidate);
     const parsed = JSON.parse(repaired);
 
-    console.log(`✅ parseJson: Successfully parsed JSON`);
+    if (isDev) {
+      console.log(`✅ parseJson: Successfully parsed JSON`);
+    }
     return parsed;
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`❌ parseJson Error: ${errorMsg}`);
-    console.error(`Full response was: ${text.substring(0, 500)}`);
     throw new Error(`Failed to parse LLM JSON response: ${errorMsg}`);
   }
 };

@@ -25,7 +25,7 @@ const errorHandler = (
   res: Response<ErrorResponse>,
   next: NextFunction,
 ) => {
-  console.error(`[Error] ${req.method} ${req.originalUrl}:`, error);
+  console.error(`[Error] ${req.method} ${req.originalUrl}: ${error instanceof Error ? error.message : String(error)}`);
 
   let status = 500;
   let message = "An unexpected error occurred while processing your request.";

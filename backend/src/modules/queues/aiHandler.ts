@@ -34,8 +34,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [chat] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ Handler Error:`, errorMsg);
       throw error;
     }
   },
@@ -53,8 +52,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [regen] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ [regen] Handler Error: ${errorMsg}`);
       throw error;
     }
   },
@@ -77,8 +75,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [idea] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ [idea] Handler Error: ${errorMsg}`);
       throw error;
     }
   },
@@ -108,8 +105,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [database] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ [database] Handler Error: ${errorMsg}`);
       throw error;
     }
   },
@@ -145,8 +141,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [api] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ [api] Handler Error: ${errorMsg}`);
       throw error;
     }
   },
@@ -184,8 +179,7 @@ export const aiHandlers : any= {
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`❌ [folder] Handler Error:`, errorMsg);
-      console.error(`Stack:`, error instanceof Error ? error.stack : "No stack");
+      console.error(`❌ [folder] Handler Error: ${errorMsg}`);
       throw error;
     }
   },
