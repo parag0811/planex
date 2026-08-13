@@ -41,7 +41,12 @@ export const getSectionByType = async (
     const { projectId, type } = req.params;
 
     const cacheKey = `section:${projectId}:${type}`;
-    const cachedData = await redis.get(cacheKey);
+    let cachedData: string | null = null;
+    try {
+      cachedData = await redis.get(cacheKey);
+    } catch (e) {
+      // Non-blocking Redis failure
+    }
 
     if (cachedData) {
       const section = JSON.parse(cachedData);
@@ -60,7 +65,11 @@ export const getSectionByType = async (
       });
     }
 
-    await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+    try {
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+    } catch (e) {
+      // Non-blocking Redis failure
+    }
 
     return res.status(200).json({
       data: section,
@@ -88,7 +97,11 @@ export const upsertSection = async (
 
     const cacheKey = `section:${projectId}:${type}`;
 
-    await redis.del(cacheKey);
+    try {
+      await redis.del(cacheKey);
+    } catch (e) {
+      // Non-blocking Redis failure
+    }
 
     logActivity(
       projectId,
@@ -122,7 +135,12 @@ export const generateIdeaSection = async (
     
     // Skip cache check if forceRegenerate is true (preview mode)
     if (!forceRegenerate) {
-      const cachedData = await redis.get(cacheKey);
+      let cachedData: string | null = null;
+      try {
+        cachedData = await redis.get(cacheKey);
+      } catch (e) {
+        // Non-blocking Redis failure
+      }
 
       if (cachedData) {
         const ideaSection = JSON.parse(cachedData);
@@ -199,7 +217,12 @@ export const generateDatabaseSuggestion = async (
 
     const cacheKey = `db:${hash}`;
     if (!forceRegenerate) {
-      const cachedData = await redis.get(cacheKey);
+      let cachedData: string | null = null;
+      try {
+        cachedData = await redis.get(cacheKey);
+      } catch (e) {
+        // Non-blocking Redis failure
+      }
 
       if (cachedData) {
         const dbSection = JSON.parse(cachedData);
@@ -279,7 +302,12 @@ export const generateApiSuggestion = async (
       .digest("hex");
     const cacheKey = `api:${hash}`;
     if (!forceRegenerate) {
-      const cachedData = await redis.get(cacheKey);
+      let cachedData: string | null = null;
+      try {
+        cachedData = await redis.get(cacheKey);
+      } catch (e) {
+        // Non-blocking Redis failure
+      }
 
       if (cachedData) {
         const apiSection = JSON.parse(cachedData);
@@ -360,7 +388,12 @@ export const generateFolderSuggestion = async (
       .digest("hex");
     const cacheKey = `folder:${hash}`;
     if (!forceRegenerate) {
-      const cachedData = await redis.get(cacheKey);
+      let cachedData: string | null = null;
+      try {
+        cachedData = await redis.get(cacheKey);
+      } catch (e) {
+        // Non-blocking Redis failure
+      }
 
       if (cachedData) {
         const folderSection = JSON.parse(cachedData);
@@ -516,7 +549,11 @@ export const acceptIdeaPreview = async (
 
     // Cache the accepted section
     const cacheKey = `section:${projectId}:${TYPES.IDEA}`;
-    await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+    try {
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+    } catch (e) {
+      // Non-blocking Redis failure
+    }
 
     logActivity(
       projectId,

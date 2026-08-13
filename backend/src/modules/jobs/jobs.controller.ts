@@ -12,7 +12,12 @@ export const jobStatus = async (
 
     const jobKey = `job:${jobId}`;
 
-    const jobData = await redis.get(jobKey);
+    let jobData: string | null = null;
+    try {
+      jobData = await redis.get(jobKey);
+    } catch (error) {
+      // Non-blocking Redis failure
+    }
 
     if (!jobData) {
       return res.status(404).json({ message: "Job not found or expired." });
@@ -47,7 +52,12 @@ export const retryJob = async (
     const { jobId } = req.params;
     const jobKey = `job:${jobId}`;
 
-    const jobData = await redis.get(jobKey);
+    let jobData: string | null = null;
+    try {
+      jobData = await redis.get(jobKey);
+    } catch (error) {
+      // Non-blocking Redis failure
+    }
     if (!jobData) {
       return res.status(404).json({ message: "Job not found or expired." });
     }
