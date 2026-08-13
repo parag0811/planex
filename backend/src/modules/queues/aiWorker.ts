@@ -15,12 +15,19 @@ export const aiWorker = new Worker(
   },
   {
     connection: {
-      host: (process.env.REDIS_HOST as string) || "127.0.0.1",
+      host: process.env.REDIS_HOST as string,
       port: Number(process.env.REDIS_PORT) || 6379,
       maxRetriesPerRequest: null,
+      username: process.env.REDIS_USERNAME || undefined,
+      password: process.env.REDIS_PASSWORD || undefined,
+      tls: process.env.REDIS_TLS === "true" ? {} : undefined,
     },
   },
 );
+
+aiWorker.on("error", (error) => {
+  console.error("❌ Worker Error:", error instanceof Error ? error.message : String(error));
+});
 
 aiWorker.on("active", async (job) => {
   console.log(`🚀 Job started: ${job.id} | Type: ${job.name}`);

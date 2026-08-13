@@ -37,9 +37,6 @@ app.use(errorHandler);
 
 // Initialize Bull Queue Worker
 console.log("🚀 Starting AI Queue Worker...");
-aiWorker.on("error", (error) => {
-  console.error("❌ Worker Error:", error instanceof Error ? error.message : String(error));
-});
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

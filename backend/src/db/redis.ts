@@ -8,7 +8,7 @@ const redis = new Redis({
   username: process.env.REDIS_USERNAME || undefined,
   password: process.env.REDIS_PASSWORD || undefined,
 
-   tls: process.env.REDIS_TLS === "true" ? {} : undefined,
+  tls: process.env.REDIS_TLS === "true" ? {} : undefined,
 });
 
 redis.on("connect", () => {
