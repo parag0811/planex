@@ -27,7 +27,7 @@ export const authLimiter = rateLimit({
 
   store: createStore("rl_auth:"), // use Redis, not memory
 
-  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  keyGenerator: (req) => req.ip || "127.0.0.1",
   //             ↑ count by IP address
   //               each IP gets its own counter in Redis
 
@@ -43,11 +43,11 @@ export const authLimiter = rateLimit({
 // GLOBAL Limiter will use IP as key
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // same window
-  max: 100, // 100 requests per 15 min (much more relaxed)
+  max: 1000, // 1000 requests per 15 min (accommodates job polling)
 
   store: createStore("rl_global:"), // same Redis store
 
-  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  keyGenerator: (req) => req.ip || "127.0.0.1",
 
   message: {
     success: false,
@@ -72,7 +72,7 @@ export const aiLimiter = rateLimit({
       return `ai:${user.id}`; // ← key by user ID
     }
 
-    return ipKeyGenerator(req.ip ?? "unknown");
+    return req.ip || "127.0.0.1";
   },
 
   message: {

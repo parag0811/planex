@@ -3,7 +3,7 @@ import { Project, ProjectMember, User } from "@prisma/client";
 declare global {
   namespace Express {
     interface User {
-      id: number;
+      id: string;
     }
   }
 }

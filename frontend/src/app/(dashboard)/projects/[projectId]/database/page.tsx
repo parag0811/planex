@@ -451,7 +451,9 @@ export default function DatabasePage() {
   const resolvedProjectId =
     projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
-  const jobState = useSelector((state: RootState) => state.job);
+  const jobState = useSelector(
+    (state: RootState) => state.job?.jobs?.database || state.job || { jobId: null, status: "idle", result: null, error: null },
+  );
   const databaseSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.database,
   );
@@ -582,7 +584,7 @@ export default function DatabasePage() {
     }
 
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("database"));
       await dispatch(
         generateDatabase({ projectId: resolvedProjectId }),
       ).unwrap();
@@ -604,7 +606,7 @@ export default function DatabasePage() {
     setPreviewData(null);
 
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("database"));
       await dispatch(
         regenerateSection({
           projectId: resolvedProjectId,
@@ -625,10 +627,10 @@ export default function DatabasePage() {
     if (!jobState.jobId) return;
     if (jobState.status === "completed" || jobState.status === "failed") return;
 
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "database" }));
 
     const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "database" }));
     }, 2500);
 
     return () => window.clearInterval(pollTimer);
@@ -650,7 +652,7 @@ export default function DatabasePage() {
       }
     }
 
-    dispatch(clearJobState());
+    dispatch(clearJobState("database"));
   }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {

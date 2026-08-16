@@ -38,76 +38,76 @@ export const runApiPipeline = async (
 ): Promise<ApiSectionContent> => {
   console.log(`🔌 runApiPipeline: Starting API generation...`);
 
-    const ideaContent = JSON.stringify(idea);
-    const dbContent = JSON.stringify(database);
+  const ideaContent = JSON.stringify(idea);
+  const dbContent = JSON.stringify(database);
 
-    const hash = crypto
-      .createHash("sha256")
-      .update(`${ideaContent}::${dbContent}`)
-      .digest("hex");
+  const hash = crypto
+    .createHash("sha256")
+    .update(`${ideaContent}::${dbContent}`)
+    .digest("hex");
 
-    const useCache = options.useCache !== false;
-    const cacheTtlSeconds =
-      options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
+  const useCache = options.useCache !== false;
+  const cacheTtlSeconds =
+    options.cacheTtlSeconds ?? DEFAULT_AI_CACHE_TTL_SECONDS;
 
-    const cacheKey = `api:${hash}`;
+  const cacheKey = `api:${hash}`;
 
-    if (useCache) {
-      const cachedData = await redis.get(cacheKey);
+  if (useCache) {
+    const cachedData = await redis.get(cacheKey);
 
-      if (cachedData) {
-        const parsed = JSON.parse(cachedData);
-        const apiSection = ApiSectionContentSchema.safeParse(parsed);
+    if (cachedData) {
+      const parsed = JSON.parse(cachedData);
+      const apiSection = ApiSectionContentSchema.safeParse(parsed);
 
-        if (!apiSection.success) {
-          console.error("Cached AI Validation Failed");
-          throw createAppError(
-            "Failed to generate a valid AI response. Please try again.",
-            422
-          );
-        }
-
-        return apiSection.data;
+      if (!apiSection.success) {
+        console.error("Cached AI Validation Failed");
+        throw createAppError(
+          "Failed to generate a valid AI response. Please try again.",
+          422
+        );
       }
-    }
 
-    console.log(`🔌 runApiPipeline: Building prompt...`);
-    const prompt = buildApiPrompt(idea, database, {
-      ...(options.isRegenerating !== undefined
-        ? { isRegenerating: options.isRegenerating }
-        : {}),
-      ...(options.regenerationSeed !== undefined
-        ? { regenerationSeed: options.regenerationSeed }
-        : {}),
-      ...(options.instruction !== undefined
-        ? { instruction: options.instruction }
-        : {}),
-    });
-    console.log(
-      `🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`,
+      return apiSection.data;
+    }
+  }
+
+  console.log(`🔌 runApiPipeline: Building prompt...`);
+  const prompt = buildApiPrompt(idea, database, {
+    ...(options.isRegenerating !== undefined
+      ? { isRegenerating: options.isRegenerating }
+      : {}),
+    ...(options.regenerationSeed !== undefined
+      ? { regenerationSeed: options.regenerationSeed }
+      : {}),
+    ...(options.instruction !== undefined
+      ? { instruction: options.instruction }
+      : {}),
+  });
+  console.log(
+    `🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`,
+  );
+
+  const apiSection = await generateSection(prompt);
+  const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
+
+  if (!validatedApiSection.success) {
+    console.error("AI Validation Failed");
+    throw createAppError(
+      "Failed to generate a valid AI response. Please try again.",
+      422
     );
+  }
 
-    const apiSection = await generateSection(prompt);
-    const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
+  if (useCache) {
+    console.log(`🔌 runApiPipeline: Caching result...`);
+    await redis.set(
+      cacheKey,
+      JSON.stringify(validatedApiSection.data),
+      "EX",
+      cacheTtlSeconds,
+    );
+  }
 
-    if (!validatedApiSection.success) {
-      console.error("AI Validation Failed");
-      throw createAppError(
-        "Failed to generate a valid AI response. Please try again.",
-        422
-      );
-    }
-
-    if (useCache) {
-      console.log(`🔌 runApiPipeline: Caching result...`);
-      await redis.set(
-        cacheKey,
-        JSON.stringify(validatedApiSection.data),
-        "EX",
-        cacheTtlSeconds,
-      );
-    }
-
-    console.log(`✅ runApiPipeline: Successfully completed`);
-    return validatedApiSection.data;
+  console.log(`✅ runApiPipeline: Successfully completed`);
+  return validatedApiSection.data;
 };

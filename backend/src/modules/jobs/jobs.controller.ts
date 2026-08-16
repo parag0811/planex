@@ -37,6 +37,8 @@ export const jobStatus = async (
       status: jobFound.status,
       result: jobFound.result,
       error: jobFound.error,
+      jobName: jobFound.jobName,
+      jobData: jobFound.jobData,
     });
   } catch (error) {
     next(error);

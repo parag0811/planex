@@ -160,6 +160,7 @@ export const generateIdeaSection = async (
         isRegenerating: forceRegenerate,
       },
       {
+        jobId: `idea-${projectId}-${Date.now()}`,
         attempts: 3,
         backoff: {
           type: "exponential",
@@ -241,6 +242,7 @@ export const generateDatabaseSuggestion = async (
         isRegenerating: forceRegenerate,
       },
       {
+        jobId: `database-${projectId}-${Date.now()}`,
         attempts: 3,
         backoff: {
           type: "exponential",
@@ -326,6 +328,7 @@ export const generateApiSuggestion = async (
         isRegenerating: forceRegenerate,
       },
       {
+        jobId: `api-${projectId}-${Date.now()}`,
         attempts: 3,
         backoff: {
           type: "exponential",
@@ -412,6 +415,7 @@ export const generateFolderSuggestion = async (
         isRegenerating: forceRegenerate,
       },
       {
+        jobId: `folder-${projectId}-${Date.now()}`,
         attempts: 3,
         backoff: {
           type: "exponential",
@@ -490,6 +494,7 @@ export const regenerateSection = async (
         instruction: finalInstruction,
       },
       {
+        jobId: `regen-${section.toLowerCase()}-${projectId}-${Date.now()}`,
         attempts: 3,
         backoff: {
           type: "exponential",

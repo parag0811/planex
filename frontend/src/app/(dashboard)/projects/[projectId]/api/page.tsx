@@ -569,7 +569,9 @@ export default function ApiDesignPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const dispatch = useDispatch<AppDispatch>();
-  const jobState = useSelector((state: RootState) => state.job);
+  const jobState = useSelector(
+    (state: RootState) => state.job?.jobs?.api || state.job || { jobId: null, status: "idle", result: null, error: null },
+  );
   const apiSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.api,
   );
@@ -623,7 +625,7 @@ export default function ApiDesignPage() {
     if (!resolvedProjectId) { setStatus("Select a project before generating."); setStatusType("error"); return; }
     try {
       setPreviewData(null);
-      dispatch(clearJobState());
+      dispatch(clearJobState("api"));
       await dispatch(generateApi({ projectId: resolvedProjectId })).unwrap();
       setStatus("API generation queued. Processing now.");
       setStatusType("success");
@@ -637,7 +639,7 @@ export default function ApiDesignPage() {
     if (!resolvedProjectId) { setStatus("Select a project before regenerating."); setStatusType("error"); return; }
     try {
       setPreviewData(null);
-      dispatch(clearJobState());
+      dispatch(clearJobState("api"));
       await dispatch(regenerateSection({ projectId: resolvedProjectId, section: "api" })).unwrap();
       setStatus("API regeneration queued. Processing now.");
       setStatusType("success");
@@ -649,8 +651,8 @@ export default function ApiDesignPage() {
 
   useEffect(() => {
     if (!jobState.jobId || jobState.status === "completed" || jobState.status === "failed") return;
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
-    const t = window.setInterval(() => dispatch(getJobStatusThunk({ jobId: jobState.jobId! })), 2500);
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "api" }));
+    const t = window.setInterval(() => dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "api" })), 2500);
     return () => window.clearInterval(t);
   }, [dispatch, jobState.jobId, jobState.status]);
 
@@ -662,7 +664,7 @@ export default function ApiDesignPage() {
       setStatus("Generation completed. Review and accept below.");
       setStatusType("success");
     }
-    dispatch(clearJobState());
+    dispatch(clearJobState("api"));
   }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {

@@ -1,5 +1,5 @@
 import axiosInstance from "@/src/lib/axios";
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 export type JobStatusType =
   | "idle"
@@ -8,11 +8,22 @@ export type JobStatusType =
   | "completed"
   | "failed";
 
+export type SectionName = "idea" | "database" | "api" | "folder" | "chat";
+
+export interface SectionJobItem {
+  jobId: string | null;
+  status: JobStatusType;
+  result: any | null;
+  error: string | null;
+}
+
 interface JobState {
   jobId: string | null;
   status: JobStatusType;
   result: any | null;
   error: string | null;
+
+  jobs: Record<SectionName, SectionJobItem>;
 }
 
 interface GenerateIdeaParams {
@@ -43,10 +54,13 @@ interface JobStatusResponse {
   status: JobStatusType;
   result: any | null;
   error: string | null;
+  jobName?: string;
+  jobData?: any;
 }
 
 interface JobParams {
   jobId: string;
+  section?: SectionName;
 }
 
 interface GenerateJobResult {
@@ -258,6 +272,8 @@ export const getAiJobStatusThunk = createAsyncThunk(
         status: (res.data?.status ?? "idle") as JobStatusType,
         result: res.data?.result ?? null,
         error: res.data?.error ?? null,
+        jobName: res.data?.jobName,
+        jobData: res.data?.jobData,
       } satisfies JobStatusResponse;
     } catch (error: any) {
       return rejectWithValue(
@@ -279,6 +295,8 @@ export const getJobStatusThunk = createAsyncThunk(
         status: (res.data?.status ?? "idle") as JobStatusType,
         result: res.data?.result ?? null,
         error: res.data?.error ?? null,
+        jobName: res.data?.jobName,
+        jobData: res.data?.jobData,
       } satisfies JobStatusResponse;
     } catch (error: any) {
       return rejectWithValue(
@@ -288,90 +306,211 @@ export const getJobStatusThunk = createAsyncThunk(
   },
 );
 
+const emptyJobItem = (): SectionJobItem => ({
+  jobId: null,
+  status: "idle",
+  result: null,
+  error: null,
+});
+
 const initialState: JobState = {
   jobId: null,
   status: "idle",
   result: null,
   error: null,
+  jobs: {
+    idea: emptyJobItem(),
+    database: emptyJobItem(),
+    api: emptyJobItem(),
+    folder: emptyJobItem(),
+    chat: emptyJobItem(),
+  },
 };
 
 const jobSlice = createSlice({
   name: "job",
   initialState,
   reducers: {
-    clearJobState: (state) => {
-      state.jobId = null;
-      state.status = "idle";
-      state.result = null;
-      state.error = null;
+    clearJobState: (
+      state,
+      action: PayloadAction<{ section?: SectionName } | SectionName | undefined>,
+    ) => {
+      const payload = action.payload;
+      const section = (typeof payload === "string" ? payload : payload?.section) as
+        | SectionName
+        | undefined;
+
+      if (section && state.jobs && state.jobs[section]) {
+        state.jobs[section] = emptyJobItem();
+      } else {
+        state.jobId = null;
+        state.status = "idle";
+        state.result = null;
+        state.error = null;
+        state.jobs = {
+          idea: emptyJobItem(),
+          database: emptyJobItem(),
+          api: emptyJobItem(),
+          folder: emptyJobItem(),
+          chat: emptyJobItem(),
+        };
+      }
     },
   },
   extraReducers: (builder) => {
-    const onGeneratePending = (state: JobState) => {
+    const setPendingForSection = (state: JobState, sec: SectionName) => {
       state.status = "pending";
       state.result = null;
       state.error = null;
+      if (state.jobs[sec]) {
+        state.jobs[sec] = { jobId: null, status: "pending", result: null, error: null };
+      }
     };
 
-    const onGenerateFulfilled = (
+    const setFulfilledForSection = (
       state: JobState,
-      action: { payload: unknown },
+      sec: SectionName,
+      payload: unknown,
     ) => {
-      const payload = action.payload as GenerateJobResult | undefined;
+      const jobRes = payload as GenerateJobResult | undefined;
 
-      if (payload?.cachedData !== undefined) {
+      if (jobRes?.cachedData !== undefined) {
         state.jobId = null;
         state.status = "completed";
-        state.result = payload.cachedData;
+        state.result = jobRes.cachedData;
         state.error = null;
+
+        if (state.jobs[sec]) {
+          state.jobs[sec] = { jobId: null, status: "completed", result: jobRes.cachedData, error: null };
+        }
         return;
       }
 
-      state.jobId = String(payload?.jobId ?? action.payload ?? "");
+      const idStr = String(jobRes?.jobId ?? payload ?? "");
+      state.jobId = idStr;
       state.status = "pending";
       state.result = null;
       state.error = null;
+
+      if (state.jobs[sec]) {
+        state.jobs[sec] = { jobId: idStr, status: "pending", result: null, error: null };
+      }
     };
 
-    const onGenerateRejected = (
+    const setRejectedForSection = (
       state: JobState,
+      sec: SectionName,
       action: { payload?: unknown; error: { message?: string | null } },
     ) => {
+      const errorMsg = (action.payload as string) ?? action.error.message ?? null;
       state.status = "failed";
-      state.error = (action.payload as string) ?? action.error.message ?? null;
+      state.error = errorMsg;
+
+      if (state.jobs[sec]) {
+        state.jobs[sec] = { jobId: null, status: "failed", result: null, error: errorMsg };
+      }
+    };
+
+    const handleJobStatusFulfilled = (
+      state: JobState,
+      action: { meta: { arg: JobParams }; payload: JobStatusResponse },
+    ) => {
+      const { jobId, section: argSection } = action.meta.arg;
+      const { status, result, error, jobName, jobData } = action.payload;
+
+      let targetSec = argSection;
+
+      if (!targetSec) {
+        if (jobName === "regen") {
+          targetSec = jobData?.section?.toLowerCase() as SectionName;
+        } else if (jobName && jobName in state.jobs) {
+          targetSec = jobName.toLowerCase() as SectionName;
+        }
+      }
+
+      if (targetSec && state.jobs[targetSec]) {
+        state.jobs[targetSec] = {
+          jobId,
+          status,
+          result,
+          error,
+        };
+      }
+
+      state.jobId = jobId;
+      state.status = status;
+      state.result = result;
+      state.error = error;
+    };
+
+    const handleJobStatusRejected = (
+      state: JobState,
+      action: { meta: { arg: JobParams }; payload?: unknown; error: { message?: string | null } },
+    ) => {
+      const { section: argSection } = action.meta.arg || {};
+      const errorMsg = (action.payload as string) ?? action.error.message ?? "Failed to get job status";
+
+      if (argSection && state.jobs[argSection]) {
+        state.jobs[argSection] = {
+          jobId: action.meta.arg.jobId || null,
+          status: "failed",
+          result: null,
+          error: errorMsg,
+        };
+      }
+
+      state.status = "failed";
+      state.error = errorMsg;
     };
 
     builder
-      .addCase(generateIdea.pending, onGeneratePending)
-      .addCase(generateIdea.fulfilled, onGenerateFulfilled)
-      .addCase(generateIdea.rejected, onGenerateRejected)
-      .addCase(generateDatabase.pending, onGeneratePending)
-      .addCase(generateDatabase.fulfilled, onGenerateFulfilled)
-      .addCase(generateDatabase.rejected, onGenerateRejected)
-      .addCase(generateApi.pending, onGeneratePending)
-      .addCase(generateApi.fulfilled, onGenerateFulfilled)
-      .addCase(generateApi.rejected, onGenerateRejected)
-      .addCase(generateFolder.pending, onGeneratePending)
-      .addCase(generateFolder.fulfilled, onGenerateFulfilled)
-      .addCase(generateFolder.rejected, onGenerateRejected)
-      .addCase(regenerateSection.pending, onGeneratePending)
-      .addCase(regenerateSection.fulfilled, onGenerateFulfilled)
-      .addCase(regenerateSection.rejected, onGenerateRejected)
+      .addCase(generateIdea.pending, (state) => setPendingForSection(state, "idea"))
+      .addCase(generateIdea.fulfilled, (state, action) => setFulfilledForSection(state, "idea", action.payload))
+      .addCase(generateIdea.rejected, (state, action) => setRejectedForSection(state, "idea", action))
+
+      .addCase(generateDatabase.pending, (state) => setPendingForSection(state, "database"))
+      .addCase(generateDatabase.fulfilled, (state, action) => setFulfilledForSection(state, "database", action.payload))
+      .addCase(generateDatabase.rejected, (state, action) => setRejectedForSection(state, "database", action))
+
+      .addCase(generateApi.pending, (state) => setPendingForSection(state, "api"))
+      .addCase(generateApi.fulfilled, (state, action) => setFulfilledForSection(state, "api", action.payload))
+      .addCase(generateApi.rejected, (state, action) => setRejectedForSection(state, "api", action))
+
+      .addCase(generateFolder.pending, (state) => setPendingForSection(state, "folder"))
+      .addCase(generateFolder.fulfilled, (state, action) => setFulfilledForSection(state, "folder", action.payload))
+      .addCase(generateFolder.rejected, (state, action) => setRejectedForSection(state, "folder", action))
+
+      .addCase(regenerateSection.pending, (state, action) => {
+        const sec = action.meta.arg.section.toLowerCase() as SectionName;
+        setPendingForSection(state, sec in state.jobs ? sec : "idea");
+      })
+      .addCase(regenerateSection.fulfilled, (state, action) => {
+        const sec = action.meta.arg.section.toLowerCase() as SectionName;
+        setFulfilledForSection(state, sec in state.jobs ? sec : "idea", action.payload);
+      })
+      .addCase(regenerateSection.rejected, (state, action) => {
+        const sec = action.meta.arg.section.toLowerCase() as SectionName;
+        setRejectedForSection(state, sec in state.jobs ? sec : "idea", action);
+      })
+
+      .addCase(sendChatMessage.pending, (state) => setPendingForSection(state, "chat"))
+      .addCase(sendChatMessage.fulfilled, (state, action) => setFulfilledForSection(state, "chat", action.payload))
+      .addCase(sendChatMessage.rejected, (state, action) => setRejectedForSection(state, "chat", action))
+
       .addCase(getJobStatusThunk.pending, (state) => {
         state.error = null;
       })
-      .addCase(getJobStatusThunk.fulfilled, (state, action) => {
-        state.jobId = action.meta.arg.jobId;
-        state.status = action.payload.status;
-        state.result = action.payload.result;
-        state.error = action.payload.error;
+      .addCase(getJobStatusThunk.fulfilled, handleJobStatusFulfilled)
+      .addCase(getJobStatusThunk.rejected, handleJobStatusRejected)
+
+      .addCase(getAiJobStatusThunk.pending, (state) => {
+        state.error = null;
       })
-      .addCase(getJobStatusThunk.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = (action.payload as string) ?? action.error.message ?? null;
-      });
+      .addCase(getAiJobStatusThunk.fulfilled, handleJobStatusFulfilled)
+      .addCase(getAiJobStatusThunk.rejected, handleJobStatusRejected);
   },
 });
 
 export const { clearJobState } = jobSlice.actions;
 export default jobSlice.reducer;
+

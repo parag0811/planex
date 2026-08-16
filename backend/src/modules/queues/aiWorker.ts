@@ -14,13 +14,22 @@ export const aiWorker = new Worker(
     return await handler(job.data);
   },
   {
+    concurrency: 5,
+    lockDuration: 300000,
+    stalledInterval: 30000,
+    maxStalledCount: 2,
     connection: {
       host: process.env.REDIS_HOST as string,
       port: Number(process.env.REDIS_PORT) || 6379,
       maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      keepAlive: 10000,
       username: process.env.REDIS_USERNAME || undefined,
       password: process.env.REDIS_PASSWORD || undefined,
-      tls: process.env.REDIS_TLS === "true" ? {} : undefined,
+      tls:
+        process.env.REDIS_TLS === "true"
+          ? { servername: process.env.REDIS_HOST, rejectUnauthorized: false }
+          : undefined,
     },
   },
 );
@@ -43,8 +52,9 @@ aiWorker.on("active", async (job) => {
 
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
+    console.log(`📝 Job ${jobId} status updated to "processing" in Redis`);
   } catch (error) {
-    // Non-blocking Redis failure
+    console.error(`❌ Failed to update job ${jobId} status in Redis:`, error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -68,8 +78,9 @@ aiWorker.on("completed", async (job, result) => {
 
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
+    console.log(`📝 Job ${jobId} status updated to "completed" in Redis`);
   } catch (error) {
-    // Non-blocking Redis failure
+    console.error(`❌ Failed to update job ${jobId} completed status in Redis:`, error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -85,9 +96,7 @@ aiWorker.on("failed", async (job, error) => {
   const jobId = job.id;
   const cacheKey = `job:${jobId}`;
 
-  // To guarantee absolute safety and a clean UI, we completely hide ALL technical 
-  // backend errors (like "Failed to parse JSON" or API limits) from the frontend.
-  const errorMessage = "AI generation failed. Please try again.";
+  const errorMessage = error.message || "AI generation failed. Please try again.";
 
   const jobState: JobStatus = {
     status: "failed",
@@ -98,7 +107,13 @@ aiWorker.on("failed", async (job, error) => {
 
   try {
     await redis.set(cacheKey, JSON.stringify(jobState), "EX", 900);
+    console.log(`📝 Job ${jobId} status updated to "failed" in Redis`);
   } catch (error) {
-    // Non-blocking Redis failure
+    console.error(`❌ Failed to update job ${jobId} failed status in Redis:`, error instanceof Error ? error.message : String(error));
   }
 });
+
+aiWorker.on("stalled", (jobId) => {
+  console.warn(`⚠️ Job ${jobId} has stalled!`);
+});
+

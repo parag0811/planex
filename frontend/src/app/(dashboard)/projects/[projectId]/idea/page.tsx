@@ -179,18 +179,18 @@ const EMPTY_IDEA: IdeaSectionContent = {
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter(Boolean)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean)
     : [];
 
 const normalizeIdea = (payload: unknown): IdeaSectionContent => {
   const source =
     payload &&
-    typeof payload === "object" &&
-    "content" in (payload as SectionPayload) &&
-    (payload as SectionPayload).content &&
-    typeof (payload as SectionPayload).content === "object"
+      typeof payload === "object" &&
+      "content" in (payload as SectionPayload) &&
+      (payload as SectionPayload).content &&
+      typeof (payload as SectionPayload).content === "object"
       ? (payload as SectionPayload).content
       : payload;
 
@@ -201,23 +201,23 @@ const normalizeIdea = (payload: unknown): IdeaSectionContent => {
 
   const normalizedFeatures = Array.isArray(raw.key_features)
     ? raw.key_features
-        .map((feature) => ({
-          name: typeof feature?.name === "string" ? feature.name.trim() : "",
-          description:
-            typeof feature?.description === "string"
-              ? feature.description.trim()
-              : "",
-          priority: (feature?.priority === "must_have"
-            ? "must_have"
-            : "nice_to_have") as FeaturePriority,
-        }))
-        .filter((feature) => feature.name || feature.description)
+      .map((feature) => ({
+        name: typeof feature?.name === "string" ? feature.name.trim() : "",
+        description:
+          typeof feature?.description === "string"
+            ? feature.description.trim()
+            : "",
+        priority: (feature?.priority === "must_have"
+          ? "must_have"
+          : "nice_to_have") as FeaturePriority,
+      }))
+      .filter((feature) => feature.name || feature.description)
     : [];
 
   const complexity =
     raw.estimated_complexity === "low" ||
-    raw.estimated_complexity === "medium" ||
-    raw.estimated_complexity === "high"
+      raw.estimated_complexity === "medium" ||
+      raw.estimated_complexity === "high"
       ? raw.estimated_complexity
       : "medium";
 
@@ -248,7 +248,9 @@ export default function IdeaPage() {
   const resolvedProjectId =
     projectId && projectId !== "undefined" ? projectId : "";
   const dispatch = useDispatch<AppDispatch>();
-  const jobState = useSelector((state: RootState) => state.job);
+  const jobState = useSelector(
+    (state: RootState) => state.job?.jobs?.idea || state.job || { jobId: null, status: "idle", result: null, error: null },
+  );
   const ideaSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.idea,
   );
@@ -390,7 +392,7 @@ export default function IdeaPage() {
     }
 
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("idea"));
 
       await dispatch(
         generateIdea({
@@ -409,9 +411,9 @@ export default function IdeaPage() {
     } catch (err: any) {
       setStatus(
         err?.message ??
-          (forceRegenerate
-            ? "Failed to queue idea regeneration."
-            : "Failed to queue idea generation."),
+        (forceRegenerate
+          ? "Failed to queue idea regeneration."
+          : "Failed to queue idea generation."),
       );
       setStatusType("error");
     }
@@ -431,7 +433,7 @@ export default function IdeaPage() {
     }
 
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("idea"));
 
       await dispatch(
         regenerateSection({
@@ -457,10 +459,10 @@ export default function IdeaPage() {
       return;
     }
 
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "idea" }));
 
     const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "idea" }));
     }, 2500);
 
     return () => {
@@ -481,7 +483,7 @@ export default function IdeaPage() {
       setStatusType("success");
     }
 
-    dispatch(clearJobState());
+    dispatch(clearJobState("idea"));
   }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {
@@ -735,7 +737,7 @@ export default function IdeaPage() {
                 className="mb-6 relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-red-500/10 backdrop-blur-md" />
-                <div 
+                <div
                   className="relative border p-4 flex items-start gap-4"
                   style={{ borderColor: "rgba(239, 68, 68, 0.4)" }}
                 >
@@ -1710,63 +1712,63 @@ export default function IdeaPage() {
                   (key) =>
                     (previewData.suggested_tech_stack[key] ?? []).length > 0,
                 ) && (
-                  <div>
-                    <p
-                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
-                      style={{ ...MONO, color: MUTED }}
-                    >
-                      Suggested Tech Stack
-                    </p>
-                    <div className="space-y-3">
-                      {STACK_KEYS.map((category) => {
-                        const items =
-                          previewData.suggested_tech_stack[category] ?? [];
-                        if (items.length === 0) return null;
-                        const Icon = STACK_ICONS[category];
-                        const color = STACK_COLORS[category];
-                        return (
-                          <div key={category}>
-                            <div className="mb-2 flex items-center gap-2">
-                              <div
-                                className="flex items-center justify-center"
-                                style={{
-                                  background: `${color}15`,
-                                  border: `1px solid ${color}30`,
-                                  color,
-                                  width: 24,
-                                  height: 24,
-                                }}
-                              >
-                                <Icon size={14} />
-                              </div>
-                              <p
-                                className="text-[10px] font-bold uppercase tracking-[0.16em]"
-                                style={{ ...MONO, color }}
-                              >
-                                {category}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              {items.map((item, i) => (
-                                <span
-                                  key={`${item}-${i}`}
-                                  className="inline-flex items-center px-3 py-1.5 text-xs font-semibold"
+                    <div>
+                      <p
+                        className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                        style={{ ...MONO, color: MUTED }}
+                      >
+                        Suggested Tech Stack
+                      </p>
+                      <div className="space-y-3">
+                        {STACK_KEYS.map((category) => {
+                          const items =
+                            previewData.suggested_tech_stack[category] ?? [];
+                          if (items.length === 0) return null;
+                          const Icon = STACK_ICONS[category];
+                          const color = STACK_COLORS[category];
+                          return (
+                            <div key={category}>
+                              <div className="mb-2 flex items-center gap-2">
+                                <div
+                                  className="flex items-center justify-center"
                                   style={{
-                                    background: `${color}12`,
-                                    border: `1px solid ${color}22`,
+                                    background: `${color}15`,
+                                    border: `1px solid ${color}30`,
                                     color,
+                                    width: 24,
+                                    height: 24,
                                   }}
                                 >
-                                  {item}
-                                </span>
-                              ))}
+                                  <Icon size={14} />
+                                </div>
+                                <p
+                                  className="text-[10px] font-bold uppercase tracking-[0.16em]"
+                                  style={{ ...MONO, color }}
+                                >
+                                  {category}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {items.map((item, i) => (
+                                  <span
+                                    key={`${item}-${i}`}
+                                    className="inline-flex items-center px-3 py-1.5 text-xs font-semibold"
+                                    style={{
+                                      background: `${color}12`,
+                                      border: `1px solid ${color}22`,
+                                      color,
+                                    }}
+                                  >
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <div className="grid grid-cols-2 gap-4">
                   {previewData.estimated_complexity && (

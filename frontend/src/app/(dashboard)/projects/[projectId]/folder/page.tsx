@@ -491,7 +491,9 @@ export default function FolderStructurePage() {
     projectId && projectId !== "undefined" ? projectId : "";
 
   const dispatch = useDispatch<AppDispatch>();
-  const jobState = useSelector((state: RootState) => state.job);
+  const jobState = useSelector(
+    (state: RootState) => state.job?.jobs?.folder || state.job || { jobId: null, status: "idle", result: null, error: null },
+  );
   const folderSectionState = useSelector(
     (state: RootState) => state.section.projects[resolvedProjectId]?.folder,
   );
@@ -609,7 +611,7 @@ export default function FolderStructurePage() {
       return;
     }
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("folder"));
       await dispatch(generateFolder({ projectId: resolvedProjectId })).unwrap();
       setStatus("Folder generation queued. We are processing it now.");
       setStatusType("success");
@@ -626,7 +628,7 @@ export default function FolderStructurePage() {
       return;
     }
     try {
-      dispatch(clearJobState());
+      dispatch(clearJobState("folder"));
       await dispatch(
         regenerateSection({ projectId: resolvedProjectId, section: "folder" }),
       ).unwrap();
@@ -641,9 +643,9 @@ export default function FolderStructurePage() {
   useEffect(() => {
     if (!jobState.jobId) return;
     if (jobState.status === "completed" || jobState.status === "failed") return;
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId }));
+    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "folder" }));
     const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId! }));
+      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "folder" }));
     }, 2500);
     return () => window.clearInterval(pollTimer);
   }, [dispatch, jobState.jobId, jobState.status]);
@@ -656,7 +658,7 @@ export default function FolderStructurePage() {
       setStatus("Folder generation completed. Review and accept below.");
       setStatusType("success");
     }
-    dispatch(clearJobState());
+    dispatch(clearJobState("folder"));
   }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {

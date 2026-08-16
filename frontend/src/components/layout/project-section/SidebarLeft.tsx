@@ -187,6 +187,7 @@ export default function Sidebar({
   })();
 
   const handleNavigate = (href: string) => {
+    if (!href || href.includes("/undefined")) return;
     router.push(href);
     onMobileClose?.();
   };

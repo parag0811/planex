@@ -29,7 +29,12 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (
+      error.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      !window.location.pathname.includes("/login") &&
+      !window.location.pathname.includes("/register")
+    ) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }

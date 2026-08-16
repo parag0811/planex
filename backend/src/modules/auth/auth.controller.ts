@@ -143,7 +143,7 @@ export const getUser = async (
       throw error;
     }
 
-    return res.status(201).json({ user, message: "User fetched" });
+    return res.status(200).json({ user, message: "User fetched" });
   } catch (error) {
     next(error);
   }
@@ -223,9 +223,9 @@ export const githubAuthController = (
       return res.redirect(redirectUrl);
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       token,
-      message: "Github login successfull.",
+      message: "Github login successful.",
     });
   } catch (error) {
     next(error);
@@ -256,9 +256,9 @@ export const googleAuthController = (
       return res.redirect(redirectUrl);
     }
 
-    return res.status(201).json({
+    return res.status(200).json({
       token,
-      message: "Google login successfull.",
+      message: "Google login successful.",
     });
   } catch (error) {
     next(error);

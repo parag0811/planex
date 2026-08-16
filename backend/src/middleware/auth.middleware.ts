@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 interface DecodedToken extends JwtPayload {
-  userId: number;
+  userId: string;
 }
 
 const isAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -28,7 +28,7 @@ const isAuth = (req: Request, res: Response, next: NextFunction) => {
       token,
       process.env.JWT_SECRET as string,
     ) as DecodedToken;
-    req.user = { id: decodedToken.userId };
+    req.user = { id: String(decodedToken.userId) };
     next();
   } catch (err) {
     const error = err as AppError;

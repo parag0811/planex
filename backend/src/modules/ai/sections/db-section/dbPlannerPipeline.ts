@@ -47,8 +47,8 @@ export const runDatabasePipeline = async (
       const databaseSection = DatabaseSectionContentSchema.safeParse(parsed);
 
       if (!databaseSection.success) {
-         console.error("Cached AI Validation Failed");
-         throw createAppError(
+        console.error("Cached AI Validation Failed");
+        throw createAppError(
           "Failed to generate a valid AI response. Please try again.",
           422
         );

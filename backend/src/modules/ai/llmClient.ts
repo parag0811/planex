@@ -1,79 +1,88 @@
 import Groq from "groq-sdk";
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-const isDev = process.env.NODE_ENV !== "production";
-
-let groq: Groq;
-if (GROQ_API_KEY) {
-  groq = new Groq({ apiKey: GROQ_API_KEY });
-}
-
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-export const callLLM = async (prompt: string, maxRetries = 3) => {
-  let attempt = 0;
-  
-  while (attempt <= maxRetries) {
-    try {
-      if (!GROQ_API_KEY) {
-        throw new Error("GROQ_API_KEY is not defined in environment variables");
-      }
+const getGroqClient = () => {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not defined in environment variables");
+  }
+  return new Groq({ apiKey });
+};
 
-      if (isDev) {
-        console.log(`📝 Calling Groq API with model ${GROQ_MODEL} and prompt length: ${prompt.length} chars (Attempt ${attempt + 1})`);
-      }
+export const callLLM = async (prompt: string, maxRetries = 2) => {
+  const groq = getGroqClient();
+  const primaryModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [{ role: "user", content: prompt }],
-        model: GROQ_MODEL,
-        temperature: 0.2,
-        max_tokens: 8192,
-        response_format: { type: "json_object" }
-      });
+  const fallbackModels = [
+    primaryModel,
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "deepseek-r1-distill-llama-70b",
+  ];
 
-      const text = chatCompletion.choices[0]?.message?.content?.trim();
+  const modelsToTry = Array.from(new Set(fallbackModels));
 
-      if (!text) {
-        console.error(`❌ [EMPTY_RESPONSE] Groq returned no content.`);
-        const error = new Error(`[EMPTY_RESPONSE] Groq returned empty content.`);
-        throw error;
-      }
+  for (const model of modelsToTry) {
+    let attempt = 0;
 
-      if (isDev) {
-        console.log(`✅ Groq returned ${text.length} chars`);
-      }
+    while (attempt <= maxRetries) {
+      try {
+        console.log(`📝 Calling Groq API with model ${model} (Prompt length: ${prompt.length} chars, Attempt ${attempt + 1})`);
 
-      return text;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      // Handle rate limits (429)
-      if (errorMsg.includes("429 Too Many Requests") || errorMsg.includes("429")) {
-        if (attempt < maxRetries) {
-          let waitTimeMs = 20000; // default 20s
-          const waitTimeMatch = errorMsg.match(/Please retry in ([\d\.]+)s/);
-          if (waitTimeMatch && waitTimeMatch[1]) {
-            waitTimeMs = (parseFloat(waitTimeMatch[1]) * 1000) + 1000; // Add 1 second buffer
-          } else {
-            waitTimeMs = Math.pow(2, attempt) * 10000; // 10s, 20s, 40s fallback
-          }
-          
-          console.warn(`⏳ Groq rate limit hit (429). Retrying in ${Math.round(waitTimeMs / 1000)}s... (Attempt ${attempt + 1} of ${maxRetries})`);
-          await delay(waitTimeMs);
-          attempt++;
-          continue; // retry
+        const isDeepSeek = model.toLowerCase().includes("deepseek");
+
+        const chatCompletion = await groq.chat.completions.create(
+          {
+            messages: [{ role: "user", content: prompt }],
+            model: model,
+            temperature: 0.2,
+            max_tokens: 8192,
+            ...(isDeepSeek ? {} : { response_format: { type: "json_object" } }),
+          },
+          { timeout: 60000 },
+        );
+
+        let text = chatCompletion.choices[0]?.message?.content?.trim();
+
+        if (!text) {
+          console.error(`❌ [EMPTY_RESPONSE] Groq returned no content for model ${model}.`);
+          throw new Error(`[EMPTY_RESPONSE] Groq returned empty content.`);
         }
-      }
 
-      console.error(`❌ GROQ Error: ${errorMsg}`);
-      
-      // Re-throw with full details in dev, generic in prod
-      if (isDev) {
-        throw error;
-      } else {
-        throw new Error("AI request failed");
+        // Clean reasoning <think>...</think> tags if using DeepSeek R1 models
+        text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+        console.log(`✅ Groq returned ${text.length} chars using model ${model}`);
+        return text;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        // Handle rate limits (429)
+        if (errorMsg.includes("429 Too Many Requests") || errorMsg.includes("429")) {
+          if (attempt < maxRetries) {
+            let waitTimeMs = 10000;
+            const waitTimeMatch = errorMsg.match(/Please retry in ([\d\.]+)s/);
+            if (waitTimeMatch && waitTimeMatch[1]) {
+              waitTimeMs = parseFloat(waitTimeMatch[1]) * 1000 + 1000;
+            } else {
+              waitTimeMs = Math.pow(2, attempt) * 5000;
+            }
+
+            console.warn(`⏳ Groq rate limit hit (429) on ${model}. Retrying in ${Math.round(waitTimeMs / 1000)}s... (Attempt ${attempt + 1})`);
+            await delay(waitTimeMs);
+            attempt++;
+            continue;
+          }
+        }
+
+        console.error(`❌ Groq Error with model ${model}: ${errorMsg}`);
+        // Break out of retry loop for this model and try the next fallback model
+        break;
       }
     }
   }
+
+  throw new Error("All Groq AI models failed or rate limited. Please try again in a few moments.");
 };
+
