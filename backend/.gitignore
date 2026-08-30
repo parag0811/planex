@@ -1,8 +1,25 @@
-node_modules
+# dependencies
+node_modules/
+
+# environment variables (NEVER commit secrets)
 .env
-dist
-build
+.env.*
+
+# build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma generated client
+.prisma/
+src/generated/
+
+# debug logs
 *.log
+npm-debug.log*
+
+# IDE & OS files
 .DS_Store
-.prisma
-src/generated/prisma
+Thumbs.db
+.vscode/
+.idea/
