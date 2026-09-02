@@ -1,24 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Github, Chrome, Eye, EyeOff } from "lucide-react";
+import { Github, Chrome, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser } from "@/src/store/slices/authSlice";
+import { loginUser, clearAuthErrors } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-export default function LoginPage() {
+function LoginFormContent() {
   const dispatch = useDispatch<AppDispatch>();
+  const searchParams = useSearchParams();
+  const registered = searchParams.get("registered") === "true";
+
   const { loginLoading, error } = useSelector((state: RootState) => state.auth);
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Clear stale auth errors when mounting the login page
+  useEffect(() => {
+    dispatch(clearAuthErrors());
+  }, [dispatch]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -140,6 +149,15 @@ export default function LoginPage() {
               </p>
             </div>
 
+            {/* Registration Success Notification */}
+            {registered && (
+              <div className="mb-6 flex items-center gap-2 border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                <span>Account created successfully! Please sign in with your credentials.</span>
+              </div>
+            )}
+
+            {/* Error Notification */}
             {error && (
               <div className="mb-6 border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {error}
@@ -160,6 +178,7 @@ export default function LoginPage() {
                     onChange={(e) => {
                       setEmail(e.target.value);
                       if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: "" }));
+                      if (error) dispatch(clearAuthErrors());
                     }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />
@@ -191,6 +210,7 @@ export default function LoginPage() {
                     onChange={(e) => {
                       setPassword(e.target.value);
                       if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: "" }));
+                      if (error) dispatch(clearAuthErrors());
                     }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />
@@ -207,8 +227,6 @@ export default function LoginPage() {
                   <p className="mt-1.5 text-[12px] text-red-500/90">{fieldErrors.password}</p>
                 )}
               </div>
-
-
 
               <button
                 type="submit"
@@ -259,5 +277,13 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b0b0c]" />}>
+      <LoginFormContent />
+    </Suspense>
   );
 }

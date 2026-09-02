@@ -9,22 +9,33 @@ const ApiRouteSchema = z.object({
   description: z.string(),
   request: z
     .object({
-      body: z.record(z.string(), z.string()).optional(),
-      params: z.record(z.string(), z.string()).optional(),
-      query: z.record(z.string(), z.string()).optional(),
+      body: z.record(z.string(), z.any()).optional(),
+      params: z.record(z.string(), z.any()).optional(),
+      query: z.record(z.string(), z.any()).optional(),
     })
     .optional(),
   response: z.object({
-    success: z.record(z.string(), z.string()),
+    success: z.record(z.string(), z.any()),
   }),
   authRequired: z.boolean(),
 });
 
-const WebSocketEventSchema = z.object({
+const WebSocketEventObjectSchema = z.object({
   name: z.string(),
   description: z.string(),
-  payload: z.record(z.string(), z.string()),
+  payload: z.record(z.string(), z.any()),
 });
+
+const WebSocketEventSchema = z.union([
+  WebSocketEventObjectSchema,
+  z.string().transform((val) => {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return { name: val, description: val, payload: {} };
+    }
+  }).pipe(WebSocketEventObjectSchema),
+]);
 
 const AuthFlowType = ["JWT", "OAuth", "Session"] as const;
 

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Github, Chrome, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/src/store/store";
-import { registerUser } from "@/src/store/slices/authSlice";
+import { registerUser, clearAuthErrors } from "@/src/store/slices/authSlice";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -39,11 +39,19 @@ export default function RegisterPage() {
     confirm: "",
   });
 
+  // Clear stale auth errors when mounting the register page
+  useEffect(() => {
+    dispatch(clearAuthErrors());
+  }, [dispatch]);
+
   const handleChange =
     (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
       if (fieldErrors[field]) {
         setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+      }
+      if (registerError) {
+        dispatch(clearAuthErrors());
       }
     };
 
@@ -75,7 +83,7 @@ export default function RegisterPage() {
         }),
       ).unwrap();
 
-      router.push("/login");
+      router.push("/login?registered=true");
     } catch (err: any) {
       if (err?.fieldErrors) {
         setFieldErrors(err.fieldErrors);

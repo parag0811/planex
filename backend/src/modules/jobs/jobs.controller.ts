@@ -87,11 +87,7 @@ export const retryJob = async (
     }
 
     const job = await aiQueue.add(jobFound.jobName!, jobFound.jobData, {
-      attempts: 3,
-      backoff: {
-        type: "exponential",
-        delay: 1000,
-      },
+      attempts: 1,
       removeOnComplete: true,
       removeOnFail: false,
     });

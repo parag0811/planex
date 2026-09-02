@@ -134,8 +134,13 @@ const authSlice = createSlice({
       state.loginLoading = false;
       state.profileLoading = false;
       state.error = null;
+      state.registerError = null;
 
       localStorage.removeItem("token");
+    },
+    clearAuthErrors: (state) => {
+      state.error = null;
+      state.registerError = null;
     },
   },
   extraReducers: (builder) => {
@@ -221,5 +226,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, setToken } = authSlice.actions;
+export const { logout, setToken, clearAuthErrors } = authSlice.actions;
 export default authSlice.reducer;

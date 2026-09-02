@@ -18,26 +18,22 @@ const DatabaseFieldType = [
 
 const DatabaseFieldSchema = z.object({
   name: z.string(),
-  type: z.enum(DatabaseFieldType),
-  required: z.boolean(),
+  type: z.string(),
+  required: z.boolean().optional().default(true),
   unique: z.boolean().optional(),
   description: z.string().optional(),
 });
 
-
 const DatabaseEntitySchema = z.object({
   name: z.string(),
-  description: z.string(),
+  description: z.string().optional().default(""),
   fields: z.array(DatabaseFieldSchema),
 });
-
-
-const RelationType = ["one-to-one", "one-to-many", "many-to-one", "many-to-many"] as const;
 
 const DatabaseRelationSchema = z.object({
   from: z.string(),
   to: z.string(),
-  type: z.enum(RelationType),
+  type: z.string(),
   description: z.string().optional(),
 });
 

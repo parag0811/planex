@@ -1,7 +1,5 @@
 import Groq from "groq-sdk";
 
-const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 const getGroqClient = () => {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -10,79 +8,44 @@ const getGroqClient = () => {
   return new Groq({ apiKey });
 };
 
-export const callLLM = async (prompt: string, maxRetries = 2) => {
+export const callLLM = async (prompt: string) => {
   const groq = getGroqClient();
-  const primaryModel = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 
-  const fallbackModels = [
-    primaryModel,
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "deepseek-r1-distill-llama-70b",
-  ];
+  console.log(
+    `📝 Calling Groq API with model ${model} (Prompt length: ${prompt.length} chars)`,
+  );
 
-  const modelsToTry = Array.from(new Set(fallbackModels));
+  const isDeepSeek = model.toLowerCase().includes("deepseek");
 
-  for (const model of modelsToTry) {
-    let attempt = 0;
+  try {
+    const chatCompletion = await groq.chat.completions.create(
+      {
+        messages: [{ role: "user", content: prompt }],
+        model: model,
+        temperature: 0.2,
+        max_tokens: 4000,
+        ...(isDeepSeek ? {} : { response_format: { type: "json_object" } }),
+      },
+      { timeout: 60000 },
+    );
 
-    while (attempt <= maxRetries) {
-      try {
-        console.log(`📝 Calling Groq API with model ${model} (Prompt length: ${prompt.length} chars, Attempt ${attempt + 1})`);
+    let text = chatCompletion.choices[0]?.message?.content?.trim();
 
-        const isDeepSeek = model.toLowerCase().includes("deepseek");
-
-        const chatCompletion = await groq.chat.completions.create(
-          {
-            messages: [{ role: "user", content: prompt }],
-            model: model,
-            temperature: 0.2,
-            max_tokens: 8192,
-            ...(isDeepSeek ? {} : { response_format: { type: "json_object" } }),
-          },
-          { timeout: 60000 },
-        );
-
-        let text = chatCompletion.choices[0]?.message?.content?.trim();
-
-        if (!text) {
-          console.error(`❌ [EMPTY_RESPONSE] Groq returned no content for model ${model}.`);
-          throw new Error(`[EMPTY_RESPONSE] Groq returned empty content.`);
-        }
-
-        // Clean reasoning <think>...</think> tags if using DeepSeek R1 models
-        text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-
-        console.log(`✅ Groq returned ${text.length} chars using model ${model}`);
-        return text;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-
-        // Handle rate limits (429)
-        if (errorMsg.includes("429 Too Many Requests") || errorMsg.includes("429")) {
-          if (attempt < maxRetries) {
-            let waitTimeMs = 10000;
-            const waitTimeMatch = errorMsg.match(/Please retry in ([\d\.]+)s/);
-            if (waitTimeMatch && waitTimeMatch[1]) {
-              waitTimeMs = parseFloat(waitTimeMatch[1]) * 1000 + 1000;
-            } else {
-              waitTimeMs = Math.pow(2, attempt) * 5000;
-            }
-
-            console.warn(`⏳ Groq rate limit hit (429) on ${model}. Retrying in ${Math.round(waitTimeMs / 1000)}s... (Attempt ${attempt + 1})`);
-            await delay(waitTimeMs);
-            attempt++;
-            continue;
-          }
-        }
-
-        console.error(`❌ Groq Error with model ${model}: ${errorMsg}`);
-        // Break out of retry loop for this model and try the next fallback model
-        break;
-      }
+    if (!text) {
+      console.error(`❌ [EMPTY_RESPONSE] Groq returned no content for model ${model}.`);
+      throw new Error(`[EMPTY_RESPONSE] Groq returned empty content.`);
     }
-  }
 
-  throw new Error("All Groq AI models failed or rate limited. Please try again in a few moments.");
+    // Clean reasoning <think>...</think> tags if using DeepSeek/reasoning models
+    text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+    console.log(`✅ Groq returned ${text.length} chars using model ${model}`);
+    return text;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ Groq Error with model ${model}: ${errorMsg}`);
+    throw error;
+  }
 };
 
