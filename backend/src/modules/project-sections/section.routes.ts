@@ -50,8 +50,8 @@ const ideaValidation = [
     .notEmpty()
     .withMessage("Idea can not be empty.")
     .bail()
-    .isLength({ min: 10, max: 250 })
-    .withMessage("Idea must be within 10-250 characters.")
+    .isLength({ min: 10, max: 1000 })
+    .withMessage("Idea must be within 10-1000 characters.")
     .bail(),
 ];
 

@@ -266,6 +266,7 @@ export default function IdeaPage() {
   );
   const [acceptingPreview, setAcceptingPreview] = useState(false);
   const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
+  const [rawIdeaFieldError, setRawIdeaFieldError] = useState<string | null>(null);
 
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [featureForm, setFeatureForm] = useState<KeyFeature>({
@@ -379,6 +380,8 @@ export default function IdeaPage() {
   };
 
   const handleGenerate = async (forceRegenerate = false) => {
+    setRawIdeaFieldError(null);
+
     if (!ideaData.raw_idea.trim()) {
       setStatus("Add a raw idea first to generate suggestions.");
       setStatusType("error");
@@ -409,6 +412,10 @@ export default function IdeaPage() {
       );
       setStatusType("success");
     } catch (err: any) {
+      const fieldErrorMsg = err?.fieldErrors?.idea;
+      if (fieldErrorMsg) {
+        setRawIdeaFieldError(fieldErrorMsg);
+      }
       setStatus(
         err?.message ??
         (forceRegenerate
@@ -420,6 +427,8 @@ export default function IdeaPage() {
   };
 
   const handleRegenerate = async () => {
+    setRawIdeaFieldError(null);
+
     if (!ideaData.raw_idea.trim()) {
       setStatus("Add a raw idea first to regenerate suggestions.");
       setStatusType("error");
@@ -445,6 +454,10 @@ export default function IdeaPage() {
       setStatus("Idea regeneration queued. We are processing it now.");
       setStatusType("success");
     } catch (err: any) {
+      const fieldErrorMsg = err?.fieldErrors?.idea;
+      if (fieldErrorMsg) {
+        setRawIdeaFieldError(fieldErrorMsg);
+      }
       setStatus(err?.message ?? "Failed to queue idea regeneration.");
       setStatusType("error");
     }
@@ -864,23 +877,32 @@ export default function IdeaPage() {
           {/* Raw idea — serif italic editable block */}
           <motion.div variants={fadeUp(5)} className="mb-3">
             <div
-              className="border px-7 py-7"
-              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
+              className={`border px-7 py-7 transition-colors ${rawIdeaFieldError ? "border-red-500/70 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : ""}`}
+              style={{
+                borderColor: rawIdeaFieldError ? "#ef4444" : BORDER,
+                backgroundColor: INNER_BG,
+              }}
             >
               <textarea
                 value={ideaData.raw_idea}
-                onChange={(e) =>
+                onChange={(e) => {
                   setIdeaData((current) => ({
                     ...current,
                     raw_idea: e.target.value,
-                  }))
-                }
+                  }));
+                  if (rawIdeaFieldError) setRawIdeaFieldError(null);
+                }}
                 placeholder="Describe your project idea here..."
                 rows={6}
                 className="w-full resize-y bg-transparent text-[1.15rem] italic leading-relaxed text-white outline-none placeholder:text-white/35 placeholder:not-italic"
                 style={SERIF}
               />
             </div>
+            {rawIdeaFieldError && (
+              <p className="mt-2 text-[12px] text-red-400 flex items-center gap-1.5" style={MONO}>
+                <span>⚠</span> {rawIdeaFieldError}
+              </p>
+            )}
           </motion.div>
 
           {/* Generate / regenerate button */}

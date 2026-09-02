@@ -1,5 +1,8 @@
 import prisma from "../../db/prisma";
+import redis from "../../db/redis";
 import { TYPES } from "../../generated/prisma/enums";
+
+const SECTION_CACHE_TTL_SECONDS = 600;
 
 export const getProjectSectionsService = async (projectId: string) => {
   return prisma.projectSection.findMany({
@@ -11,7 +14,20 @@ export const getSectionByTypeService = async (
   projectId: string,
   type: TYPES,
 ) => {
-  return prisma.projectSection.findUnique({
+  const cacheKey = `section:${projectId}:${type}`;
+
+  // 1. Check Redis cache first (instant response, immune to DB cold-starts)
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (error) {
+    // Non-blocking Redis failure, continue to database
+  }
+
+  // 2. Query Prisma database
+  const section = await prisma.projectSection.findUnique({
     where: {
       project_id_type: {
         project_id: projectId,
@@ -19,6 +35,22 @@ export const getSectionByTypeService = async (
       },
     },
   });
+
+  // 3. Populate Redis cache if found
+  if (section) {
+    try {
+      await redis.set(
+        cacheKey,
+        JSON.stringify(section),
+        "EX",
+        SECTION_CACHE_TTL_SECONDS,
+      );
+    } catch (error) {
+      // Non-blocking Redis failure
+    }
+  }
+
+  return section;
 };
 
 export const upsertSectionService = async (
@@ -26,7 +58,7 @@ export const upsertSectionService = async (
   type: TYPES,
   content: any,
 ) => {
-  return prisma.projectSection.upsert({
+  const section = await prisma.projectSection.upsert({
     where: {
       project_id_type: {
         project_id: projectId,
@@ -43,4 +75,19 @@ export const upsertSectionService = async (
       version: { increment: 1 },
     },
   });
+
+  // Update Redis cache immediately
+  const cacheKey = `section:${projectId}:${type}`;
+  try {
+    await redis.set(
+      cacheKey,
+      JSON.stringify(section),
+      "EX",
+      SECTION_CACHE_TTL_SECONDS,
+    );
+  } catch (error) {
+    // Non-blocking Redis failure
+  }
+
+  return section;
 };

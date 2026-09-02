@@ -110,9 +110,14 @@ export const generateIdea = createAsyncThunk(
 
       return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
-      return rejectWithValue(
-        getErrorMessage(error, "Failed to queue idea"),
-      );
+      const fieldErrors = error.response?.data?.fieldErrors;
+      const message = getErrorMessage(error, "Failed to queue idea");
+
+      if (fieldErrors) {
+        return rejectWithValue({ message, fieldErrors });
+      }
+
+      return rejectWithValue(message);
     }
   },
 );
@@ -140,9 +145,14 @@ export const generateDatabase = createAsyncThunk(
 
       return { jobId } satisfies GenerateJobResult;
     } catch (error: any) {
-      return rejectWithValue(
-        getErrorMessage(error, "Failed to queue database generation"),
-      );
+      const fieldErrors = error.response?.data?.fieldErrors;
+      const message = getErrorMessage(error, "Failed to queue database generation");
+
+      if (fieldErrors) {
+        return rejectWithValue({ message, fieldErrors });
+      }
+
+      return rejectWithValue(message);
     }
   },
 );
@@ -402,7 +412,11 @@ const jobSlice = createSlice({
       sec: SectionName,
       action: { payload?: unknown; error: { message?: string | null } },
     ) => {
-      const errorMsg = (action.payload as string) ?? action.error.message ?? null;
+      const payloadObj = action.payload as any;
+      const errorMsg =
+        (typeof payloadObj === "string" ? payloadObj : payloadObj?.message) ??
+        action.error.message ??
+        null;
       state.status = "failed";
       state.error = errorMsg;
 
