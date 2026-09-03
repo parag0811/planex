@@ -24,123 +24,70 @@ export const buildApiPrompt = (
   database: DatabaseSectionContent,
   options: ApiPromptOptions = {},
 ): string => `
-You are a senior backend architect.
+You are a senior API architect.
 
-Design a complete API system for the following application.
+Design a clean, production-ready REST API specification with WebSockets matching this product and database model.
 
-========================
-PRODUCT OVERVIEW
+PRODUCT OVERVIEW:
 ${idea.overview}
 
-KEY FEATURES
-${idea.key_features.map((f) => `- ${f.name}`).join("\n")}
+DATABASE ENTITIES:
+${database.entities.map((e) => `- ${e.name} (${e.fields.slice(0, 5).map((f) => f.name).join(", ")})`).join("\n")}
 
-REQUIREMENTS
-${idea.requirements.map((r) => `- ${r}`).join("\n")}
+${options.isRegenerating ? `
+REGENERATION MODE:
+- Produce an alternative clean REST design consistent with the schema
+` : ""}
 
-========================
-DATABASE SCHEMA
-
-Entities:
-${database.entities
-  .map(
-    (e) => `
-- ${e.name}
-  Fields: ${e.fields.map((f) => f.name + ":" + f.type).join(", ")}
-`,
-  )
-  .join("\n")}
-
-Relationships:
-${database.relationships
-  .map((r) => `- ${r.from} → ${r.to} (${r.type})`)
-  .join("\n")}
-
-${
-  options.isRegenerating
-    ? `
-REGENERATION MODE
-- Produce a fresh API design while keeping it consistent with the schema
-- Avoid reusing identical route groupings and descriptions where possible
-`
-    : ""
-}
-
-${
-  options.instruction
-    ? `
+${options.instruction ? `
 USER INSTRUCTION:
 ${options.instruction}
-`
-    : ""
-}
+` : ""}
 
-${
-  options.isRegenerating
-    ? `
-REGENERATION_ID: ${options.regenerationSeed || "none"}
-`
-    : ""
-}
+${options.isRegenerating ? `REGENERATION_ID: ${options.regenerationSeed || "none"}` : ""}
 
-========================
+Task:
+Generate 8 to 12 core essential REST endpoints + 2 to 3 realtime events.
 
-Your task:
+Requirements:
+1. REST Routes:
+   - Auth endpoints: POST /api/v1/auth/register, POST /api/v1/auth/login, GET /api/v1/auth/me
+   - Core Resource CRUD: 1-2 primary endpoints for each major database entity (e.g. GET /api/v1/projects, POST /api/v1/projects, GET /api/v1/projects/:id, PUT /api/v1/projects/:id, DELETE /api/v1/projects/:id)
+   - Keep request and response examples concise (2-4 fields max).
+2. Auth Flow: Specify JWT or OAuth strategy and list the protected routes.
+3. Realtime: 2 to 3 essential WebSocket events (e.g. 'entity:created', 'notification:new').
 
-Design a complete API layer including:
-
-1. REST APIs
-2. Authentication system
-3. Realtime APIs (if applicable)
-
-Return ONLY valid JSON.
-
-Schema:
+Return ONLY valid JSON matching this schema:
 
 {
   "rest": [
     {
-      "name": "string",
-      "method": "GET | POST | PUT | PATCH | DELETE",
-      "path": "/string",
-      "description": "string",
+      "name": "Register User",
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "description": "Register a new account",
       "request": {
-        "body": { "field": "type" },
-        "params": { "field": "type" },
-        "query": { "field": "type" }
+        "body": { "email": "string", "password": "string", "name": "string" }
       },
       "response": {
-        "success": { "field": "type" }
+        "success": { "token": "string", "user": { "id": "string", "email": "string" } }
       },
-      "authRequired": true
+      "authRequired": false
     }
   ],
   "realtime": [
     {
-      "name": "string",
-      "description": "string",
-      "payload": { "field": "type" }
+      "name": "project:updated",
+      "description": "Emitted when project data is modified",
+      "payload": { "projectId": "string", "action": "string" }
     }
   ],
   "auth": {
-    "type": "JWT | OAuth | Session",
-    "description": "string",
-    "routes": ["/auth/login", "/auth/register"]
+    "type": "JWT",
+    "description": "Bearer token authentication with JWT",
+    "routes": ["/api/v1/projects", "/api/v1/tasks"]
   }
 }
 
-Rules:
-
-REST
-- include CRUD routes for each major entity
-- follow REST conventions
-- use plural resource names (/users, /projects)
-
-Auth
-- must include login, register, and session handling
-
-Realtime
-- include only if relevant (notifications, updates)
-
-Return ONLY JSON.
+Return ONLY JSON. No markdown codeblocks, no explanations.
 `;

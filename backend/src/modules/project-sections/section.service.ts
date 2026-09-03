@@ -27,30 +27,42 @@ export const getSectionByTypeService = async (
   }
 
   // 2. Query Prisma database
-  const section = await prisma.projectSection.findUnique({
-    where: {
-      project_id_type: {
-        project_id: projectId,
-        type,
+  try {
+    const section = await prisma.projectSection.findUnique({
+      where: {
+        project_id_type: {
+          project_id: projectId,
+          type,
+        },
       },
-    },
-  });
+    });
 
-  // 3. Populate Redis cache if found
-  if (section) {
-    try {
-      await redis.set(
-        cacheKey,
-        JSON.stringify(section),
-        "EX",
-        SECTION_CACHE_TTL_SECONDS,
-      );
-    } catch (error) {
-      // Non-blocking Redis failure
+    // 3. Populate Redis cache if found
+    if (section) {
+      try {
+        await redis.set(
+          cacheKey,
+          JSON.stringify(section),
+          "EX",
+          SECTION_CACHE_TTL_SECONDS,
+        );
+      } catch (error) {
+        // Non-blocking Redis failure
+      }
     }
-  }
 
-  return section;
+    return section;
+  } catch (dbError: any) {
+    console.error(
+      `⚠️ [Prisma] getSectionByTypeService error for ${projectId}:${type}:`,
+      dbError?.message || String(dbError),
+    );
+    const appErr = new Error(
+      "Database connection is momentarily warming up. Please try again in a moment.",
+    ) as any;
+    appErr.status = 503;
+    throw appErr;
+  }
 };
 
 export const upsertSectionService = async (

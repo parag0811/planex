@@ -24,6 +24,8 @@ import {
 } from "@/src/store/slices/projectSlice";
 import { fetchAllSections } from "@/src/store/slices/sectionSlice";
 import ComplexityOverviewCard from "@/src/components/project/ComplexityOverviewCard";
+import ExportBlueprintModal from "@/src/components/project/ExportBlueprintModal";
+import { Download } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 
@@ -359,6 +361,7 @@ export default function ProjectOverviewPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   useEffect(() => {
     if (currentProject?.name) {
@@ -469,6 +472,13 @@ export default function ProjectOverviewPage() {
         generateLoading={inviteLinkState.loading}
         removeLoading={remove.loading}
         updateLoading={update.loading}
+      />
+
+      <ExportBlueprintModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        projectName={projectName}
+        sections={sectionsMap}
       />
 
       <div
@@ -600,19 +610,33 @@ export default function ProjectOverviewPage() {
                   </span>
                   <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
                 </div>
-                <button
-                  onClick={() => setInviteModalOpen(true)}
-                  className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:border-white/30"
-                  style={{
-                    ...MONO,
-                    borderColor: ACCENT,
-                    color: ACCENT,
-                    backgroundColor: `${ACCENT}12`,
-                  }}
-                >
-                  <UserPlus size={13} />
-                  Manage Team
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setInviteModalOpen(true)}
+                    className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:border-white/30"
+                    style={{
+                      ...MONO,
+                      borderColor: BORDER,
+                      color: MUTED,
+                    }}
+                  >
+                    <UserPlus size={13} />
+                    Manage Team
+                  </button>
+                  <button
+                    onClick={() => setExportModalOpen(true)}
+                    className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:bg-[#d84c28] hover:text-black"
+                    style={{
+                      ...MONO,
+                      borderColor: ACCENT,
+                      color: ACCENT,
+                      backgroundColor: `${ACCENT}12`,
+                    }}
+                  >
+                    <Download size={13} />
+                    Export Blueprint
+                  </button>
+                </div>
               </div>
 
               {members.length === 0 ? (

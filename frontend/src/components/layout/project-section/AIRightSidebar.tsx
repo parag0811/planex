@@ -154,7 +154,7 @@ export default function AIRightSidebar({
       const jobId = queued.jobId;
       let jobResult = null;
       let attempts = 0;
-      const maxAttempts = 30;
+      const maxAttempts = 60; // 120 seconds timeout
 
       while (attempts < maxAttempts) {
         await new Promise((r) => setTimeout(r, 2000));

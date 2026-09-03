@@ -9,7 +9,6 @@ export const jobStatus = async (
 ) => {
   try {
     const { jobId } = req.params;
-
     const jobKey = `job:${jobId}`;
 
     let jobData: string | null = null;
@@ -19,18 +18,48 @@ export const jobStatus = async (
       // Non-blocking Redis failure
     }
 
-    if (!jobData) {
-      return res.status(404).json({ message: "Job not found or expired." });
+    let jobFound: JobStatus | null = null;
+    if (jobData) {
+      try {
+        jobFound = JSON.parse(jobData);
+      } catch (error) {
+        // Invalid JSON
+      }
     }
 
-    let jobFound: JobStatus;
+    // Self-healing fallback: If Redis is missing, pending, or processing, check BullMQ queue state directly
+    if (!jobFound || jobFound.status === "pending" || jobFound.status === "processing") {
+      try {
+        const bullJob = await aiQueue.getJob(jobId);
+        if (bullJob) {
+          const isCompleted = await bullJob.isCompleted();
+          const isFailed = await bullJob.isFailed();
 
-    try {
-      jobFound = JSON.parse(jobData);
-    } catch (error) {
-      return res.status(404).json({
-        message: "Invalid job data.",
-      });
+          if (isCompleted) {
+            jobFound = {
+              status: "completed",
+              result: bullJob.returnvalue,
+              jobName: bullJob.name,
+              jobData: bullJob.data,
+            };
+            await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
+          } else if (isFailed) {
+            jobFound = {
+              status: "failed",
+              error: bullJob.failedReason || "AI generation failed. Please try again.",
+              jobName: bullJob.name,
+              jobData: bullJob.data,
+            };
+            await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
+          }
+        }
+      } catch (bullErr) {
+        // Non-blocking BullMQ fallback failure
+      }
+    }
+
+    if (!jobFound) {
+      return res.status(404).json({ message: "Job not found or expired." });
     }
 
     return res.status(200).json({

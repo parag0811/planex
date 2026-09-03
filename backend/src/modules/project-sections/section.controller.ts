@@ -98,7 +98,7 @@ export const upsertSection = async (
     const cacheKey = `section:${projectId}:${type}`;
 
     try {
-      await redis.del(cacheKey);
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 600);
     } catch (e) {
       // Non-blocking Redis failure
     }

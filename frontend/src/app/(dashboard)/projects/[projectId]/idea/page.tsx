@@ -488,8 +488,9 @@ export default function IdeaPage() {
       return;
     }
 
-    if (jobState.result?.idea) {
-      const generatedIdea = normalizeIdea(jobState.result.idea);
+    const payload = jobState.result?.idea ?? jobState.result;
+    if (payload) {
+      const generatedIdea = normalizeIdea(payload);
       setPreviewData(generatedIdea);
       setHasGeneratedOnce(true);
       setStatus("Idea generation completed. Review and accept below.");

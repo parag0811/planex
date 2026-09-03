@@ -7,3 +7,4 @@ build
 .prisma
 .vscode/
 src/generated/prisma
+AUDIT_AND_FIX_PLAN.md

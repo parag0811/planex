@@ -91,10 +91,13 @@ export const runApiPipeline = async (
   const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
 
   if (!validatedApiSection.success) {
-    console.error("AI Validation Failed");
+    console.error(
+      "❌ [api] AI Validation Failed:",
+      JSON.stringify(validatedApiSection.error.format(), null, 2),
+    );
     throw createAppError(
       "Failed to generate a valid AI response. Please try again.",
-      422
+      422,
     );
   }
 

@@ -16,37 +16,29 @@ export type FolderPromptOptions = z.infer<typeof FolderPromptOptionsSchema>;
 
 export const buildFolderPrompt = (
   idea: IdeaSectionContent,
-  database: DatabaseSectionContent,
-  api: ApiSectionContent,
+  database?: DatabaseSectionContent,
+  api?: ApiSectionContent,
   options: FolderPromptOptions = {},
 ): string => `
 You are a senior software architect.
 
-Design a production-ready folder structure for a full-stack application.
+Design a clean, production-ready full-stack folder structure directly reflecting this product and technology stack.
 
-========================
-PRODUCT OVERVIEW
+PRODUCT OVERVIEW:
 ${idea.overview}
 
-TECH STACK
-Frontend: ${idea.suggested_tech_stack.frontend.join(", ")}
-Backend: ${idea.suggested_tech_stack.backend.join(", ")}
-Database: ${idea.suggested_tech_stack.database.join(", ")}
+TECH STACK:
+- Frontend: ${idea.suggested_tech_stack.frontend.join(", ") || "Next.js, TypeScript, Tailwind"}
+- Backend: ${idea.suggested_tech_stack.backend.join(", ") || "Node.js, Express, TypeScript"}
+- Database: ${idea.suggested_tech_stack.database.join(", ") || "PostgreSQL, Prisma"}
+- Frameworks/Tools: ${idea.suggested_tech_stack.frameworks?.join(", ") || "Docker, Redis, BullMQ"}
 
-========================
-DATABASE ENTITIES
-${database.entities.map(e => `- ${e.name}`).join("\n")}
-
-========================
-API ROUTES
-${api.rest.map(r => `- ${r.method} ${r.path}`).join("\n")}
-
-========================
+CORE MODULES:
+${database?.entities?.length ? database.entities.map((e) => `- ${e.name.toLowerCase()}`).join("\n") : idea.key_features.slice(0, 4).map((f) => `- ${f.name.toLowerCase()}`).join("\n")}
 
 ${options.isRegenerating ? `
-REGENERATION MODE
-- Produce a different but equivalent folder structure
-- Avoid repeating the same nesting and naming patterns where possible
+REGENERATION MODE:
+- Produce an alternative clean, production-ready directory layout
 ` : ""}
 
 ${options.instruction ? `
@@ -54,50 +46,55 @@ USER INSTRUCTION:
 ${options.instruction}
 ` : ""}
 
-${options.isRegenerating ? `
-REGENERATION_ID: ${options.regenerationSeed || "none"}
-` : ""}
+${options.isRegenerating ? `REGENERATION_ID: ${options.regenerationSeed || "none"}` : ""}
 
-Your task:
-
-Generate a scalable folder structure.
+Task:
+Generate a clean, scalable directory tree (2 to 3 levels deep max, ~15-25 total nodes).
 
 Requirements:
+1. Separate 'frontend' and 'backend' root folders (or monorepo structure).
+2. Frontend structure matching the chosen tech (e.g., src/app, src/components, src/hooks, src/lib, package.json).
+3. Backend structure matching the chosen tech (e.g., src/controllers, src/services, src/routes, src/middleware, prisma/schema.prisma, package.json).
+4. Include top-level configuration files (e.g. docker-compose.yml, .env.example, README.md).
+5. Do NOT over-nest. Keep it concise and practical.
 
-- Separate frontend and backend
-- Backend must include:
-  - controllers
-  - services
-  - routes
-  - middleware
-  - models or prisma
-  - ai (for AI orchestration layer)
-- Frontend must include:
-  - components
-  - pages or app
-  - hooks
-  - services/api layer
-- Include config files (env, docker, etc.)
-- Keep structure clean and modern
-
-Return ONLY valid JSON.
-
-Schema:
+Return ONLY valid JSON matching this schema:
 
 {
   "root": [
     {
-      "name": "string",
-      "type": "folder | file",
-      "children": []
-    }
+      "name": "frontend",
+      "type": "folder",
+      "children": [
+        {
+          "name": "src",
+          "type": "folder",
+          "children": [
+            { "name": "app", "type": "folder", "children": [] },
+            { "name": "components", "type": "folder", "children": [] }
+          ]
+        },
+        { "name": "package.json", "type": "file" }
+      ]
+    },
+    {
+      "name": "backend",
+      "type": "folder",
+      "children": [
+        {
+          "name": "src",
+          "type": "folder",
+          "children": [
+            { "name": "modules", "type": "folder", "children": [] },
+            { "name": "server.ts", "type": "file" }
+          ]
+        },
+        { "name": "package.json", "type": "file" }
+      ]
+    },
+    { "name": "docker-compose.yml", "type": "file" }
   ]
 }
 
-Rules:
-
-- Use realistic folder names
-- Do not over-nest
-- Keep it scalable for production
-- Include only relevant files
+Return ONLY JSON. No markdown codeblocks, no explanations.
 `;

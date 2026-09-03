@@ -10,7 +10,7 @@ const getGroqClient = () => {
 
 export const callLLM = async (prompt: string) => {
   const groq = getGroqClient();
-  const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+  const model = process.env.GROQ_MODEL || "qwen/qwen3.8-27b";
 
   console.log(
     `📝 Calling Groq API with model ${model} (Prompt length: ${prompt.length} chars)`,
