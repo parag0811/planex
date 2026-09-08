@@ -14,10 +14,11 @@ export const aiWorker = new Worker(
     return await handler(job.data);
   },
   {
-    concurrency: 5,
+    concurrency: 3,
     lockDuration: 300000,
-    stalledInterval: 30000,
-    maxStalledCount: 2,
+    stalledInterval: 180000, // Check for stalled jobs every 3 mins to drastically cut Redis requests
+    drainDelay: 60, // Sleep 60 seconds when queue is empty to avoid idle polling
+    maxStalledCount: 1,
     connection: {
       host: process.env.REDIS_HOST as string,
       port: Number(process.env.REDIS_PORT) || 6379,

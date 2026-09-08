@@ -5,7 +5,11 @@ const redis = new Redis({
   host: process.env.REDIS_HOST as string,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
-  keepAlive: 10000,
+  keepAlive: 30000,
+  retryStrategy: (times) => {
+    // Backoff reconnects: 1s, 2s, 3s... max 10s (prevents burning commands on reconnect)
+    return Math.min(times * 1000, 10000);
+  },
 
   username: process.env.REDIS_USERNAME || undefined,
   password: process.env.REDIS_PASSWORD || undefined,

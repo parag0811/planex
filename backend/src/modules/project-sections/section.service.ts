@@ -2,7 +2,7 @@ import prisma from "../../db/prisma";
 import redis from "../../db/redis";
 import { TYPES } from "../../generated/prisma/enums";
 
-const SECTION_CACHE_TTL_SECONDS = 600;
+const SECTION_CACHE_TTL_SECONDS = 86400; // 24 hours cache to minimize Redis write operations
 
 export const getProjectSectionsService = async (projectId: string) => {
   return prisma.projectSection.findMany({

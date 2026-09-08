@@ -66,7 +66,7 @@ export const getSectionByType = async (
     }
 
     try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
     } catch (e) {
       // Non-blocking Redis failure
     }
@@ -98,7 +98,7 @@ export const upsertSection = async (
     const cacheKey = `section:${projectId}:${type}`;
 
     try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 600);
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
     } catch (e) {
       // Non-blocking Redis failure
     }
@@ -535,7 +535,7 @@ export const acceptIdeaPreview = async (
     // Cache the accepted section
     const cacheKey = `section:${projectId}:${TYPES.IDEA}`;
     try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 500);
+      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
     } catch (e) {
       // Non-blocking Redis failure
     }
