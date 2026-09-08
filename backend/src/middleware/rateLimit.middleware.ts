@@ -14,11 +14,19 @@ import redis from "../db/redis";
 //   return redis.call(...args);
 // } As it sends command and express rl creates redis key itself
 
-const createStore = (prefix: string) => new RedisStore({
-  sendCommand: (...args: string[]) =>
-    redis.call(...(args as [string, ...string[]])) as Promise<any>, // RedisStore talks to our redis client
-  prefix
-});
+const createStore = (prefix: string) =>
+  new RedisStore({
+    sendCommand: async (...args: string[]) => {
+      try {
+        return (await redis.call(...(args as [string, ...string[]]))) as any;
+      } catch (err) {
+        console.warn(`⚠️ [RateLimit Redis Warning for ${prefix}]:`, (err as any)?.message || String(err));
+        // Fail-open fallback: return 1 so rate-limit-redis does not throw 500 on all HTTP requests
+        return 1;
+      }
+    },
+    prefix,
+  });
 
 // AUTH Limiter will use IP as key
 export const authLimiter = rateLimit({

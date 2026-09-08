@@ -17,23 +17,50 @@ const app = express();
 
 app.set("trust proxy", 1); // Gives real user IP
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL?.trim().replace(/\/$/, ""),
-  "http://localhost:3000",
-].filter(Boolean) as string[];
+const parseAllowedOrigins = (): string[] => {
+  const envOrigins = (process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((url) => url.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+
+  return [
+    ...envOrigins,
+    "http://localhost:3000",
+    "http://localhost:5173",
+  ];
+};
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const origins = parseAllowedOrigins();
+      const isAllowed =
+        origins.includes(origin) ||
+        origin.endsWith(".vercel.app") ||
+        origin.includes("localhost");
+
+      if (isAllowed) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        // Return null, false to reject CORS cleanly without throwing a 500 server crash
+        callback(null, false);
       }
     },
     credentials: true,
   }),
 );
+
+// Health check endpoints for Render/Hosting probes
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+app.get("/", (req, res) => {
+  res.status(200).json({ name: "Planex Backend API", status: "running" });
+});
 
 app.use(globalLimiter);
 
