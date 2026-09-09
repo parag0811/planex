@@ -53,13 +53,23 @@ app.use(
   }),
 );
 
-// Health check endpoints for Render/Hosting probes
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+// Health check endpoints for Render, Cron, and Uptime monitors (placed BEFORE rate-limiting)
+app.get(["/health", "/api/health"], (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Planex Backend is healthy and operational",
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/", (req, res) => {
-  res.status(200).json({ name: "Planex Backend API", status: "running" });
+  res.status(200).json({
+    name: "Planex Backend API",
+    status: "running",
+    healthEndpoint: "/health",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use(globalLimiter);
