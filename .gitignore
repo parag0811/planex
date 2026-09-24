@@ -8,3 +8,6 @@ build
 .vscode/
 src/generated/prisma
 AUDIT_AND_FIX_PLAN.md
+PLANEX_STARTUP_AND_RESUME_GUIDE.md
+backend/src/scripts/testGemini.ts
+*testGemini*

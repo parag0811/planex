@@ -161,7 +161,11 @@ export const generateIdeaSection = async (
       },
       {
         jobId: `idea-${projectId}-${Date.now()}`,
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },
@@ -239,7 +243,11 @@ export const generateDatabaseSuggestion = async (
       },
       {
         jobId: `database-${projectId}-${Date.now()}`,
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },
@@ -321,7 +329,11 @@ export const generateApiSuggestion = async (
       },
       {
         jobId: `api-${projectId}-${Date.now()}`,
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },
@@ -404,7 +416,11 @@ export const generateFolderSuggestion = async (
       },
       {
         jobId: `folder-${projectId}-${Date.now()}`,
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },
@@ -479,7 +495,11 @@ export const regenerateSection = async (
       },
       {
         jobId: `regen-${section.toLowerCase()}-${projectId}-${Date.now()}`,
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },

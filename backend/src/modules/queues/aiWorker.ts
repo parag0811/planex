@@ -98,7 +98,12 @@ const sanitizeWorkerError = (error: Error | any): string => {
     return "Database service is temporarily unreachable. Please retry in a moment.";
   }
 
-  if (msg.includes("429") || msg.includes("rate_limit")) {
+  if (
+    msg.includes("429") ||
+    msg.includes("rate_limit") ||
+    msg.includes("RESOURCE_EXHAUSTED") ||
+    msg.includes("quota")
+  ) {
     return "AI service rate limit exceeded. Please wait a moment and try again.";
   }
 

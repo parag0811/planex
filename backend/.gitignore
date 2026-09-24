@@ -22,4 +22,8 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 .vscode/
-.idea/
+.idea/
+
+# Local diagnostic scripts
+src/scripts/testGemini.ts
+

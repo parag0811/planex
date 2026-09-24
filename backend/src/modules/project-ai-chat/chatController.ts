@@ -32,7 +32,11 @@ export const chatController = async (
         userId: req.user?.id,
       },
       {
-        attempts: 1,
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 3000,
+        },
         removeOnComplete: true,
         removeOnFail: false,
       },

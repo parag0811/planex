@@ -1,6 +1,15 @@
 import { Queue } from "bullmq";
 
 export const aiQueue = new Queue("ai-queue", {
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: "exponential",
+      delay: 3000,
+    },
+    removeOnComplete: true,
+    removeOnFail: false,
+  },
   connection: {
     host: process.env.REDIS_HOST as string,
     port: Number(process.env.REDIS_PORT) || 6379,
