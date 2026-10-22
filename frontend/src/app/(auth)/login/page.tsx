@@ -8,6 +8,8 @@ import { useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser, clearAuthErrors } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
+import { useRedirectIfAuthenticated } from "@/src/hooks/useRedirectIfAuthenticated";
+import FullPageLoader from "@/src/components/common/FullPageLoader";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -19,15 +21,19 @@ function LoginFormContent() {
 
   const { loginLoading, error } = useSelector((state: RootState) => state.auth);
 
+  const { isCheckingAuth } = useRedirectIfAuthenticated();
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [queryError, setQueryError] = useState<string | null>(null);
 
   // Clear stale auth errors when mounting the login page
   useEffect(() => {
     dispatch(clearAuthErrors());
-  }, [dispatch]);
+    setQueryError(searchParams.get("error"));
+  }, [dispatch, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -58,6 +64,15 @@ function LoginFormContent() {
   const handleOAuth = (provider: "github" | "google") => {
     window.location.href = `${API_BASE_URL}/auth/${provider}`;
   };
+
+  if (isCheckingAuth) {
+    return (
+      <FullPageLoader
+        title="Checking your session"
+        subtitle="Redirecting to your workspace..."
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0b0c] text-[#FAFAFA]">
@@ -158,9 +173,9 @@ function LoginFormContent() {
             )}
 
             {/* Error Notification */}
-            {error && (
+            {(error || queryError) && (
               <div className="mb-6 border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
+                {error || queryError}
               </div>
             )}
 
@@ -179,6 +194,7 @@ function LoginFormContent() {
                       setEmail(e.target.value);
                       if (fieldErrors.email) setFieldErrors(prev => ({ ...prev, email: "" }));
                       if (error) dispatch(clearAuthErrors());
+                      if (queryError) setQueryError(null);
                     }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />
@@ -211,6 +227,7 @@ function LoginFormContent() {
                       setPassword(e.target.value);
                       if (fieldErrors.password) setFieldErrors(prev => ({ ...prev, password: "" }));
                       if (error) dispatch(clearAuthErrors());
+                      if (queryError) setQueryError(null);
                     }}
                     className="w-full bg-transparent outline-none text-[#111111] text-sm placeholder:text-[#b0b0b0]"
                   />

@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as githubStrategy } from "passport-github2";
 import prisma from "../../../db/prisma";
+import { normalizeEmailAddress } from "../../../utils/email";
 
 interface GithubProfile {
   id: string;
@@ -15,7 +16,8 @@ passport.use(
     {
       clientID: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-      callbackURL: "/auth/github/callback",
+      callbackURL:
+        process.env.GITHUB_CALLBACK_URL || "/auth/github/callback",
       scope: ["user:email"],
     },
     async (
@@ -31,18 +33,28 @@ passport.use(
           return error;
         };
         const emailObj = profile.emails?.find((e) => (e as any).primary) || profile.emails?.[0];
-        const email = emailObj?.value;
+        const rawEmail = emailObj?.value;
         const providerId = profile.id;
 
-        if (!email) {
+        if (!rawEmail) {
           return done(makeAuthError("No public or private email found from your GitHub account. Please ensure your email is verified.", 400));
         }
 
+        const email = normalizeEmailAddress(rawEmail);
+
         let user = await prisma.user.findUnique({
           where: {
-            email: email,
+            email,
           },
         });
+
+        if (!user && rawEmail !== email) {
+          user = await prisma.user.findUnique({
+            where: {
+              email: rawEmail,
+            },
+          });
+        }
 
         if (!user) {
           user = await prisma.user.create({

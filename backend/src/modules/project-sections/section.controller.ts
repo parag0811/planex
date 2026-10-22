@@ -156,6 +156,7 @@ export const generateIdeaSection = async (
       "idea",
       {
         projectId,
+        userId: String(req.user!.id),
         idea,
         isRegenerating: forceRegenerate,
       },
@@ -176,8 +177,10 @@ export const generateIdeaSection = async (
 
     const jobState: JobStatus = {
       status: "pending",
-      jobName : ideaJob.name,
-      jobData : ideaJob.data
+      jobName: ideaJob.name,
+      jobData: ideaJob.data,
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {
@@ -239,6 +242,7 @@ export const generateDatabaseSuggestion = async (
       "database",
       {
         projectId,
+        userId: String(req.user!.id),
         isRegenerating: forceRegenerate,
       },
       {
@@ -258,8 +262,10 @@ export const generateDatabaseSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
-      jobName : databaseJob.name,
-      jobData : databaseJob.data
+      jobName: databaseJob.name,
+      jobData: databaseJob.data,
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {
@@ -325,6 +331,7 @@ export const generateApiSuggestion = async (
       "api",
       {
         projectId,
+        userId: String(req.user!.id),
         isRegenerating: forceRegenerate,
       },
       {
@@ -344,8 +351,10 @@ export const generateApiSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
-      jobName : apiJob.name,
-      jobData : apiJob.data
+      jobName: apiJob.name,
+      jobData: apiJob.data,
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {
@@ -412,6 +421,7 @@ export const generateFolderSuggestion = async (
       "folder",
       {
         projectId,
+        userId: String(req.user!.id),
         isRegenerating: forceRegenerate,
       },
       {
@@ -431,8 +441,10 @@ export const generateFolderSuggestion = async (
 
     const jobState: JobStatus = {
       status: "pending",
-      jobName : folderJob.name,
-      jobData : folderJob.data
+      jobName: folderJob.name,
+      jobData: folderJob.data,
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {
@@ -490,6 +502,7 @@ export const regenerateSection = async (
       "regen",
       {
         projectId,
+        userId: String(req.user!.id),
         section: mappedSection,
         instruction: finalInstruction,
       },
@@ -510,8 +523,10 @@ export const regenerateSection = async (
 
     const jobState: JobStatus = {
       status: "pending",
-      jobName : regenerateJob.name,
-      jobData : regenerateJob.data
+      jobName: regenerateJob.name,
+      jobData: regenerateJob.data,
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {

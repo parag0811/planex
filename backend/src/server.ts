@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import passport from "./modules/auth/passport-auth/passport";
@@ -12,6 +13,8 @@ import errorHandler from "./middleware/error.middleware";
 import { aiWorker } from "./modules/queues/aiWorker";
 import { aiQueue } from "./modules/queues/aiQueue";
 import { globalLimiter } from "./middleware/rateLimit.middleware";
+import prisma from "./db/prisma";
+import redisRateLimit from "./db/redisRateLimit";
 
 const app = express();
 
@@ -23,42 +26,73 @@ const parseAllowedOrigins = (): string[] => {
     .map((url) => url.trim().replace(/\/$/, ""))
     .filter(Boolean);
 
-  return [
-    ...envOrigins,
-    "http://localhost:3000",
-    "http://localhost:5173",
-  ];
+  if (process.env.NODE_ENV !== "production") {
+    envOrigins.push("http://localhost:3000", "http://localhost:5173");
+  }
+
+  return [...new Set(envOrigins)];
 };
+
+const allowedOrigins = parseAllowedOrigins();
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
-
-      const origins = parseAllowedOrigins();
-      const isAllowed =
-        origins.includes(origin) ||
-        origin.endsWith(".vercel.app") ||
-        origin.includes("localhost");
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        // Return null, false to reject CORS cleanly without throwing a 500 server crash
-        callback(null, false);
-      }
+      callback(null, allowedOrigins.includes(origin));
     },
     credentials: true,
   }),
 );
 
-// Health check endpoints for Render, Cron, and Uptime monitors (placed BEFORE rate-limiting)
+const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+// Liveness endpoints for Render, Cron, and Uptime monitors (placed BEFORE rate-limiting)
 app.get(["/health", "/api/health"], (req, res) => {
   res.status(200).json({
     status: "ok",
     message: "Planex Backend is healthy and operational",
     uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get(["/ready", "/api/ready"], async (req, res) => {
+  const checks = {
+    database: false,
+    redis: false,
+  };
+
+  const [dbResult, redisResult] = await Promise.allSettled([
+    withTimeout(prisma.$queryRaw`SELECT 1`, 3000),
+    withTimeout(redisRateLimit.ping(), 3000),
+  ]);
+
+  checks.database = dbResult.status === "fulfilled";
+  checks.redis = redisResult.status === "fulfilled";
+
+  const ready = checks.database && checks.redis;
+
+  return res.status(ready ? 200 : 503).json({
+    status: ready ? "ready" : "degraded",
+    checks,
     timestamp: new Date().toISOString(),
   });
 });

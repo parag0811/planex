@@ -66,6 +66,10 @@ const sanitizeErrorMessage = (rawMessage: string, status: number): string => {
 
   // 5. Default fallbacks by status
   if (status === 401) {
+    if (lower.includes("invalid email or password")) {
+      return "Invalid email or password.";
+    }
+
     return "You are not authenticated. Please log in to continue.";
   }
   if (status === 403) {
@@ -76,6 +80,9 @@ const sanitizeErrorMessage = (rawMessage: string, status: number): string => {
   }
   if (status === 429) {
     return "Too many requests. Please wait a moment before trying again.";
+  }
+  if (status === 503) {
+    return "The service is temporarily unavailable. Please try again shortly.";
   }
   if (status >= 500) {
     return "An internal server error occurred. Please try again shortly.";
@@ -103,14 +110,27 @@ const errorHandler = (
   } else {
     const appError = error as AppError;
     const errCode = appError.code || "";
+    const lowerMsg = rawMsg.toLowerCase();
     const isPrismaError =
       appError.name?.startsWith("Prisma") ||
-      rawMsg.toLowerCase().includes("prisma") ||
-      rawMsg.toLowerCase().includes("can't reach database");
+      lowerMsg.includes("prisma") ||
+      lowerMsg.includes("can't reach database");
+    const isRedisError =
+      lowerMsg.includes("redis") ||
+      lowerMsg.includes("rate-limit") ||
+      lowerMsg.includes("unexpected reply from redis client");
 
-    if (isPrismaError || errCode === "P1001" || errCode === "P1002" || errCode === "P1008") {
+    if (
+      isPrismaError ||
+      errCode === "P1001" ||
+      errCode === "P1002" ||
+      errCode === "P1008"
+    ) {
       status = 503;
       message = "Database service is momentarily warming up. Please try again in a few seconds.";
+    } else if (isRedisError) {
+      status = 503;
+      message = "The authentication service is temporarily unavailable. Please try again shortly.";
     } else if (errCode === "P2002") {
       status = 409;
       message = "A record with these unique details already exists.";
@@ -128,12 +148,15 @@ const errorHandler = (
   }
 
   const isOAuthCallback =
-    req.originalUrl.includes("/google/callback") ||
-    req.originalUrl.includes("/github/callback");
+    req.path === "/auth/google/callback" ||
+    req.path === "/auth/github/callback";
+  const isOAuthInitiation =
+    req.path === "/auth/google" || req.path === "/auth/github";
 
-  if (req.accepts("html") && isOAuthCallback) {
+  if (req.accepts("html") && (isOAuthCallback || isOAuthInitiation)) {
     const frontendBaseUrl = getFrontendBaseUrl();
-    const redirectUrl = `${frontendBaseUrl}/oauth-callback?error=${encodeURIComponent(message)}`;
+    const frontendPath = isOAuthCallback ? "/oauth-callback" : "/login";
+    const redirectUrl = `${frontendBaseUrl}${frontendPath}?error=${encodeURIComponent(message)}`;
     return res.redirect(redirectUrl);
   }
 

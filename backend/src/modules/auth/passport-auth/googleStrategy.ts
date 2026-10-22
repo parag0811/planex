@@ -5,13 +5,15 @@ import {
   VerifyCallback,
 } from "passport-google-oauth20";
 import prisma from "../../../db/prisma";
+import { normalizeEmailAddress } from "../../../utils/email";
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID as string,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-      callbackURL: "/auth/google/callback",
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
     },
     async (
       _accessToken: string,
@@ -25,16 +27,24 @@ passport.use(
           error.status = status;
           return error;
         };
-        const email = profile.emails?.[0]?.value;
         const providerId = profile.id;
+        const rawEmail = profile.emails?.[0]?.value;
 
-        if (!email) {
+        if (!rawEmail) {
           return done(makeAuthError("No email found from Google", 400));
         }
 
+        const email = normalizeEmailAddress(rawEmail);
+
         let user = await prisma.user.findUnique({
-          where: { email: email },
+          where: { email },
         });
+
+        if (!user && rawEmail !== email) {
+          user = await prisma.user.findUnique({
+            where: { email: rawEmail },
+          });
+        }
 
         if (!user) {
           user = await prisma.user.create({

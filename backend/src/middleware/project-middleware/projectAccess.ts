@@ -25,6 +25,12 @@ export const projectAccess = async (
 
     const membership = project.members.find((m) => m.user_id === userId);
 
+    if (project.owner_id !== userId && !membership) {
+      const error = new Error("Project not found") as AppError;
+      error.status = 404;
+      throw error;
+    }
+
     req.project = project;
     req.membership = membership;
 

@@ -1,5 +1,5 @@
-import { Router } from "express";
-import { Request, Response, NextFunction } from "express";
+import crypto from "crypto";
+import { Router, Request, Response, NextFunction } from "express";
 import { body } from "express-validator";
 import {
   loginUser,
@@ -13,9 +13,113 @@ import isAuth from "../../middleware/auth.middleware";
 import { handleValidationErrors } from "../../utils/validationErrors";
 import { uploadAvatar } from "../../middleware/upload";
 import { authLimiter } from "../../middleware/rateLimit.middleware";
+import { normalizeEmailAddress } from "../../utils/email";
 import passport from "passport";
 
 const router = Router();
+
+const OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
+const oauthStateCookie = (provider: "google" | "github") =>
+  `planex_oauth_state_${provider}`;
+
+const getCookie = (req: Request, name: string): string | undefined => {
+  const header = req.headers.cookie;
+
+  if (!header) return undefined;
+
+  for (const part of header.split(";")) {
+    const [key, ...valueParts] = part.trim().split("=");
+
+    if (key === name) {
+      return decodeURIComponent(valueParts.join("="));
+    }
+  }
+
+  return undefined;
+};
+
+const statesMatch = (expected: string, received: string): boolean => {
+  const expectedBuffer = Buffer.from(expected);
+  const receivedBuffer = Buffer.from(received);
+
+  return (
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+  );
+};
+
+const cookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/auth",
+});
+
+const startOAuth =
+  (
+    provider: "google" | "github",
+    options: passport.AuthenticateOptions,
+  ) =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const state = crypto.randomBytes(32).toString("hex");
+
+    res.cookie(oauthStateCookie(provider), state, {
+      ...cookieOptions(),
+      maxAge: OAUTH_STATE_MAX_AGE_MS,
+    });
+
+    passport.authenticate(provider, { ...options, state })(req, res, next);
+  };
+
+const validateOAuthState =
+  (provider: "google" | "github") =>
+  (req: Request, res: Response, next: NextFunction) => {
+    const cookieName = oauthStateCookie(provider);
+    const expected = getCookie(req, cookieName);
+    const received =
+      typeof req.query.state === "string" ? req.query.state : "";
+
+    res.clearCookie(cookieName, cookieOptions());
+
+    if (!expected || !received || !statesMatch(expected, received)) {
+      const error = new Error(
+        "Social login session expired. Please try again.",
+      ) as AppError;
+      error.status = 403;
+      return next(error);
+    }
+
+    next();
+  };
+
+const finishOAuth =
+  (provider: "google" | "github") =>
+  (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate(
+      provider,
+      { session: false },
+      (
+        error: unknown,
+        user: Express.User | false | null | undefined,
+        info: unknown,
+      ) => {
+        if (error) return next(error);
+
+        if (!user) {
+          const authError = new Error(
+            typeof info === "string"
+              ? info
+              : "Social login was cancelled or failed. Please try again.",
+          ) as AppError;
+          authError.status = 400;
+          return next(authError);
+        }
+
+        req.user = user;
+        next();
+      },
+    )(req, res, next);
+  };
 
 const registerValidation = [
   body("name")
@@ -32,7 +136,7 @@ const registerValidation = [
     .bail()
     .isEmail()
     .withMessage("Enter a valid email.")
-    .normalizeEmail(),
+    .customSanitizer(normalizeEmailAddress),
   body("password")
     .trim()
     .notEmpty()
@@ -50,7 +154,7 @@ const loginValidation = [
     .bail()
     .isEmail()
     .withMessage("Enter a valid email.")
-    .normalizeEmail(),
+    .customSanitizer(normalizeEmailAddress),
   body("password").trim().notEmpty().withMessage("Password is required."),
 ];
 
@@ -61,9 +165,13 @@ router.post(
   registerUser,
 );
 
-// If limit exceed controller never runs tho
-
-router.post("/login", authLimiter, loginValidation, handleValidationErrors, loginUser);
+router.post(
+  "/login",
+  authLimiter,
+  loginValidation,
+  handleValidationErrors,
+  loginUser,
+);
 
 router.get("/me", isAuth, getUser);
 
@@ -72,25 +180,23 @@ router.put("/me", isAuth, uploadAvatar, updateUser);
 router.get(
   "/github",
   authLimiter,
-  passport.authenticate("github", {
+  startOAuth("github", {
     scope: ["user:email"],
-    session: false, // Start OAuth redirect (no server session, JWT only).
+    session: false,
   }),
 );
 
 router.get(
   "/github/callback",
-  passport.authenticate("github", { session: false }), // Handle provider callback.
+  validateOAuthState("github"),
+  finishOAuth("github"),
   githubAuthController,
-  (err: AppError, req: Request, res: Response, next: NextFunction) => {
-    next(err);
-  },
 );
 
 router.get(
   "/google",
   authLimiter,
-  passport.authenticate("google", {
+  startOAuth("google", {
     scope: ["profile", "email"],
     session: false,
     prompt: "select_account",
@@ -99,11 +205,9 @@ router.get(
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", { session: false }), // Handle provider callback.
+  validateOAuthState("google"),
+  finishOAuth("google"),
   googleAuthController,
-   (err: AppError, req: Request, res: Response, next: NextFunction) => {
-    next(err);
-  },
 );
 
 export default router;

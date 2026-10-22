@@ -1,93 +1,64 @@
+import type { Request } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
-import redis from "../db/redis";
-
-// express-rate-limit          ← counts requests, enforces limits
-//       ↓
-//   RedisStore                ← tells it: "store counts in Redis, not memory"
-//       ↓
-//   redisClient               ← your ioredis or redis client
-//       ↓
-//   Redis server              ← counts survive restarts / multiple servers
-
-// function sendCommand(...args) {
-//   return redis.call(...args);
-// } As it sends command and express rl creates redis key itself
+import redisRateLimit from "../db/redisRateLimit";
 
 const createStore = (prefix: string) =>
   new RedisStore({
-    sendCommand: async (...args: string[]) => {
-      try {
-        return (await redis.call(...(args as [string, ...string[]]))) as any;
-      } catch (err) {
-        console.warn(`⚠️ [RateLimit Redis Warning for ${prefix}]:`, (err as any)?.message || String(err));
-        // Fail-open fallback: return 1 so rate-limit-redis does not throw 500 on all HTTP requests
-        return 1;
-      }
-    },
+    sendCommand: async (...args: string[]) =>
+      (await redisRateLimit.call(...(args as [string, ...string[]]))) as any,
     prefix,
   });
 
-// AUTH Limiter will use IP as key
+const getIpKey = (req: Request) =>
+  ipKeyGenerator(req.ip || "127.0.0.1");
+
+const limiterDefaults = {
+  passOnStoreError: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+} as const;
+
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20, // increased from 5 to 20 for development stability
-
-  store: createStore("rl_auth:"), // use Redis, not memory
-
-  keyGenerator: (req) => req.ip || "127.0.0.1",
-  //             ↑ count by IP address
-  //               each IP gets its own counter in Redis
-
+  ...limiterDefaults,
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  store: createStore("rl_auth:"),
+  keyGenerator: getIpKey,
   message: {
     success: false,
     message: "Too many login attempts. Try again in 15 minutes.",
   },
-
-  standardHeaders: true, // sends RateLimit-Limit, RateLimit-Remaining headers
-  legacyHeaders: false, // disables old X-RateLimit-* headers
 });
 
-// GLOBAL Limiter will use IP as key
 export const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // same window
-  max: 1000, // 1000 requests per 15 min (accommodates job polling)
-
-  store: createStore("rl_global:"), // same Redis store
-
-  keyGenerator: (req) => req.ip || "127.0.0.1",
-
+  ...limiterDefaults,
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  store: createStore("rl_global:"),
+  keyGenerator: getIpKey,
   message: {
     success: false,
     message: "Too many requests. Slow down.",
   },
-
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
-// AI Limiter will use USER ID as key
 export const aiLimiter = rateLimit({
+  ...limiterDefaults,
   windowMs: 60 * 1000,
   max: 10,
-
   store: createStore("rl_ai:"),
-
   keyGenerator: (req) => {
     const user = (req as any).user;
 
     if (user?.id) {
-      return `ai:${user.id}`; // ← key by user ID
+      return `ai:${user.id}`;
     }
 
-    return req.ip || "127.0.0.1";
+    return getIpKey(req);
   },
-
   message: {
     success: false,
     message: "AI request limit reached. Try again in a minute.",
   },
-
-  standardHeaders: true,
-  legacyHeaders: false,
 });

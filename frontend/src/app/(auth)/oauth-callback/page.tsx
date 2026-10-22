@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useDispatch } from "react-redux";
@@ -9,15 +9,26 @@ import { fetchUser } from "@/src/store/slices/authSlice";
 import { setToken } from "@/src/store/slices/authSlice";
 import type { AppDispatch } from "@/src/store/store";
 
-export default function OAuthCallbackPage() {
+function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const hashParams = new URLSearchParams(
+      window.location.hash.replace(/^#/, ""),
+    );
     const errorMessage = searchParams.get("error");
-    const token = searchParams.get("token");
+    const token = hashParams.get("token") || searchParams.get("token");
+
+    if (window.location.hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
 
     if (errorMessage) {
       setError(errorMessage);
@@ -73,5 +84,20 @@ export default function OAuthCallbackPage() {
       title="Signing you in"
       subtitle="Verifying account and loading your workspace..."
     />
+  );
+}
+
+export default function OAuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <FullPageLoader
+          title="Signing you in"
+          subtitle="Verifying account and loading your workspace..."
+        />
+      }
+    >
+      <OAuthCallbackContent />
+    </Suspense>
   );
 }

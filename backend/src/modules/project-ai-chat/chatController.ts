@@ -47,6 +47,8 @@ export const chatController = async (
 
     const jobState: JobStatus = {
       status: "pending",
+      userId: String(req.user!.id),
+      projectId,
     };
 
     try {

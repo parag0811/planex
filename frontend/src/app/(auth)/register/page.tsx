@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/src/store/store";
 import { registerUser, clearAuthErrors } from "@/src/store/slices/authSlice";
+import { useRedirectIfAuthenticated } from "@/src/hooks/useRedirectIfAuthenticated";
+import FullPageLoader from "@/src/components/common/FullPageLoader";
 
 const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -30,6 +32,8 @@ export default function RegisterPage() {
     (state: RootState) => state.auth,
   );
 
+  const { isCheckingAuth } = useRedirectIfAuthenticated();
+
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
@@ -43,6 +47,15 @@ export default function RegisterPage() {
   useEffect(() => {
     dispatch(clearAuthErrors());
   }, [dispatch]);
+
+  if (isCheckingAuth) {
+    return (
+      <FullPageLoader
+        title="Checking your session"
+        subtitle="Redirecting to your workspace..."
+      />
+    );
+  }
 
   const handleChange =
     (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {

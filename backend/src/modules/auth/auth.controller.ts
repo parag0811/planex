@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../../db/prisma";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { User as PrismaUser } from "../../generated/prisma/client";
-import supabase from "../../utils/supabase";
+import { getSupabaseClient } from "../../utils/supabase";
+import { normalizeEmailAddress } from "../../utils/email";
+import { signAuthToken } from "../../utils/authToken";
 
 interface UserRequest {
   name: string;
@@ -30,11 +31,12 @@ export const registerUser = async (
   next: NextFunction,
 ) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, password } = req.body;
+    const email = normalizeEmailAddress(req.body.email);
 
     const existingUser = await prisma.user.findUnique({
       where: {
-        email: email,
+        email,
       },
     });
 
@@ -67,17 +69,18 @@ export const loginUser = async (
   next: NextFunction,
 ) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = normalizeEmailAddress(req.body.email);
 
     const user = await prisma.user.findUnique({
       where: {
-        email: email,
+        email,
       },
     });
 
     if (!user) {
-      const error = new Error("User not found.") as AppError;
-      error.status = 404;
+      const error = new Error("Invalid email or password.") as AppError;
+      error.status = 401;
       throw error;
     }
 
@@ -89,18 +92,12 @@ export const loginUser = async (
 
     const rightPassword = await bcrypt.compare(password, user.password);
     if (!rightPassword) {
-      const error = new Error("Invalid Password.") as AppError;
-      error.status = 409;
+      const error = new Error("Invalid email or password.") as AppError;
+      error.status = 401;
       throw error;
     }
 
-    const token = jwt.sign(
-      {
-        userId: user.id,
-      },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "1d" },
-    );
+    const token = signAuthToken(user.id);
 
     return res.status(200).json({
       token: token,
@@ -172,6 +169,7 @@ export const updateUser = async (
       const ext = file.originalname.split(".").pop() || "png";
       const filePath = `${userId}-${Date.now()}.${ext}`;
 
+      const supabase = getSupabaseClient();
       const { error: uploadError } = await supabase.storage
         .from("avatar")
         .upload(filePath, file.buffer, {
@@ -212,14 +210,12 @@ export const githubAuthController = (
     }
 
     const userId = req.user.id;
-
-    const token = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-      expiresIn: "1d",
-    });
+    const token = signAuthToken(userId);
 
     const frontendBaseUrl = getFrontendBaseUrl(req);
     if (req.accepts("html")) {
-      const redirectUrl = `${frontendBaseUrl}/oauth-callback?token=${encodeURIComponent(token)}&provider=github`;
+      res.set("Cache-Control", "no-store");
+      const redirectUrl = `${frontendBaseUrl}/oauth-callback#token=${encodeURIComponent(token)}&provider=github`;
       return res.redirect(redirectUrl);
     }
 
@@ -245,14 +241,12 @@ export const googleAuthController = (
     }
 
     const userId = req.user.id;
-
-    const token = jwt.sign({ userId }, process.env.JWT_SECRET as string, {
-      expiresIn: "1d",
-    });
+    const token = signAuthToken(userId);
 
     const frontendBaseUrl = getFrontendBaseUrl(req);
     if (req.accepts("html")) {
-      const redirectUrl = `${frontendBaseUrl}/oauth-callback?token=${encodeURIComponent(token)}&provider=google`;
+      res.set("Cache-Control", "no-store");
+      const redirectUrl = `${frontendBaseUrl}/oauth-callback#token=${encodeURIComponent(token)}&provider=google`;
       return res.redirect(redirectUrl);
     }
 

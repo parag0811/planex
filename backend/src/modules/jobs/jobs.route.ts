@@ -6,6 +6,6 @@ const router = Router()
 
 router.get("/:jobId", isAuth, jobStatus)
 
-router.post("/jobs/:jobId/retry", isAuth, retryJob)
+router.post("/:jobId/retry", isAuth, retryJob)
 
 export default router

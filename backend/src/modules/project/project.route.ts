@@ -14,6 +14,7 @@ import {
 import { handleValidationErrors } from "../../utils/validationErrors";
 import { projectAccess } from "../../middleware/project-middleware/projectAccess";
 import { ownerAccess } from "../../middleware/project-middleware/ownerAccess";
+import { editorAccess } from "../../middleware/project-middleware/editorAccess";
 
 const projectValidation = [
   body("name")
@@ -45,6 +46,7 @@ router.put(
   projectValidation,
   handleValidationErrors,
   projectAccess,
+  editorAccess,
   updateProject,
 );
 

@@ -10,6 +10,8 @@ declare global {
     error?: string;
     jobName?: string;
     jobData?: any;
+    userId?: string;
+    projectId?: string;
   }
 }
 

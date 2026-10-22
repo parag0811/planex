@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 20000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -29,12 +30,17 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      typeof window !== "undefined" &&
-      !window.location.pathname.includes("/login") &&
-      !window.location.pathname.includes("/register")
-    ) {
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "";
+    const isAuthPage =
+      pathname.includes("/login") ||
+      pathname.includes("/register") ||
+      pathname.includes("/oauth-callback");
+    const headers = error.config?.headers;
+    const requestHadToken = Boolean(
+      headers?.Authorization || headers?.authorization,
+    );
+
+    if (error.response?.status === 401 && requestHadToken && !isAuthPage) {
       localStorage.removeItem("token");
       window.location.href = "/login";
     }

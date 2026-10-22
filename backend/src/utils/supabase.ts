@@ -1,8 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL! as string,
-  process.env.SUPABASE_SERVICE_KEY! as string,
-);
+let supabase: SupabaseClient | null = null;
 
-export default supabase;
+export const getSupabaseClient = (): SupabaseClient => {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!url || !serviceKey) {
+    const error = new Error(
+      "Avatar storage is not configured. Please contact support.",
+    ) as AppError;
+    error.status = 503;
+    throw error;
+  }
+
+  if (!supabase) {
+    supabase = createClient(url, serviceKey);
+  }
+
+  return supabase;
+};

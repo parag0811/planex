@@ -34,12 +34,25 @@ export const updateProjectMemberRole = async (
   next: NextFunction,
 ) => {
   try {
-    const { memberId } = req.params;
+    const { projectId, memberId } = req.params;
     const { role } = req.body;
+
+    const member = await prisma.projectMember.findFirst({
+      where: {
+        id: memberId,
+        project_id: projectId,
+      },
+    });
+
+    if (!member) {
+      const error = new Error("Member not found") as AppError;
+      error.status = 404;
+      throw error;
+    }
 
     const updatedMember = await prisma.projectMember.update({
       where: {
-        id: memberId,
+        id: member.id,
       },
       data: {
         role,

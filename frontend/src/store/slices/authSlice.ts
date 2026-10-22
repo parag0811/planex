@@ -39,14 +39,34 @@ export const loginUser = createAsyncThunk(
 
       localStorage.setItem("token", token);
 
-      await dispatch(fetchUser()).unwrap();
+      try {
+        await dispatch(fetchUser()).unwrap();
+      } catch (error: any) {
+        if (error?.status === 401) {
+          localStorage.removeItem("token");
+          return rejectWithValue(
+            error.message || "Your session is invalid. Please log in again.",
+          );
+        }
+
+        // Login succeeded but the profile request hit a temporary outage.
+        // Keep the token and let the next request or refresh recover.
+      }
 
       return token;
     } catch (error: any) {
-      localStorage.removeItem("token");
-      
+      const status = error.response?.status;
+      if (status === 401) {
+        localStorage.removeItem("token");
+      }
+
       const fieldErrors = error.response?.data?.fieldErrors;
-      const message = typeof error === "string" ? error : (error.response?.data?.message || "Login Failed");
+      const message =
+        typeof error === "string"
+          ? error
+          : error.response?.data?.message ||
+            error.message ||
+            "Login failed. Please try again.";
 
       if (fieldErrors) {
         return rejectWithValue({ fieldErrors, message });
@@ -68,7 +88,10 @@ export const fetchUser = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue({
         status: error.response?.status,
-        message: "Failed to fetch user"
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Failed to fetch user",
       });
     }
   },

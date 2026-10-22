@@ -49,6 +49,8 @@ aiWorker.on("active", async (job) => {
     status: "processing",
     jobName: job.name,
     jobData: job.data,
+    userId: job.data?.userId,
+    projectId: job.data?.projectId,
   };
 
   try {
@@ -75,6 +77,8 @@ aiWorker.on("completed", async (job, result) => {
     result,
     jobName: job.name,
     jobData: job.data,
+    userId: job.data?.userId,
+    projectId: job.data?.projectId,
   };
 
   try {
@@ -150,6 +154,8 @@ aiWorker.on("failed", async (job, error) => {
     error: userFacingError,
     jobName: job.name,
     jobData: job.data,
+    userId: job.data?.userId,
+    projectId: job.data?.projectId,
   };
 
   try {

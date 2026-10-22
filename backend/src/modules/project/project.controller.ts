@@ -50,7 +50,14 @@ export const getProjects = async (
         OR: [{ owner_id: userId }, { members: { some: { user_id: userId } } }],
       },
       include: {
-        owner: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
       },
     });
 
@@ -70,6 +77,7 @@ export const getProjectById = async (
 ) => {
   try {
     const { projectId } = req.params;
+    const userId = String(req.user!.id);
 
     const project = await prisma.project.findFirst({
       where: {
@@ -77,16 +85,33 @@ export const getProjectById = async (
       },
       include: {
         members: {
-          include: {
-            user: true,
+          select: {
+            id: true,
+            user_id: true,
+            project_id: true,
+            role: true,
+            joinedAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
           },
         },
       },
     });
 
+    if (!project) {
+      const error = new Error("Project not found") as AppError;
+      error.status = 404;
+      throw error;
+    }
+
     let inviteLink = null;
     if (
-      project &&
       project.inviteToken &&
       project.inviteTokenExpiry &&
       project.inviteTokenExpiry > new Date()
@@ -99,7 +124,14 @@ export const getProjectById = async (
       inviteLink = `${frontendBaseUrl}/invite/${slug}/${project.inviteToken}`;
     }
 
-    return res.status(200).json({ message: "Project loaded.", project, inviteLink });
+    const { inviteToken, inviteTokenExpiry, ...projectData } = project;
+    const isOwner = project.owner_id === userId;
+
+    return res.status(200).json({
+      message: "Project loaded.",
+      project: projectData,
+      inviteLink: isOwner ? inviteLink : null,
+    });
   } catch (error) {
     next(error);
   }

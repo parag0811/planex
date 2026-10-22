@@ -1,6 +1,37 @@
 import { Request, Response, NextFunction } from "express";
 import redis from "../../db/redis";
+import prisma from "../../db/prisma";
 import { aiQueue } from "../queues/aiQueue";
+
+const canAccessJob = async (
+  userId: string,
+  job: JobStatus,
+): Promise<boolean> => {
+  const ownerId = job.userId ?? job.jobData?.userId;
+
+  if (ownerId) {
+    return String(ownerId) === userId;
+  }
+
+  const projectId = job.projectId ?? job.jobData?.projectId;
+
+  if (!projectId) {
+    return false;
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      id: String(projectId),
+      OR: [
+        { owner_id: userId },
+        { members: { some: { user_id: userId } } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  return Boolean(project);
+};
 
 export const jobStatus = async (
   req: Request<{ jobId: string }, {}, {}>,
@@ -41,6 +72,8 @@ export const jobStatus = async (
               result: bullJob.returnvalue,
               jobName: bullJob.name,
               jobData: bullJob.data,
+              userId: bullJob.data?.userId,
+              projectId: bullJob.data?.projectId,
             };
             await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
           } else if (isFailed) {
@@ -49,6 +82,8 @@ export const jobStatus = async (
               error: bullJob.failedReason || "AI generation failed. Please try again.",
               jobName: bullJob.name,
               jobData: bullJob.data,
+              userId: bullJob.data?.userId,
+              projectId: bullJob.data?.projectId,
             };
             await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
           }
@@ -59,6 +94,10 @@ export const jobStatus = async (
     }
 
     if (!jobFound) {
+      return res.status(404).json({ message: "Job not found or expired." });
+    }
+
+    if (!(await canAccessJob(String(req.user!.id), jobFound))) {
       return res.status(404).json({ message: "Job not found or expired." });
     }
 
@@ -101,6 +140,10 @@ export const retryJob = async (
       return res.status(404).json({
         message: "Invalid job data.",
       });
+    }
+
+    if (!(await canAccessJob(String(req.user!.id), jobFound))) {
+      return res.status(404).json({ message: "Job not found or expired." });
     }
 
     if (jobFound.status !== "failed") {
