@@ -20,13 +20,20 @@ function OAuthCallbackContent() {
       window.location.hash.replace(/^#/, ""),
     );
     const errorMessage = searchParams.get("error");
-    const token = hashParams.get("token") || searchParams.get("token");
+    // The backend only sends the token in the URL fragment, which is never
+    // forwarded to servers or referrers. Do not accept a query-string token.
+    const token = hashParams.get("token");
 
-    if (window.location.hash) {
+    // Strip the fragment (and any legacy query token) from browser history.
+    if (window.location.hash || searchParams.has("token")) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("token");
+      const query = params.toString();
+
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}`,
+        `${window.location.pathname}${query ? `?${query}` : ""}`,
       );
     }
 
@@ -46,9 +53,18 @@ function OAuthCallbackContent() {
     dispatch(fetchUser())
       .unwrap()
       .then(() => router.replace("/projects"))
-      .catch(() => {
-        localStorage.removeItem("token");
-        setError("Failed to fetch user. Please try again.");
+      .catch((err: any) => {
+        // Only an explicit 401 means the OAuth token is invalid. A 5xx/503
+        // during a cold start must not discard a valid session.
+        if (err?.status === 401) {
+          localStorage.removeItem("token");
+          setError(
+            err.message || "Your session is invalid. Please log in again.",
+          );
+          return;
+        }
+
+        router.replace("/projects");
       });
   }, [dispatch, router, searchParams]);
 

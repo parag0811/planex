@@ -227,6 +227,7 @@ const authSlice = createSlice({
           state.user = null;
           state.isAuth = false;
           state.token = null;
+          localStorage.removeItem("token");
         } else if (localStorage.getItem("token")) {
           // Optimistically keep them logged in if it's just a backend restart
           state.isAuth = true;

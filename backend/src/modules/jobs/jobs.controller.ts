@@ -158,7 +158,23 @@ export const retryJob = async (
       throw error;
     }
 
-    const job = await aiQueue.add(jobFound.jobName!, jobFound.jobData, {
+    // Carry ownership metadata into the retried job so the new job remains
+    // protected by the same authorization checks as the original one.
+    const retriedJobData =
+      jobFound.jobData && typeof jobFound.jobData === "object"
+        ? { ...jobFound.jobData }
+        : jobFound.jobData;
+
+    if (retriedJobData && typeof retriedJobData === "object") {
+      if (jobFound.userId && !retriedJobData.userId) {
+        retriedJobData.userId = jobFound.userId;
+      }
+      if (jobFound.projectId && !retriedJobData.projectId) {
+        retriedJobData.projectId = jobFound.projectId;
+      }
+    }
+
+    const job = await aiQueue.add(jobFound.jobName!, retriedJobData, {
       attempts: 1,
       removeOnComplete: true,
       removeOnFail: false,
@@ -171,6 +187,8 @@ export const retryJob = async (
       status: "pending",
       jobName: job.name,
       jobData: job.data,
+      userId: job.data?.userId ?? jobFound.userId,
+      projectId: job.data?.projectId ?? jobFound.projectId,
     };
 
     try {

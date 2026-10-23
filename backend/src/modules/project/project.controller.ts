@@ -49,7 +49,13 @@ export const getProjects = async (
       where: {
         OR: [{ owner_id: userId }, { members: { some: { user_id: userId } } }],
       },
-      include: {
+      // Never expose inviteToken/inviteTokenExpiry (or future sensitive
+      // columns) on the project list. Invite links are owner-only.
+      select: {
+        id: true,
+        name: true,
+        owner_id: true,
+        createdAt: true,
         owner: {
           select: {
             id: true,

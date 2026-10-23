@@ -64,38 +64,48 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
   }
 };
 
-// Liveness endpoints for Render, Cron, and Uptime monitors (placed BEFORE rate-limiting)
-app.get(["/health", "/api/health"], (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    message: "Planex Backend is healthy and operational",
-    uptimeSeconds: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-  });
-});
-
-app.get(["/ready", "/api/ready"], async (req, res) => {
-  const checks = {
-    database: false,
-    redis: false,
-  };
-
+const getDependencyChecks = async () => {
   const [dbResult, redisResult] = await Promise.allSettled([
     withTimeout(prisma.$queryRaw`SELECT 1`, 3000),
     withTimeout(redisRateLimit.ping(), 3000),
   ]);
 
-  checks.database = dbResult.status === "fulfilled";
-  checks.redis = redisResult.status === "fulfilled";
+  return {
+    database: dbResult.status === "fulfilled",
+    redis: redisResult.status === "fulfilled",
+  };
+};
 
-  const ready = checks.database && checks.redis;
-
-  return res.status(ready ? 200 : 503).json({
-    status: ready ? "ready" : "degraded",
-    checks,
+// Process-only liveness probe. Never checks dependencies, so it cannot flap
+// because of a transient Redis/Postgres hiccup.
+app.get(["/live", "/api/live"], (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Planex Backend process is running",
+    uptimeSeconds: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
 });
+
+// Readiness probe for Render, Cron, and uptime monitors (placed BEFORE
+// rate-limiting so it keeps working when Redis is the unhealthy component).
+app.get(
+  ["/health", "/api/health", "/ready", "/api/ready"],
+  async (req, res) => {
+    const checks = await getDependencyChecks();
+    const ready = checks.database && checks.redis;
+
+    return res.status(ready ? 200 : 503).json({
+      status: ready ? "ok" : "degraded",
+      message: ready
+        ? "Planex Backend is healthy and operational"
+        : "Planex Backend is degraded: a required dependency is unavailable",
+      checks,
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    });
+  },
+);
 
 app.get("/", (req, res) => {
   res.status(200).json({
