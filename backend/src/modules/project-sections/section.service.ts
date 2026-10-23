@@ -1,5 +1,5 @@
 import prisma from "../../db/prisma";
-import redis from "../../db/redis";
+import { getJsonCache, setJsonCache } from "../../db/cache";
 import { TYPES } from "../../generated/prisma/enums";
 
 const SECTION_CACHE_TTL_SECONDS = 86400; // 24 hours cache to minimize Redis write operations
@@ -17,13 +17,9 @@ export const getSectionByTypeService = async (
   const cacheKey = `section:${projectId}:${type}`;
 
   // 1. Check Redis cache first (instant response, immune to DB cold-starts)
-  try {
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch (error) {
-    // Non-blocking Redis failure, continue to database
+  const cached = await getJsonCache<any>(cacheKey);
+  if (cached) {
+    return cached;
   }
 
   // 2. Query Prisma database
@@ -39,16 +35,7 @@ export const getSectionByTypeService = async (
 
     // 3. Populate Redis cache if found
     if (section) {
-      try {
-        await redis.set(
-          cacheKey,
-          JSON.stringify(section),
-          "EX",
-          SECTION_CACHE_TTL_SECONDS,
-        );
-      } catch (error) {
-        // Non-blocking Redis failure
-      }
+      await setJsonCache(cacheKey, section, SECTION_CACHE_TTL_SECONDS);
     }
 
     return section;
@@ -90,16 +77,7 @@ export const upsertSectionService = async (
 
   // Update Redis cache immediately
   const cacheKey = `section:${projectId}:${type}`;
-  try {
-    await redis.set(
-      cacheKey,
-      JSON.stringify(section),
-      "EX",
-      SECTION_CACHE_TTL_SECONDS,
-    );
-  } catch (error) {
-    // Non-blocking Redis failure
-  }
+  await setJsonCache(cacheKey, section, SECTION_CACHE_TTL_SECONDS);
 
   return section;
 };

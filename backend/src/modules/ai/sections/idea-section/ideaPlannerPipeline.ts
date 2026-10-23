@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import redis from "../../../../db/redis";
+import { getJsonCache, setJsonCache } from "../../../../db/cache";
 import { generateSection } from "../../plannerAgent";
 import { buildIdeaPrompt, type IdeaPromptOptions } from "./ideaPromptBuilder";
 import { IdeaSectionContentSchema } from "../../../../schemas/idea.schema";
@@ -34,11 +34,10 @@ export const runPlannerPipeline = async (
   const cacheKey = `idea:${hash}`;
 
   if (useCache) {
-    const cachedData = await redis.get(cacheKey);
+    const cachedData = await getJsonCache<unknown>(cacheKey);
 
     if (cachedData) {
-      const parsed = JSON.parse(cachedData);
-      const ideaSection = IdeaSectionContentSchema.safeParse(parsed);
+      const ideaSection = IdeaSectionContentSchema.safeParse(cachedData);
 
       if (!ideaSection.success) {
         console.error("Cached AI Validation Failed");
@@ -75,12 +74,7 @@ export const runPlannerPipeline = async (
   }
 
   if (useCache) {
-    await redis.set(
-      cacheKey,
-      JSON.stringify(validatedIdeaSection.data),
-      "EX",
-      cacheTtlSeconds,
-    );
+    await setJsonCache(cacheKey, validatedIdeaSection.data, cacheTtlSeconds);
   }
 
   return { idea: validatedIdeaSection.data };

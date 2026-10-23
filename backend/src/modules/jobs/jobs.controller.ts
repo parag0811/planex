@@ -1,7 +1,29 @@
 import { Request, Response, NextFunction } from "express";
-import redis from "../../db/redis";
+import { getJsonCache, setJsonCache } from "../../db/cache";
 import prisma from "../../db/prisma";
 import { aiQueue } from "../queues/aiQueue";
+
+const BULLMQ_READ_TIMEOUT_MS = 3000;
+
+// BullMQ connections require `maxRetriesPerRequest: null`, so a read can stay
+// pending while Redis reconnects. Status polling must not hang the request.
+const withBullMqTimeout = async <T>(operation: Promise<T>): Promise<T> => {
+  let timer: NodeJS.Timeout | undefined;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("BullMQ read timed out")),
+          BULLMQ_READ_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
 
 const canAccessJob = async (
   userId: string,
@@ -42,54 +64,47 @@ export const jobStatus = async (
     const { jobId } = req.params;
     const jobKey = `job:${jobId}`;
 
-    let jobData: string | null = null;
-    try {
-      jobData = await redis.get(jobKey);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    let jobFound = await getJsonCache<JobStatus>(jobKey);
 
-    let jobFound: JobStatus | null = null;
-    if (jobData) {
-      try {
-        jobFound = JSON.parse(jobData);
-      } catch (error) {
-        // Invalid JSON
-      }
-    }
-
-    // Self-healing fallback: If Redis is missing, pending, or processing, check BullMQ queue state directly
+    // Self-healing fallback: If Redis is missing, pending, or processing, check BullMQ queue state directly.
+    // The timeout keeps this request fast when the BullMQ Redis connection is down.
     if (!jobFound || jobFound.status === "pending" || jobFound.status === "processing") {
       try {
-        const bullJob = await aiQueue.getJob(jobId);
-        if (bullJob) {
-          const isCompleted = await bullJob.isCompleted();
-          const isFailed = await bullJob.isFailed();
+        await withBullMqTimeout(
+          (async () => {
+            const bullJob = await aiQueue.getJob(jobId);
+            if (!bullJob) return;
 
-          if (isCompleted) {
-            jobFound = {
-              status: "completed",
-              result: bullJob.returnvalue,
-              jobName: bullJob.name,
-              jobData: bullJob.data,
-              userId: bullJob.data?.userId,
-              projectId: bullJob.data?.projectId,
-            };
-            await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
-          } else if (isFailed) {
-            jobFound = {
-              status: "failed",
-              error: bullJob.failedReason || "AI generation failed. Please try again.",
-              jobName: bullJob.name,
-              jobData: bullJob.data,
-              userId: bullJob.data?.userId,
-              projectId: bullJob.data?.projectId,
-            };
-            await redis.set(jobKey, JSON.stringify(jobFound), "EX", 900);
-          }
-        }
+            const isCompleted = await bullJob.isCompleted();
+            const isFailed = await bullJob.isFailed();
+
+            if (isCompleted) {
+              jobFound = {
+                status: "completed",
+                result: bullJob.returnvalue,
+                jobName: bullJob.name,
+                jobData: bullJob.data,
+                userId: bullJob.data?.userId,
+                projectId: bullJob.data?.projectId,
+              };
+              await setJsonCache(jobKey, jobFound, 900);
+            } else if (isFailed) {
+              jobFound = {
+                status: "failed",
+                error:
+                  bullJob.failedReason ||
+                  "AI generation failed. Please try again.",
+                jobName: bullJob.name,
+                jobData: bullJob.data,
+                userId: bullJob.data?.userId,
+                projectId: bullJob.data?.projectId,
+              };
+              await setJsonCache(jobKey, jobFound, 900);
+            }
+          })(),
+        );
       } catch (bullErr) {
-        // Non-blocking BullMQ fallback failure
+        // Non-blocking BullMQ fallback failure/timeout
       }
     }
 
@@ -122,24 +137,10 @@ export const retryJob = async (
     const { jobId } = req.params;
     const jobKey = `job:${jobId}`;
 
-    let jobData: string | null = null;
-    try {
-      jobData = await redis.get(jobKey);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
-    if (!jobData) {
+    const jobFound = await getJsonCache<JobStatus>(jobKey);
+
+    if (!jobFound) {
       return res.status(404).json({ message: "Job not found or expired." });
-    }
-
-    let jobFound: JobStatus;
-
-    try {
-      jobFound = JSON.parse(jobData);
-    } catch (error) {
-      return res.status(404).json({
-        message: "Invalid job data.",
-      });
     }
 
     if (!(await canAccessJob(String(req.user!.id), jobFound))) {
@@ -191,11 +192,7 @@ export const retryJob = async (
       projectId: job.data?.projectId ?? jobFound.projectId,
     };
 
-    try {
-      await redis.set(newJobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(newJobKey, jobState, 900);
 
     return res.status(200).json({
       status: "queued",

@@ -6,7 +6,7 @@ import {
   type DatabaseSectionContent,
 } from "./dbPromptBuilder";
 import crypto from "crypto";
-import redis from "../../../../db/redis";
+import { getJsonCache, setJsonCache } from "../../../../db/cache";
 import { DatabaseSectionContentSchema } from "../../../../schemas/database.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
@@ -40,11 +40,11 @@ export const runDatabasePipeline = async (
   const cacheKey = `db:${hash}`;
 
   if (useCache) {
-    const cachedData = await redis.get(cacheKey);
+    const cachedData = await getJsonCache<unknown>(cacheKey);
 
     if (cachedData) {
-      const parsed = JSON.parse(cachedData);
-      const databaseSection = DatabaseSectionContentSchema.safeParse(parsed);
+      const databaseSection =
+        DatabaseSectionContentSchema.safeParse(cachedData);
 
       if (!databaseSection.success) {
         console.error("Cached AI Validation Failed");
@@ -84,12 +84,7 @@ export const runDatabasePipeline = async (
   }
 
   if (useCache) {
-    await redis.set(
-      cacheKey,
-      JSON.stringify(validatedDatabaseSection.data),
-      "EX",
-      cacheTtlSeconds,
-    );
+    await setJsonCache(cacheKey, validatedDatabaseSection.data, cacheTtlSeconds);
   }
 
   return validatedDatabaseSection.data;

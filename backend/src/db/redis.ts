@@ -1,10 +1,17 @@
 import { Redis } from "ioredis";
 
+// Application Redis client for cache reads/writes and job state.
+// It is deliberately bounded: Redis is optional for serving requests, so
+// commands must fail fast instead of buffering forever when Redis is down.
+// BullMQ keeps its own connection with `maxRetriesPerRequest: null`.
 const redis = new Redis({
   port: Number(process.env.REDIS_PORT) || 6379,
   host: process.env.REDIS_HOST as string,
-  maxRetriesPerRequest: null,
+  maxRetriesPerRequest: 2,
+  enableOfflineQueue: false,
   enableReadyCheck: false,
+  connectTimeout: 5000,
+  commandTimeout: 3000,
   keepAlive: 30000,
   retryStrategy: (times) => {
     // Backoff reconnects: 1s, 2s, 3s... max 10s (prevents burning commands on reconnect)

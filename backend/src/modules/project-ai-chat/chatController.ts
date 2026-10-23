@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { aiQueue } from "../queues/aiQueue";
-import redis from "../../db/redis";
+import { setJsonCache } from "../../db/cache";
 
 export type Section = "idea" | "database" | "api" | "folder" | "none";
 
@@ -15,21 +15,18 @@ export const chatController = async (
 ) => {
   try {
     const { projectId } = req.params;
-    const { message, context } = req.body;
-
-    if (!message) {
-      const error = new Error("Message is required.") as AppError;
-      error.status = 422;
-      throw error;
-    }
+    const message = req.body.message.trim();
+    // Drop any extra context fields: only the target section is used and
+    // this keeps the queued payload (and prompt) bounded.
+    const section = req.body.context?.section ?? "none";
 
     const chatJob = await aiQueue.add(
       "chat",
       {
         projectId,
         message,
-        context,
-        userId: req.user?.id,
+        context: { section },
+        userId: String(req.user!.id),
       },
       {
         attempts: 3,
@@ -51,11 +48,7 @@ export const chatController = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({ status: "queued", jobId });
   } catch (error) {

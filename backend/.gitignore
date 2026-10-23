@@ -4,6 +4,7 @@ node_modules/
 # environment variables (NEVER commit secrets)
 .env
 .env.*
+!.env.example
 
 # build outputs
 dist/

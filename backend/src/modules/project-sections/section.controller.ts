@@ -8,7 +8,7 @@ import {
 import { logActivity } from "../project-activity/activity.service";
 import { TYPES } from "../../generated/prisma/enums";
 import { aiQueue } from "../queues/aiQueue";
-import redis from "../../db/redis";
+import { getJsonCache, setJsonCache } from "../../db/cache";
 
 interface QueueResponse {
   status: string;
@@ -41,18 +41,11 @@ export const getSectionByType = async (
     const { projectId, type } = req.params;
 
     const cacheKey = `section:${projectId}:${type}`;
-    let cachedData: string | null = null;
-    try {
-      cachedData = await redis.get(cacheKey);
-    } catch (e) {
-      // Non-blocking Redis failure
-    }
+    const cachedSection = await getJsonCache<any>(cacheKey);
 
-    if (cachedData) {
-      const section = JSON.parse(cachedData);
-
+    if (cachedSection) {
       return res.status(200).json({
-        data: section,
+        data: cachedSection,
       });
     }
 
@@ -65,11 +58,7 @@ export const getSectionByType = async (
       });
     }
 
-    try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
-    } catch (e) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(cacheKey, section, 86400);
 
     return res.status(200).json({
       data: section,
@@ -97,11 +86,7 @@ export const upsertSection = async (
 
     const cacheKey = `section:${projectId}:${type}`;
 
-    try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
-    } catch (e) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(cacheKey, section, 86400);
 
     logActivity(
       projectId,
@@ -135,19 +120,12 @@ export const generateIdeaSection = async (
     
     // Skip cache check if forceRegenerate is true (preview mode)
     if (!forceRegenerate) {
-      let cachedData: string | null = null;
-      try {
-        cachedData = await redis.get(cacheKey);
-      } catch (e) {
-        // Non-blocking Redis failure
-      }
+      const cachedIdeaSection = await getJsonCache<any>(cacheKey);
 
-      if (cachedData) {
-        const ideaSection = JSON.parse(cachedData);
-
+      if (cachedIdeaSection) {
         return res.status(200).json({
           status: "cached",
-          data: ideaSection,
+          data: cachedIdeaSection,
         });
       }
     }
@@ -183,11 +161,7 @@ export const generateIdeaSection = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({
       status: "queued",
@@ -221,19 +195,12 @@ export const generateDatabaseSuggestion = async (
 
     const cacheKey = `db:${hash}`;
     if (!forceRegenerate) {
-      let cachedData: string | null = null;
-      try {
-        cachedData = await redis.get(cacheKey);
-      } catch (e) {
-        // Non-blocking Redis failure
-      }
+      const cachedDbSection = await getJsonCache<any>(cacheKey);
 
-      if (cachedData) {
-        const dbSection = JSON.parse(cachedData);
-
+      if (cachedDbSection) {
         return res.status(200).json({
           status: "cached",
-          data: dbSection,
+          data: cachedDbSection,
         });
       }
     }
@@ -268,11 +235,7 @@ export const generateDatabaseSuggestion = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({
       status: "queued",
@@ -310,19 +273,12 @@ export const generateApiSuggestion = async (
       .digest("hex");
     const cacheKey = `api:${hash}`;
     if (!forceRegenerate) {
-      let cachedData: string | null = null;
-      try {
-        cachedData = await redis.get(cacheKey);
-      } catch (e) {
-        // Non-blocking Redis failure
-      }
+      const cachedApiSection = await getJsonCache<any>(cacheKey);
 
-      if (cachedData) {
-        const apiSection = JSON.parse(cachedData);
-
+      if (cachedApiSection) {
         return res.status(200).json({
           status: "cached",
-          data: apiSection,
+          data: cachedApiSection,
         });
       }
     }
@@ -357,11 +313,7 @@ export const generateApiSuggestion = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({ status: "queued", jobId });
   } catch (error) {
@@ -400,19 +352,12 @@ export const generateFolderSuggestion = async (
       .digest("hex");
     const cacheKey = `folder:${hash}`;
     if (!forceRegenerate) {
-      let cachedData: string | null = null;
-      try {
-        cachedData = await redis.get(cacheKey);
-      } catch (e) {
-        // Non-blocking Redis failure
-      }
+      const cachedFolderSection = await getJsonCache<any>(cacheKey);
 
-      if (cachedData) {
-        const folderSection = JSON.parse(cachedData);
-
+      if (cachedFolderSection) {
         return res.status(200).json({
           status: "cached",
-          data: folderSection,
+          data: cachedFolderSection,
         });
       }
     }
@@ -447,11 +392,7 @@ export const generateFolderSuggestion = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({ status: "queued", jobId });
   } catch (error) {
@@ -529,11 +470,7 @@ export const regenerateSection = async (
       projectId,
     };
 
-    try {
-      await redis.set(jobKey, JSON.stringify(jobState), "EX", 900);
-    } catch (error) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(jobKey, jobState, 900);
 
     return res.status(200).json({
       status: "queued",
@@ -569,11 +506,7 @@ export const acceptIdeaPreview = async (
 
     // Cache the accepted section
     const cacheKey = `section:${projectId}:${TYPES.IDEA}`;
-    try {
-      await redis.set(cacheKey, JSON.stringify(section), "EX", 86400);
-    } catch (e) {
-      // Non-blocking Redis failure
-    }
+    await setJsonCache(cacheKey, section, 86400);
 
     logActivity(
       projectId,

@@ -119,9 +119,19 @@ const errorHandler = (
       lowerMsg.includes("redis") ||
       lowerMsg.includes("rate-limit") ||
       lowerMsg.includes("unexpected reply from redis client");
+    const isDatabaseConnectionError =
+      lowerMsg.includes("econnrefused") ||
+      lowerMsg.includes("econnreset") ||
+      lowerMsg.includes("etimedout") ||
+      lowerMsg.includes("connection terminated") ||
+      lowerMsg.includes("connection timeout") ||
+      lowerMsg.includes("timeout exceeded") ||
+      lowerMsg.includes("timeout expired") ||
+      lowerMsg.includes("connection pool");
 
     if (
       isPrismaError ||
+      isDatabaseConnectionError ||
       errCode === "P1001" ||
       errCode === "P1002" ||
       errCode === "P1008"

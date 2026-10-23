@@ -8,7 +8,7 @@ import {
   type FolderSectionContent,
 } from "./folderPromptBuilder";
 import crypto from "crypto";
-import redis from "../../../../db/redis";
+import { getJsonCache, setJsonCache } from "../../../../db/cache";
 import { FolderSectionContentSchema } from "../../../../schemas/folder.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
@@ -46,11 +46,11 @@ export const runFolderPipeline = async (
     .digest("hex");
   const cacheKey = `folder:${hash}`;
   if (useCache) {
-    const cachedData = await redis.get(cacheKey);
+    const cachedData = await getJsonCache<unknown>(cacheKey);
 
     if (cachedData) {
-      const parsed = JSON.parse(cachedData);
-      const folderStructure = FolderSectionContentSchema.safeParse(parsed);
+      const folderStructure =
+        FolderSectionContentSchema.safeParse(cachedData);
 
       if (!folderStructure.success) {
         console.error("Cached AI Validation Failed");
@@ -90,10 +90,9 @@ export const runFolderPipeline = async (
   }
 
   if (useCache) {
-    await redis.set(
+    await setJsonCache(
       cacheKey,
-      JSON.stringify(validatedFolderStructure.data),
-      "EX",
+      validatedFolderStructure.data,
       cacheTtlSeconds,
     );
   }

@@ -12,7 +12,7 @@ import {
   buildApiPrompt,
 } from "./apiPromptBuilder";
 import crypto from "crypto";
-import redis from "../../../../db/redis";
+import { getJsonCache, setJsonCache } from "../../../../db/cache";
 import { ApiSectionContentSchema } from "../../../../schemas/api.schema";
 
 const DEFAULT_AI_CACHE_TTL_SECONDS = 600;
@@ -53,11 +53,10 @@ export const runApiPipeline = async (
   const cacheKey = `api:${hash}`;
 
   if (useCache) {
-    const cachedData = await redis.get(cacheKey);
+    const cachedData = await getJsonCache<unknown>(cacheKey);
 
     if (cachedData) {
-      const parsed = JSON.parse(cachedData);
-      const apiSection = ApiSectionContentSchema.safeParse(parsed);
+      const apiSection = ApiSectionContentSchema.safeParse(cachedData);
 
       if (!apiSection.success) {
         console.error("Cached AI Validation Failed");
@@ -103,12 +102,7 @@ export const runApiPipeline = async (
 
   if (useCache) {
     console.log(`🔌 runApiPipeline: Caching result...`);
-    await redis.set(
-      cacheKey,
-      JSON.stringify(validatedApiSection.data),
-      "EX",
-      cacheTtlSeconds,
-    );
+    await setJsonCache(cacheKey, validatedApiSection.data, cacheTtlSeconds);
   }
 
   console.log(`✅ runApiPipeline: Successfully completed`);

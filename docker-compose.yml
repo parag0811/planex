@@ -12,7 +12,9 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
-    command: npm run dev
+    # Apply pending migrations before the dev server starts. Production should
+    # run `npm run migrate:deploy` once as a release step instead.
+    command: sh -c "npx prisma migrate deploy && npm run dev"
     restart: unless-stopped
     environment:
       - CHOKIDAR_USEPOLLING=true

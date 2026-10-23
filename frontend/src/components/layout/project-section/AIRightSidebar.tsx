@@ -522,6 +522,7 @@ export default function AIRightSidebar({
                   onKeyDown={handleKey}
                   placeholder="Query assistant..."
                   rows={1}
+                  maxLength={2000}
                   disabled={isThinking}
                   className="flex-1 bg-transparent border-none outline-none resize-none text-[13px] text-white/75 placeholder:text-white/25 leading-relaxed max-h-24 overflow-y-auto disabled:opacity-50"
                   style={INTER}

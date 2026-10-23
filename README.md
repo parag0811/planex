@@ -309,6 +309,23 @@ The development environment consists of separate containers for:
 
 This setup provides a consistent development workflow and simplifies deployment across environments.
 
+### Database migrations
+
+The backend applies pending Prisma migrations before starting (`npm start` runs `prisma migrate deploy`). Docker Compose does the same for the dev server.
+
+For a multi-replica production deployment, run migrations once as a release step and start the replicas without the migration step:
+
+```bash
+npm run migrate:deploy
+npm run start:no-migrate
+```
+
+Production `DATABASE_URL` values should include TLS and a connect timeout, for example:
+
+```text
+postgresql://user:password@host:5432/planex?sslmode=require&connect_timeout=10
+```
+
 ---
 
 # 🚀 Roadmap

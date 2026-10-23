@@ -40,8 +40,8 @@ model ProjectMember {
   project_id String
   role       Role     @default(VIEWER)
   joinedAt   DateTime @default(now())
-  project    Project  @relation(fields: [project_id], references: [id])
-  user       User?    @relation(fields: [user_id], references: [id])
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@unique([user_id, project_id])
   @@index([project_id])
