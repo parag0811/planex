@@ -11,3 +11,16 @@ AUDIT_AND_FIX_PLAN.md
 PLANEX_STARTUP_AND_RESUME_GUIDE.md
 backend/src/scripts/testGemini.ts
 *testGemini*
+# Local design references and screenshots — never committed
+design/**/*.png
+design/**/*.webp
+design/**/*.jpg
+design/**/*.jpeg
+design/figma/_view.html
+
+# Internal planning docs and local tooling (not shipped)
+docs/
+implementation_plan.md
+PRODUCTION_BUG_AUDIT.md
+opencode.json
+/package-lock.json

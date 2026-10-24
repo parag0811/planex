@@ -1,804 +1,241 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
-import {
-  Database,
-  Plus,
-  Trash2,
-  Sparkles,
-  Save,
-  RefreshCw,
-  Link2,
-  Rows3,
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  Check,
-  X,
-  Download,
-  AlertCircle,
-  CheckCircle,
-  Zap,
-} from "lucide-react";
-import { useDispatch, useSelector } from "react-redux";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import AIRightSidebar, {
-  type ApplySuggestion,
-} from "@/src/components/layout/project-section/AIRightSidebar";
+import { useDispatch, useSelector } from "react-redux";
+import { ArrowRight, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Skeleton,
+} from "@/src/components/ui";
+import { StickyApprovalBar } from "@/src/components/workspace/sticky-approval-bar";
+import { useJobPolling } from "@/src/hooks/useJobPolling";
+import {
+  buildSql,
+  EMPTY_DATABASE,
+  normalizeDatabase,
+  type DatabaseContent,
+  type DatabaseField,
+} from "@/src/lib/database-content";
+import { generateDatabase } from "@/src/store/slices/jobSlice";
+import { fetchProjectById } from "@/src/store/slices/projectSlice";
 import {
   fetchSectionByType,
   upsertSection,
-  clearAllSectionErrors,
 } from "@/src/store/slices/sectionSlice";
-import {
-  clearJobState,
-  generateDatabase,
-  regenerateSection,
-} from "@/src/store/slices/jobSlice";
-import { useJobPolling } from "@/src/hooks/useJobPolling";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
-type DatabaseFieldType =
-  | "uuid"
-  | "string"
-  | "text"
-  | "integer"
-  | "boolean"
-  | "datetime"
-  | "float"
-  | "json"
-  | "date"
-  | "timestamp"
-  | "decimal"
-  | "enum"
-  | "varchar";
-
-type RelationType = "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
-
-interface DatabaseField {
-  name: string;
-  type: DatabaseFieldType;
-  required: boolean;
-  unique?: boolean;
-  description?: string;
-}
-
-interface DatabaseEntity {
-  name: string;
-  description: string;
-  fields: DatabaseField[];
-}
-
-interface DatabaseRelation {
-  from: string;
-  to: string;
-  type: RelationType;
-  description?: string;
-}
-
-interface DatabaseIndex {
-  entity: string;
-  fields: string[];
-  unique?: boolean;
-}
-
-interface DatabaseSectionContent {
-  entities: DatabaseEntity[];
-  relationships: DatabaseRelation[];
-  indexes?: DatabaseIndex[];
-}
-
-const FIELD_TYPES: DatabaseFieldType[] = [
+const FIELD_TYPES = [
   "uuid",
   "string",
+  "varchar",
   "text",
   "integer",
   "boolean",
   "datetime",
+  "timestamp",
   "float",
   "json",
   "date",
-  "timestamp",
   "decimal",
   "enum",
-  "varchar",
-];
+] as const;
 
-const RELATION_TYPES: RelationType[] = [
-  "one-to-one",
-  "one-to-many",
-  "many-to-one",
-  "many-to-many",
-];
+const getErrorMessage = (error: unknown, fallback: string) =>
+  typeof error === "string"
+    ? error
+    : error instanceof Error
+      ? error.message
+      : fallback;
 
-const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
-const fadeUp = (i: number): Variants => ({
-  hidden: { opacity: 0, y: 16 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.07, duration: 0.4, ease: EASE },
-  },
-});
-
-// ─── Design tokens ───────────────────────────────────────────────
-const BG = "#141414";
-const ACCENT = "#d84c28";
-const BORDER = "#2b2321";
-const MUTED = "#a6786d";
-const INNER_BG = "#101010";
-
-const MONO: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-};
-const INTER: React.CSSProperties = {
-  fontFamily: '"Inter", system-ui, sans-serif',
-};
-const INTER_TIGHT: React.CSSProperties = {
-  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
-};
-
-const TYPE_COLORS: Record<DatabaseFieldType, string> = {
-  uuid: "#a6786d",
-  string: "#fafafa",
-  text: "#fafafa",
-  integer: "#60a5fa",
-  boolean: "#a78bfa",
-  datetime: "#f59e0b",
-  float: "#60a5fa",
-  json: "#34d399",
-  date: "#f59e0b",
-  timestamp: "#f59e0b",
-  decimal: "#60a5fa",
-  enum: "#c084fc",
-  varchar: "#fafafa",
-};
-
-const createEmptyField = (): DatabaseField => ({
-  name: "field_name",
-  type: "string",
-  required: false,
-  unique: false,
-  description: "",
-});
-
-const createEmptyEntity = (): DatabaseEntity => ({
-  name: "",
-  description: "",
-  fields: [],
-});
-
-const FIELD_PRESETS: Array<{ label: string; field: DatabaseField }> = [
-  {
-    label: "Primary ID",
-    field: {
-      name: "id",
-      type: "uuid",
-      required: true,
-      unique: true,
-      description: "Primary key",
-    },
-  },
-  {
-    label: "Created At",
-    field: {
-      name: "createdAt",
-      type: "datetime",
-      required: true,
-      unique: false,
-      description: "Created timestamp",
-    },
-  },
-  {
-    label: "Updated At",
-    field: {
-      name: "updatedAt",
-      type: "datetime",
-      required: true,
-      unique: false,
-      description: "Updated timestamp",
-    },
-  },
-  {
-    label: "Name",
-    field: {
-      name: "name",
-      type: "string",
-      required: true,
-      unique: false,
-      description: "Display name",
-    },
-  },
-  {
-    label: "Email",
-    field: {
-      name: "email",
-      type: "string",
-      required: true,
-      unique: true,
-      description: "Unique email",
-    },
-  },
-  {
-    label: "Foreign Key",
-    field: {
-      name: "userId",
-      type: "uuid",
-      required: true,
-      unique: false,
-      description: "Reference to another entity",
-    },
-  },
-];
-
-const SAMPLE_SCHEMA: DatabaseSectionContent = {
-  entities: [
-    {
-      name: "User",
-      description: "Platform user account",
-      fields: [
-        {
-          name: "id",
-          type: "uuid",
-          required: true,
-          unique: true,
-          description: "Primary key",
-        },
-        {
-          name: "email",
-          type: "string",
-          required: true,
-          unique: true,
-          description: "Login email",
-        },
-        {
-          name: "name",
-          type: "string",
-          required: true,
-          unique: false,
-          description: "Display name",
-        },
-        {
-          name: "createdAt",
-          type: "datetime",
-          required: true,
-          unique: false,
-          description: "Created timestamp",
-        },
-      ],
-    },
-    {
-      name: "Invoice",
-      description: "Billing record",
-      fields: [
-        {
-          name: "id",
-          type: "uuid",
-          required: true,
-          unique: true,
-          description: "Primary key",
-        },
-        {
-          name: "title",
-          type: "string",
-          required: true,
-          unique: false,
-          description: "Invoice title",
-        },
-        {
-          name: "amount",
-          type: "float",
-          required: true,
-          unique: false,
-          description: "Total amount",
-        },
-        {
-          name: "paid",
-          type: "boolean",
-          required: true,
-          unique: false,
-          description: "Payment status",
-        },
-        {
-          name: "userId",
-          type: "uuid",
-          required: true,
-          unique: false,
-          description: "Owner reference",
-        },
-        {
-          name: "createdAt",
-          type: "datetime",
-          required: true,
-          unique: false,
-          description: "Created timestamp",
-        },
-      ],
-    },
-  ],
-  relationships: [
-    {
-      from: "User",
-      to: "Invoice",
-      type: "one-to-many",
-      description: "A user can have many invoices",
-    },
-  ],
-  indexes: [
-    { entity: "User", fields: ["email"], unique: true },
-    { entity: "Invoice", fields: ["userId"], unique: false },
-  ],
-};
-
-const normalizeSchema = (payload: unknown): DatabaseSectionContent | null => {
-  if (!payload || typeof payload !== "object") return null;
-  const raw = payload as Partial<DatabaseSectionContent>;
-
-  const entities = Array.isArray(raw.entities)
-    ? (raw.entities
-        .map((entity) => {
-          if (!entity || typeof entity !== "object") return null;
-          const source = entity as Partial<DatabaseEntity>;
-
-          const fields = Array.isArray(source.fields)
-            ? (source.fields
-                .map((field) => {
-                  if (!field || typeof field !== "object") return null;
-                  const fieldSource = field as Partial<DatabaseField>;
-
-                  if (
-                    !fieldSource.name ||
-                    typeof fieldSource.name !== "string" ||
-                    !fieldSource.type ||
-                    !FIELD_TYPES.includes(fieldSource.type as DatabaseFieldType)
-                  ) {
-                    return null;
-                  }
-
-                  return {
-                    name: fieldSource.name,
-                    type: fieldSource.type as DatabaseFieldType,
-                    required: Boolean(fieldSource.required),
-                    unique: Boolean(fieldSource.unique),
-                    description:
-                      typeof fieldSource.description === "string"
-                        ? fieldSource.description
-                        : "",
-                  };
-                })
-                .filter(Boolean) as DatabaseField[])
-            : [];
-
-          if (!source.name || typeof source.name !== "string") return null;
-
-          return {
-            name: source.name,
-            description:
-              typeof source.description === "string" ? source.description : "",
-            fields,
-          };
-        })
-        .filter(Boolean) as DatabaseEntity[])
-    : [];
-
-  const relationships = Array.isArray(raw.relationships)
-    ? (raw.relationships
-        .map((relation) => {
-          if (!relation || typeof relation !== "object") return null;
-          const source = relation as Partial<DatabaseRelation>;
-
-          if (
-            typeof source.from !== "string" ||
-            typeof source.to !== "string" ||
-            !RELATION_TYPES.includes(source.type as RelationType)
-          ) {
-            return null;
-          }
-
-          return {
-            from: source.from,
-            to: source.to,
-            type: source.type as RelationType,
-            description:
-              typeof source.description === "string" ? source.description : "",
-          };
-        })
-        .filter(Boolean) as DatabaseRelation[])
-    : [];
-
-  const indexes = Array.isArray(raw.indexes)
-    ? (raw.indexes
-        .map((index) => {
-          if (!index || typeof index !== "object") return null;
-          const source = index as Partial<DatabaseIndex>;
-          if (
-            typeof source.entity !== "string" ||
-            !Array.isArray(source.fields)
-          )
-            return null;
-
-          const fields = source.fields.filter(
-            (field): field is string => typeof field === "string",
-          );
-
-          return {
-            entity: source.entity,
-            fields,
-            unique: Boolean(source.unique),
-          };
-        })
-        .filter(Boolean) as DatabaseIndex[])
-    : [];
-
-  if (entities.length === 0) return null;
-
-  return { entities, relationships, indexes };
-};
-
-const getErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof Error) return error.message;
-  return fallback;
+const fieldKey = (field: DatabaseField) => {
+  if (field.name === "id") return "PK";
+  if (field.unique) return "UQ";
+  if (field.name.endsWith("_id")) return "FK";
+  return "";
 };
 
 export default function DatabasePage() {
-  const params = useParams();
-  const rawProjectId = params?.projectId;
-  const projectId = Array.isArray(rawProjectId)
-    ? rawProjectId[0]
-    : rawProjectId;
-  const resolvedProjectId =
-    projectId && projectId !== "undefined" ? projectId : "";
+  const { projectId } = useParams<{ projectId: string }>();
   const dispatch = useDispatch<AppDispatch>();
-  const jobState = useSelector(
-    (state: RootState) => state.job?.jobs?.database || state.job || { jobId: null, status: "idle", result: null, error: null },
+
+  const sectionRecord = useSelector(
+    (state: RootState) => state.section.projects[projectId]?.database,
   );
-  const databaseSectionState = useSelector(
-    (state: RootState) => state.section.projects[resolvedProjectId]?.database,
-  );
+  const job = useSelector((state: RootState) => state.job.jobs.database);
+  const project = useSelector((state: RootState) => state.project.currentProject);
 
-  const [schema, setSchema] = useState<DatabaseSectionContent>({
-    entities: [],
-    relationships: [],
-    indexes: [],
-  });
-  const [hasGeneratedOnce, setHasGeneratedOnce] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<DatabaseSectionContent | null>(
-    null,
-  );
-  const [isSampleView, setIsSampleView] = useState(false);
-  const [indexExpanded, setIndexExpanded] = useState(true);
-  const [status, setStatus] = useState<string | null>(null);
-  const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
-  const [editingEntityIndex, setEditingEntityIndex] = useState<number | null>(
-    null,
-  );
-  const [entityNameDraft, setEntityNameDraft] = useState("");
-  const [addEntityModalOpen, setAddEntityModalOpen] = useState(false);
-  const [newEntityName, setNewEntityName] = useState("");
-  const [newEntityDescription, setNewEntityDescription] = useState("");
-
-  const [addFieldEntityIndex, setAddFieldEntityIndex] = useState<number | null>(null);
-  const [newFieldName, setNewFieldName] = useState("");
-  const [newFieldType, setNewFieldType] = useState<DatabaseFieldType>("string");
-  const [newFieldRequired, setNewFieldRequired] = useState(false);
-  const [newFieldUnique, setNewFieldUnique] = useState(false);
-
-  const [addRelModalOpen, setAddRelModalOpen] = useState(false);
-  const [newRelFrom, setNewRelFrom] = useState("");
-  const [newRelTo, setNewRelTo] = useState("");
-  const [newRelType, setNewRelType] = useState<RelationType>("one-to-many");
-  const [newRelDesc, setNewRelDesc] = useState("");
-
-  const [addIndexModalOpen, setAddIndexModalOpen] = useState(false);
-  const [newIndexEntity, setNewIndexEntity] = useState("");
-  const [newIndexFields, setNewIndexFields] = useState("");
-  const [newIndexUnique, setNewIndexUnique] = useState(false);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const draftSnapshotRef = useRef<DatabaseSectionContent | null>(null);
-
-  const entityNames = useMemo(
-    () => schema.entities.map((entity) => entity.name.trim()).filter(Boolean),
-    [schema.entities],
-  );
-
-  const canRegenerate =
-    Boolean(previewData) ||
-    hasGeneratedOnce ||
-    schema.entities.length > 0 ||
-    schema.relationships.length > 0 ||
-    Boolean(schema.indexes?.length);
-
-  const isFetching = Boolean(databaseSectionState?.fetch.loading);
-  const isSaving = Boolean(databaseSectionState?.save.loading);
-  const isJobLoading =
-    jobState.status === "pending" || jobState.status === "processing";
-  const loading = isFetching || isSaving || isJobLoading;
-  const error =
-    databaseSectionState?.fetch.error ??
-    databaseSectionState?.save.error ??
-    (jobState.status === "failed" || jobState.status === "timed_out"
-      ? jobState.error
-      : null);
-
-  useEffect(() => {
-    if (isSampleView) return;
-    const normalized = normalizeSchema(databaseSectionState?.content);
-    if (normalized) {
-      setSchema(normalized);
-      draftSnapshotRef.current = normalized;
-    }
-  }, [databaseSectionState?.content, isSampleView]);
-
-  const fetchDatabaseSection = useCallback(
-    async (force = false) => {
-      if (!resolvedProjectId) {
-        setSchema({ entities: [], relationships: [], indexes: [] });
-        return;
-      }
-
-      const normalizedState = normalizeSchema(databaseSectionState?.content);
-      if (!force && normalizedState) {
-        setSchema(normalizedState);
-        draftSnapshotRef.current = normalizedState;
-        return;
-      }
-
-      try {
-        const result = await dispatch(
-          fetchSectionByType({
-            projectId: resolvedProjectId,
-            type: "database",
-          }),
-        ).unwrap();
-
-        const normalized = normalizeSchema(result.section?.content);
-        if (normalized) {
-          setSchema(normalized);
-          draftSnapshotRef.current = normalized;
-        }
-      } catch {
-        setSchema({ entities: [], relationships: [], indexes: [] });
-      }
-    },
-    [databaseSectionState?.content, dispatch, resolvedProjectId],
-  );
-
-  useEffect(() => {
-    fetchDatabaseSection();
-  }, [fetchDatabaseSection]);
-
-  useEffect(() => {
-    if (status) {
-      const timer = setTimeout(() => { setStatus(null); setStatusType(null); }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [status]);
-
-  const handleGenerate = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before generating database suggestions.");
-      setStatusType("error");
-      return;
-    }
-
-    try {
-      dispatch(clearJobState("database"));
-      await dispatch(
-        generateDatabase({ projectId: resolvedProjectId }),
-      ).unwrap();
-      setStatus("Database generation queued. We are processing it now.");
-      setStatusType("success");
-    } catch (error: unknown) {
-      setStatus(getErrorMessage(error, "Failed to queue database generation."));
-      setStatusType("error");
-    }
-  };
-
-  const handleRegenerate = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before regenerating the database section.");
-      setStatusType("error");
-      return;
-    }
-
-    setPreviewData(null);
-
-    try {
-      dispatch(clearJobState("database"));
-      await dispatch(
-        regenerateSection({
-          projectId: resolvedProjectId,
-          section: "database",
-        }),
-      ).unwrap();
-      setStatus("Database regeneration queued. We are processing it now.");
-      setStatusType("success");
-    } catch (error: unknown) {
-      setStatus(
-        getErrorMessage(error, "Failed to queue database regeneration."),
-      );
-      setStatusType("error");
-    }
-  };
+  const [content, setContent] = useState<DatabaseContent>(EMPTY_DATABASE);
+  const [savedContent, setSavedContent] =
+    useState<DatabaseContent>(EMPTY_DATABASE);
+  const [preview, setPreview] = useState<DatabaseContent | null>(null);
+  const [hasSection, setHasSection] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [view, setView] = useState<"entities" | "sql">("entities");
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useJobPolling({
-    jobId: jobState.jobId,
-    status: jobState.status,
+    jobId,
+    status: job?.status ?? "idle",
     section: "database",
+    timeoutMessage: "Database generation is taking longer than expected.",
   });
 
   useEffect(() => {
-    if (jobState.status !== "completed") return;
+    let cancelled = false;
 
-    if (jobState.result) {
-      const normalized = normalizeSchema(jobState.result);
-      if (normalized) {
-        setPreviewData(normalized);
-        setHasGeneratedOnce(true);
-        setStatus("Database generation completed. Review the preview below.");
-        setStatusType("success");
-      } else {
-        setStatus("Database generation returned invalid schema.");
-        setStatusType("error");
+    const load = async () => {
+      setLoading(true);
+      try {
+        const result = await dispatch(
+          fetchSectionByType({ projectId, type: "database" }),
+        ).unwrap();
+
+        if (result.section?.content && !cancelled) {
+          const normalized = normalizeDatabase(result.section.content);
+          setContent(normalized);
+          setSavedContent(normalized);
+          setHasSection(true);
+        }
+      } catch {
+        // 404 means the database has not been generated yet.
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    }
+    };
 
-    dispatch(clearJobState("database"));
-  }, [dispatch, jobState.result, jobState.status]);
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, projectId]);
 
   useEffect(() => {
-    if (
-      jobState.status !== "failed" &&
-      jobState.status !== "timed_out"
-    ) {
-      return;
+    if (job?.status === "completed" && job.result) {
+      const payload =
+        (job.result as { database?: unknown })?.database ?? job.result;
+      setPreview(normalizeDatabase(payload));
+      setError(null);
+      setGenerating(false);
     }
-    setStatus(jobState.error ?? "Database generation failed.");
-    setStatusType("error");
-  }, [jobState.error, jobState.status]);
 
-  const submitNewEntity = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newEntityName.trim()) {
-      setStatus("Entity name is required.");
-      setStatusType("error");
-      return;
-    }
-    setSchema((current) => ({
-      ...current,
-      entities: [
-        ...current.entities, 
-        { ...createEmptyEntity(), name: newEntityName.trim(), description: newEntityDescription.trim() }
-      ],
-    }));
-    setStatus("Entity added.");
-    setStatusType("success");
-    setAddEntityModalOpen(false);
-    setNewEntityName("");
-    setNewEntityDescription("");
-  };
-
-  const addEntity = () => {
-    setNewEntityName("");
-    setNewEntityDescription("");
-    setAddEntityModalOpen(true);
-  };
-
-  const updateEntity = (index: number, patch: Partial<DatabaseEntity>) => {
-    setSchema((current) => ({
-      ...current,
-      entities: current.entities.map((entity, entityIndex) =>
-        entityIndex === index ? { ...entity, ...patch } : entity,
-      ),
-    }));
-  };
-
-  const startEditEntityName = (index: number) => {
-    const currentName = schema.entities[index]?.name ?? "";
-    setEditingEntityIndex(index);
-    setEntityNameDraft(currentName);
-  };
-
-  const cancelEditEntityName = () => {
-    setEditingEntityIndex(null);
-    setEntityNameDraft("");
-  };
-
-  const saveEditEntityName = () => {
-    if (editingEntityIndex === null) return;
-    const nextName = entityNameDraft.trim();
-    if (!nextName) {
-      setStatus("Entity name is required.");
-      return;
-    }
-    updateEntity(editingEntityIndex, { name: nextName });
-    setEditingEntityIndex(null);
-    setEntityNameDraft("");
-  };
-
-  const removeEntity = (index: number) => {
-    setSchema((current) => ({
-      ...current,
-      entities: current.entities.filter(
-        (_, entityIndex) => entityIndex !== index,
-      ),
-    }));
-    setStatus("Entity removed.");
-  };
-
-  const submitNewField = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (addFieldEntityIndex === null) return;
-    if (!newFieldName.trim()) {
-      setStatus("Field name is required.");
-      setStatusType("error");
-      return;
-    }
-    setSchema((current) => ({
-      ...current,
-      entities: current.entities.map((entity, idx) =>
-        idx === addFieldEntityIndex
-          ? {
-              ...entity,
-              fields: [
-                ...entity.fields,
-                {
-                  name: newFieldName.trim(),
-                  type: newFieldType,
-                  required: newFieldRequired,
-                  unique: newFieldUnique,
-                  description: "",
-                },
-              ],
-            }
-          : entity,
-      ),
-    }));
-    setAddFieldEntityIndex(null);
-    setNewFieldName("");
-    setNewFieldType("string");
-    setNewFieldRequired(false);
-    setNewFieldUnique(false);
-    setStatus("Field added.");
-    setStatusType("success");
-  };
-
-  const addField = (entityIndex: number) => {
-    setAddFieldEntityIndex(entityIndex);
-    setNewFieldName("");
-    setNewFieldType("string");
-    setNewFieldRequired(false);
-    setNewFieldUnique(false);
-  };
-
-  const addPresetField = (entityIndex: number, preset: DatabaseField) => {
-    setSchema((current) => {
-      const entity = current.entities[entityIndex];
-      if (!entity) return current;
-
-      const alreadyExists = entity.fields.some(
-        (field) =>
-          field.name.trim().toLowerCase() === preset.name.trim().toLowerCase(),
+    if (job?.status === "failed" || job?.status === "timed_out") {
+      setError(
+        job.error ||
+          (job.status === "timed_out"
+            ? "Database generation is taking longer than expected."
+            : "Database generation failed. Please retry."),
       );
+      setGenerating(false);
+    }
+  }, [job?.status, job?.result, job?.error]);
 
-      if (alreadyExists) {
-        setStatus(`Field "${preset.name}" already exists in ${entity.name}.`);
-        return current;
+  const displayed = preview ?? content;
+  const dirty = preview !== null || isEditing;
+  const jobActive =
+    job?.status === "pending" ||
+    job?.status === "processing" ||
+    (Boolean(jobId) && !preview && !error);
+  const version = sectionRecord?.data?.version ?? 1;
+  const projectName = project?.name || "this project";
+
+  const statusLabel = dirty
+    ? "Draft not saved"
+    : hasSection
+      ? "Approved · Saved"
+      : "Draft not saved";
+  const nextLabel =
+    hasSection && !preview ? "Next stage: API" : "Next after approval: API";
+  const stageBadge = preview
+    ? { label: "AI draft", tone: "warning" as const }
+    : hasSection
+      ? { label: "Approved · Saved", tone: "brand" as const }
+      : { label: "Empty", tone: "neutral" as const };
+
+  const queueGeneration = async (forceRegenerate: boolean) => {
+    setGenerating(true);
+    setError(null);
+
+    try {
+      const queued = await dispatch(
+        generateDatabase({ projectId, forceRegenerate }),
+      ).unwrap();
+
+      if (queued.jobId) {
+        setJobId(queued.jobId);
+      } else if (queued.cachedData) {
+        setPreview(normalizeDatabase(queued.cachedData));
+        setGenerating(false);
+      } else {
+        setGenerating(false);
       }
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not generate the database."));
+      setGenerating(false);
+    }
+  };
 
-      return {
-        ...current,
-        entities: current.entities.map((item, idx) =>
-          idx === entityIndex
-            ? { ...item, fields: [...item.fields, preset] }
-            : item,
-        ),
-      };
-    });
+  const handleApprove = async () => {
+    if (!dirty) return;
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const payload = preview ?? content;
+      await dispatch(
+        upsertSection({ projectId, type: "database", content: payload }),
+      ).unwrap();
+
+      setContent(payload);
+      setSavedContent(payload);
+      setPreview(null);
+      setIsEditing(false);
+      setHasSection(true);
+      dispatch(fetchProjectById(projectId));
+    } catch (err) {
+      setError(getErrorMessage(err, "Could not save the database."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (preview) {
+      setContent(preview);
+      setPreview(null);
+    }
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setContent(savedContent);
+    setPreview(null);
+    setIsEditing(false);
+    setError(null);
+  };
+
+  const updateEntity = (
+    entityIndex: number,
+    field: "name" | "description",
+    value: string,
+  ) => {
+    setContent((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity, index) =>
+        index === entityIndex ? { ...entity, [field]: value } : entity,
+      ),
+    }));
   };
 
   const updateField = (
@@ -806,1734 +243,555 @@ export default function DatabasePage() {
     fieldIndex: number,
     patch: Partial<DatabaseField>,
   ) => {
-    setSchema((current) => ({
-      ...current,
-      entities: current.entities.map((entity, idx) => {
-        if (idx !== entityIndex) return entity;
-        return {
-          ...entity,
-          fields: entity.fields.map((field, idxField) =>
-            idxField === fieldIndex ? { ...field, ...patch } : field,
-          ),
-        };
-      }),
+    setContent((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity, index) =>
+        index === entityIndex
+          ? {
+              ...entity,
+              fields: entity.fields.map((field, itemIndex) =>
+                itemIndex === fieldIndex ? { ...field, ...patch } : field,
+              ),
+            }
+          : entity,
+      ),
+    }));
+  };
+
+  const addField = (entityIndex: number) => {
+    setContent((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity, index) =>
+        index === entityIndex
+          ? {
+              ...entity,
+              fields: [
+                ...entity.fields,
+                {
+                  name: "new_field",
+                  type: "varchar",
+                  required: true,
+                  unique: false,
+                },
+              ],
+            }
+          : entity,
+      ),
     }));
   };
 
   const removeField = (entityIndex: number, fieldIndex: number) => {
-    setSchema((current) => ({
-      ...current,
-      entities: current.entities.map((entity, idx) => {
-        if (idx !== entityIndex) return entity;
-        return {
-          ...entity,
-          fields: entity.fields.filter(
-            (_, idxField) => idxField !== fieldIndex,
-          ),
-        };
-      }),
+    setContent((prev) => ({
+      ...prev,
+      entities: prev.entities.map((entity, index) =>
+        index === entityIndex
+          ? {
+              ...entity,
+              fields: entity.fields.filter(
+                (_, itemIndex) => itemIndex !== fieldIndex,
+              ),
+            }
+          : entity,
+      ),
     }));
   };
 
-  const handleAcceptPreview = async () => {
-    if (!previewData) return;
-    setSchema(previewData);
-    setPreviewData(null);
-    if (resolvedProjectId) {
-      try {
-        await dispatch(
-          upsertSection({
-            projectId: resolvedProjectId,
-            type: "database",
-            content: previewData,
-          }),
-        ).unwrap();
-        setStatus("Preview accepted and saved.");
-        setStatusType("success");
-      } catch {
-        setStatus("Preview applied to form. Click Save to persist.");
-        setStatusType("success");
-      }
-    } else {
-      setStatus("Preview applied to form. Click Save to persist.");
-      setStatusType("success");
-    }
-  };
-
-  const handleRejectPreview = () => {
-    setPreviewData(null);
-    setStatus(null);
-  };
-
-  const handleAISuggestion = (suggestion: ApplySuggestion) => {
-    if (suggestion.section !== "database" || !suggestion.payload) {
-      setStatus("Invalid suggestion received.");
-      return;
-    }
-
-    try {
-      const merged: DatabaseSectionContent = {
-        entities:
-          (suggestion.payload.entities as DatabaseEntity[] | undefined) ??
-          schema.entities,
-        relationships:
-          (suggestion.payload.relationships as
-            | DatabaseRelation[]
-            | undefined) ?? schema.relationships,
-        indexes:
-          (suggestion.payload.indexes as DatabaseIndex[] | undefined) ??
-          schema.indexes,
-      };
-
-      setSchema(merged);
-      setStatus("AI suggestion applied. Click Save to persist changes.");
-    } catch (error) {
-      setStatus(
-        "Failed to apply AI suggestion. Please review the changes manually.",
-      );
-    }
-  };
-
-  const submitNewRelationship = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newRelFrom || !newRelTo) {
-      setStatus("Both source and target entities are required.");
-      setStatusType("error");
-      return;
-    }
-    setSchema((current) => ({
-      ...current,
-      relationships: [
-        ...current.relationships,
+  const addEntity = () => {
+    setContent((prev) => ({
+      ...prev,
+      entities: [
+        ...prev.entities,
         {
-          from: newRelFrom,
-          to: newRelTo,
-          type: newRelType,
-          description: newRelDesc.trim(),
+          name: "new_entity",
+          description: "",
+          fields: [
+            { name: "id", type: "uuid", required: true, unique: true },
+          ],
         },
       ],
     }));
-    setAddRelModalOpen(false);
-    setNewRelFrom("");
-    setNewRelTo("");
-    setNewRelType("one-to-many");
-    setNewRelDesc("");
-    setStatus("Relationship added.");
-    setStatusType("success");
   };
 
-  const addRelationship = () => {
-    setNewRelFrom(entityNames[0] || "");
-    setNewRelTo(entityNames[1] || entityNames[0] || "");
-    setNewRelType("one-to-many");
-    setNewRelDesc("");
-    setAddRelModalOpen(true);
-  };
-
-  const updateRelationship = (
-    index: number,
-    patch: Partial<DatabaseRelation>,
-  ) => {
-    setSchema((current) => ({
-      ...current,
-      relationships: current.relationships.map((relation, idx) =>
-        idx === index ? { ...relation, ...patch } : relation,
-      ),
+  const removeEntity = (entityIndex: number) => {
+    setContent((prev) => ({
+      ...prev,
+      entities: prev.entities.filter((_, index) => index !== entityIndex),
     }));
   };
 
-  const removeRelationship = (index: number) => {
-    setSchema((current) => ({
-      ...current,
-      relationships: current.relationships.filter((_, idx) => idx !== index),
-    }));
-  };
-
-  const submitNewIndex = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newIndexEntity) {
-      setStatus("Entity is required for an index.");
-      setStatusType("error");
-      return;
-    }
-    const fieldsArray = newIndexFields.split(",").map((f) => f.trim()).filter(Boolean);
-    if (fieldsArray.length === 0) {
-      setStatus("At least one field is required for an index.");
-      setStatusType("error");
-      return;
-    }
-    setSchema((current) => ({
-      ...current,
-      indexes: [
-        ...(current.indexes ?? []),
-        { entity: newIndexEntity, fields: fieldsArray, unique: newIndexUnique },
-      ],
-    }));
-    setAddIndexModalOpen(false);
-    setNewIndexEntity("");
-    setNewIndexFields("");
-    setNewIndexUnique(false);
-    setStatus("Index added.");
-    setStatusType("success");
-  };
-
-  const addIndex = () => {
-    setNewIndexEntity(entityNames[0] || "");
-    setNewIndexFields("");
-    setNewIndexUnique(false);
-    setAddIndexModalOpen(true);
-  };
-
-  const updateIndex = (index: number, patch: Partial<DatabaseIndex>) => {
-    setSchema((current) => ({
-      ...current,
-      indexes: (current.indexes ?? []).map((item, idx) =>
-        idx === index ? { ...item, ...patch } : item,
-      ),
-    }));
-  };
-
-  const removeIndex = (index: number) => {
-    setSchema((current) => ({
-      ...current,
-      indexes: (current.indexes ?? []).filter((_, idx) => idx !== index),
-    }));
-  };
-
-  const handleSaveDraft = async () => {
-    if (!resolvedProjectId) {
-      setStatus("Select a project before saving the database section.");
-      return;
-    }
-
-    const hasEditableContent = schema.entities.length > 0;
-    if (!hasEditableContent) {
-      setStatus("All fields are empty. At least one entity must be added.");
-      return;
-    }
-
+  const copySql = async () => {
     try {
-      const result = await dispatch(
-        upsertSection({
-          projectId: resolvedProjectId,
-          type: "database",
-          content: schema,
-        }),
-      ).unwrap();
-
-      const normalized = normalizeSchema(result.section.content);
-      if (normalized) {
-        setSchema(normalized);
-        draftSnapshotRef.current = normalized;
-      }
-
-      setStatus("Database section saved.");
-      setStatusType("success");
-    } catch (error: unknown) {
-      setStatus(getErrorMessage(error, "Failed to save database section."));
-      setStatusType("error");
+      await navigator.clipboard.writeText(buildSql(displayed));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Could not copy the SQL to the clipboard.");
     }
   };
 
-  const handleToggleSample = () => {
-    if (isSampleView) {
-      const restoredSchema = draftSnapshotRef.current ??
-        normalizeSchema(databaseSectionState?.content) ?? {
-          entities: [],
-          relationships: [],
-          indexes: [],
-        };
-
-      setSchema(restoredSchema);
-      setIsSampleView(false);
-      setStatus("Restored your saved database draft.");
-      return;
-    }
-
-    draftSnapshotRef.current = schema;
-    setSchema(SAMPLE_SCHEMA);
-    setIsSampleView(true);
-    setStatus(
-      "Showing sample database. Click again to restore your saved draft.",
+  if (loading) {
+    return (
+      <div className="flex h-full flex-col">
+        <div className="flex-1 space-y-6 overflow-y-auto px-8 py-8">
+          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-14 w-full rounded-lg" />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-64 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const schemaOverview = useMemo(
-    () => ({
-      entities: schema.entities.length,
-      relationships: schema.relationships.length,
-      indexes: schema.indexes?.length ?? 0,
-    }),
-    [schema.entities.length, schema.relationships.length, schema.indexes],
-  );
+  const hasAnyContent =
+    hasSection ||
+    preview !== null ||
+    displayed.entities.length > 0;
 
-  const handleExportJson = () => {
-    const blob = new Blob([JSON.stringify(schema, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "database-schema.json";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  if (!hasAnyContent && !jobActive) {
+    return (
+      <div className="flex h-full items-center justify-center px-5 py-8">
+        <Card className="w-full max-w-xl">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-brand" />
+              <h1 className="text-lg font-semibold text-ink">
+                No database yet
+              </h1>
+            </div>
+            <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+              Approve the Requirements stage first, then Planex can draft a
+              relational schema for {projectName}.
+            </p>
+
+            {error ? (
+              <p className="mt-3 text-[11px] text-danger" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => void queueGeneration(false)}
+                loading={generating}
+              >
+                Generate database
+              </Button>
+              <Link
+                href={`/projects/${projectId}/idea`}
+                className="text-[12px] text-brand hover:underline"
+              >
+                Review Requirements
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div
-      ref={scrollRef}
-      className="flex w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar"
-      style={{ ...INTER, backgroundColor: BG }}
-    >
-      <div className="min-w-0 flex-1 overflow-y-auto no-scrollbar">
-        <motion.div
-          className={`mx-auto w-full max-w-[1600px] px-5 py-10 sm:px-8 lg:pl-10 transition-[padding-right] duration-300 ${aiOpen ? "lg:pr-85" : "lg:pr-10"}`}
-          initial="hidden"
-          animate="show"
-        >
-          {/* Top bar */}
-          <motion.div
-            variants={fadeUp(0)}
-            className="mb-8 flex flex-wrap items-center justify-end gap-2"
-          >
-            <button
-              onClick={() => fetchDatabaseSection(true)}
-              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
-              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-            >
-              <RefreshCw size={12} />
-              Refresh
-            </button>
-            {!canRegenerate ? (
-              <button
-                onClick={handleGenerate}
-                disabled={loading}
-                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
-                style={{
-                  ...MONO,
-                  borderColor: ACCENT,
-                  color: ACCENT,
-                  backgroundColor: `${ACCENT}12`,
-                }}
-              >
-                <Sparkles size={12} />
-                {isJobLoading ? "Generating..." : "Generate"}
-              </button>
-            ) : (
-              <button
-                onClick={handleRegenerate}
-                disabled={loading}
-                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
-                style={{
-                  ...MONO,
-                  borderColor: "#60a5fa55",
-                  color: "#60a5fa",
-                  backgroundColor: "#60a5fa12",
-                }}
-              >
-                <Sparkles size={12} />
-                {isJobLoading ? "Regenerating..." : "Regenerate"}
-              </button>
-            )}
-            <button
-              onClick={handleSaveDraft}
-              disabled={loading}
-              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
-              style={{
-                ...MONO,
-                borderColor: ACCENT,
-                color: ACCENT,
-                backgroundColor: `${ACCENT}12`,
-              }}
-            >
-              <Save size={12} />
-              {isSaving ? "Saving..." : "Save"}
-            </button>
-          </motion.div>
-
-          {/* ── Loading bar (matches Idea page) ── */}
-          <AnimatePresence>
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                className="mb-6 flex items-center gap-2.5 border px-4 py-2.5"
-                style={{
-                  borderColor: `${ACCENT}30`,
-                  backgroundColor: `${ACCENT}10`,
-                }}
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 1.4,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                  className="h-4 w-4 rounded-full border-2 border-t-transparent"
-                  style={{ borderColor: ACCENT, borderTopColor: "transparent" }}
-                />
-                <p
-                  className="text-[11px] font-bold uppercase tracking-[0.18em]"
-                  style={{ ...MONO, color: ACCENT }}
-                >
-                  {isJobLoading ? "Generating database section" : isSaving ? "Saving database section" : "Loading database section"}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ── Error (matches Idea page) ── */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                exit={{ opacity: 0, y: -10, filter: "blur(4px)" }}
-                className="mb-6 relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-red-500/10 backdrop-blur-md" />
-                <div 
-                  className="relative border p-4 flex items-start gap-4"
-                  style={{ borderColor: "rgba(239, 68, 68, 0.4)" }}
-                >
-                  <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-[11px] font-bold uppercase tracking-[0.2em] text-red-400 mb-1"
-                      style={MONO}
-                    >
-                      Error Detected
-                    </p>
-                    <p className="text-sm text-red-200/90 leading-relaxed" style={INTER}>
-                      {error}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      dispatch(clearAllSectionErrors());
-                      dispatch(clearJobState());
-                    }}
-                    className="shrink-0 p-1.5 text-red-400 hover:text-white hover:bg-red-500/20 transition-colors border border-transparent hover:border-red-500/30"
-                    title="Dismiss"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ── Status (matches Idea page) ── */}
-          <AnimatePresence>
-            {status && (
-              <motion.div
-                initial={{ opacity: 0, y: -10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.97 }} transition={{ duration: 0.25 }}
-                className="mb-6 flex items-center gap-3 border px-4 py-3"
-                style={{
-                  borderColor: statusType === "success" ? "rgba(34,197,94,0.3)" : "rgba(245,158,11,0.3)",
-                  backgroundColor: statusType === "success" ? "rgba(34,197,94,0.08)" : "rgba(245,158,11,0.08)",
-                }}
-              >
-                {statusType === "success"
-                  ? <CheckCircle size={16} className="text-emerald-500 shrink-0" />
-                  : <Zap size={16} className="text-amber-500 shrink-0" />}
-                <p className="text-sm font-medium" style={{ ...INTER, color: statusType === "success" ? "#34d399" : "#fbbf24" }}>
-                  {status}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* ── Breadcrumb (matches Idea page exactly) ── */}
-          <motion.div variants={fadeUp(1)} className="mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ ...MONO, color: ACCENT }}>
-              Section // 02 / Database Design
-            </p>
-          </motion.div>
-
-          {/* ── Giant headline (matches Idea page) ── */}
-          <motion.div variants={fadeUp(2)} className="mb-8">
-            <h1
-              className="text-[3.4rem] sm:text-[4.2rem] md:text-[5rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white"
-              style={INTER_TIGHT}
-            >
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
+        <div className="mx-auto w-full max-w-[1200px] space-y-6">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-mono text-[11px] text-ink-muted">
+                BLUEPRINT / 02 OF 04
+              </p>
+              <div className="flex items-center gap-2">
+                <Badge tone={stageBadge.tone}>{stageBadge.label}</Badge>
+                <span className="text-[11px] text-ink-muted">
+                  Version {version}
+                </span>
+              </div>
+            </div>
+            <h1 className="text-[28px] font-semibold leading-tight text-ink">
               Database
             </h1>
-            <p className="mt-4 text-sm max-w-2xl" style={{ ...INTER, color: MUTED }}>
-              Model entities, relationships, and indexes for your backend.
+            <p className="text-[13px] leading-relaxed text-ink-muted">
+              A relational foundation for feedback, votes and workspace
+              permissions.
             </p>
-          </motion.div>
+          </div>
 
-          {/* Add entity row */}
-          <motion.div
-            variants={fadeUp(4)}
-            className="mb-6 flex flex-wrap items-center justify-between gap-3"
-          >
-            <h2 className="text-xl font-bold text-white" style={INTER_TIGHT}>
-              Entities
-            </h2>
-            <button
-              onClick={addEntity}
-              className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
-              style={{
-                ...MONO,
-                borderColor: ACCENT,
-                color: ACCENT,
-                backgroundColor: `${ACCENT}12`,
-              }}
+          {error ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-3 text-[12px] text-danger"
             >
-              <Plus size={12} />
-              Add Entity
-            </button>
-          </motion.div>
+              {error}
+            </div>
+          ) : null}
 
-          {/* Entity blocks — each rendered like the USERS screenshot */}
-          <div className="flex flex-col gap-16 mb-16">
-            {schema.entities.map((entity, entityIndex) => {
-              const entityRelationships = schema.relationships.filter(
-                (r) => r.from === entity.name || r.to === entity.name,
-              );
-              const entityIndexes = (schema.indexes ?? []).filter(
-                (i) => i.entity === entity.name,
-              );
+          {jobActive ? (
+            <div className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-3 text-[12px] text-brand">
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand/20 border-t-brand" />
+              Generating a new database draft…
+            </div>
+          ) : dirty ? (
+            <div className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-3 text-[12px] text-brand">
+              <Sparkles size={16} />
+              AI-generated draft. Review and edit before you approve. Nothing is
+              saved yet.
+            </div>
+          ) : null}
 
-              return (
-                <motion.div key={entityIndex} variants={fadeUp(entityIndex)}>
-                  {/* Entity headline block */}
-                  <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      {editingEntityIndex === entityIndex ? (
-                        <div className="flex items-center gap-2 mb-2">
-                          <input
-                            value={entityNameDraft}
-                            onChange={(e) => setEntityNameDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveEditEntityName();
-                              if (e.key === "Escape") cancelEditEntityName();
-                            }}
-                            autoFocus
-                            className="text-[2.4rem] sm:text-[3rem] font-black uppercase leading-none tracking-[-0.03em] text-white bg-transparent border-b outline-none w-full"
-                            style={{ ...INTER_TIGHT, borderColor: ACCENT }}
-                            placeholder="ENTITY_NAME"
+          <div className="flex flex-col gap-3 border-b border-line pb-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-6">
+              <button
+                type="button"
+                onClick={() => setView("entities")}
+                className={
+                  view === "entities"
+                    ? "text-[13px] font-semibold text-brand"
+                    : "text-[13px] text-ink-muted hover:text-ink"
+                }
+              >
+                Entities
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("sql")}
+                className={
+                  view === "sql"
+                    ? "text-[13px] font-semibold text-brand"
+                    : "text-[13px] text-ink-muted hover:text-ink"
+                }
+              >
+                SQL preview
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="neutral">PostgreSQL</Badge>
+              <Badge tone="neutral">
+                {displayed.entities.length} entities ·{" "}
+                {displayed.relationships.length} relationships
+              </Badge>
+              <Badge tone="brand">Requirements approved</Badge>
+            </div>
+          </div>
+
+          {view === "entities" ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {displayed.entities.map((entity, entityIndex) => {
+                const constraints = entity.fields
+                  .filter((field) => field.unique)
+                  .map((field) => `${field.name} is unique`)
+                  .join(" · ");
+
+                return (
+                  <Card key={`${entity.name}-${entityIndex}`} className="p-4">
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={entity.name}
+                            onChange={(event) =>
+                              updateEntity(
+                                entityIndex,
+                                "name",
+                                event.target.value,
+                              )
+                            }
+                            className="font-mono"
                           />
-                          <button
-                            onClick={saveEditEntityName}
-                            className="shrink-0 p-2 border"
-                            style={{
-                              borderColor: "#22c55e55",
-                              color: "#22c55e",
-                            }}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeEntity(entityIndex)}
+                            aria-label="Remove entity"
                           >
-                            <Check size={16} />
-                          </button>
-                          <button
-                            onClick={cancelEditEntityName}
-                            className="shrink-0 p-2 border"
-                            style={{ borderColor: BORDER, color: MUTED }}
-                          >
-                            <X size={16} />
-                          </button>
+                            <Trash2 size={15} />
+                          </Button>
                         </div>
-                      ) : (
-                        <div className="flex items-start gap-3 mb-2 group">
-                          <h2
-                            className="text-[2.4rem] sm:text-[3rem] font-black uppercase leading-none tracking-[-0.03em] text-white"
-                            style={INTER_TIGHT}
-                          >
-                            {entity.name || "Untitled"}
-                          </h2>
-                          <button
-                            onClick={() => startEditEntityName(entityIndex)}
-                            className="mt-3 transition shrink-0 hover:text-white"
-                            style={{ color: MUTED }}
-                            aria-label="Edit entity name"
-                          >
-                            <Pencil size={18} />
-                          </button>
-                        </div>
-                      )}
-
-                      <input
-                        value={entity.description}
-                        onChange={(e) =>
-                          updateEntity(entityIndex, {
-                            description: e.target.value,
-                          })
-                        }
-                        placeholder="Describe what this entity represents..."
-                        className="bg-transparent text-[11px] uppercase tracking-[0.14em] outline-none w-full text-white placeholder:opacity-50"
-                        style={{ ...MONO, color: MUTED }}
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span
-                        className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-                        style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                      >
-                        Entity_{String(entityIndex + 1).padStart(3, "0")}
-                      </span>
-                      <button
-                        onClick={() => removeEntity(entityIndex)}
-                        className="p-2 border transition hover:text-red-400"
-                        style={{ borderColor: BORDER, color: MUTED }}
-                        aria-label="Remove entity"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Field presets */}
-                  <div className="mb-5 flex flex-wrap gap-2">
-                    {FIELD_PRESETS.map((preset) => (
-                      <button
-                        key={`${preset.label}-${entityIndex}`}
-                        onClick={() =>
-                          addPresetField(entityIndex, preset.field)
-                        }
-                        className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] transition"
-                        style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                      >
-                        + {preset.label}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => addField(entityIndex)}
-                      className="border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] transition"
-                      style={{
-                        ...MONO,
-                        borderColor: ACCENT,
-                        color: ACCENT,
-                        backgroundColor: `${ACCENT}12`,
-                      }}
-                    >
-                      + Blank Field
-                    </button>
-                  </div>
-
-                  {/* Schema fields table */}
-                  <div className="mb-3 flex items-center justify-between">
-                    <p
-                      className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                      style={{ ...MONO, color: MUTED }}
-                    >
-                      Schema Fields
-                    </p>
-                    <button
-                      onClick={handleExportJson}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-                      style={{ ...MONO, color: ACCENT }}
-                    >
-                      <Download size={11} />
-                      Export JSON
-                    </button>
-                  </div>
-
-                  <div className="border" style={{ borderColor: BORDER }}>
-                    {/* Table header */}
-                    <div
-                      className="hidden md:grid grid-cols-[2fr_1.2fr_1fr_1fr_auto] gap-3 px-4 py-3 border-b"
-                      style={{ borderColor: BORDER }}
-                    >
-                      {["Field Name", "Datatype", "Required", "Unique", ""].map(
-                        (h) => (
-                          <p
-                            key={h}
-                            className="text-[9px] font-bold uppercase tracking-[0.16em]"
-                            style={{ ...MONO, color: MUTED }}
-                          >
-                            {h}
+                        <Input
+                          value={entity.description}
+                          onChange={(event) =>
+                            updateEntity(
+                              entityIndex,
+                              "description",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Entity purpose"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-mono text-[13px] font-bold text-ink">
+                            {entity.name}
                           </p>
-                        ),
-                      )}
-                    </div>
-
-                    {entity.fields.length === 0 && (
-                      <div className="px-4 py-6 text-center">
-                        <p
-                          className="text-sm"
-                          style={{ ...INTER, color: MUTED }}
-                        >
-                          No fields yet. Add one above.
+                          <span className="text-[10px] text-ink-muted">
+                            {entity.fields.length} fields
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-ink-muted">
+                          {entity.description}
                         </p>
                       </div>
                     )}
 
-                    {entity.fields.map((field, fieldIndex) => (
-                      <div
-                        key={fieldIndex}
-                        className="grid grid-cols-1 md:grid-cols-[2fr_1.2fr_1fr_1fr_auto] gap-3 px-4 py-3.5 border-b last:border-b-0 items-center"
-                        style={{ borderColor: BORDER }}
-                      >
-                        <input
-                          value={field.name}
-                          onChange={(e) =>
-                            updateField(entityIndex, fieldIndex, {
-                              name: e.target.value,
-                            })
-                          }
-                          className="bg-transparent text-sm font-semibold text-white outline-none"
-                          style={INTER}
-                          placeholder="field_name"
-                        />
-
-                        <select
-                          value={field.type}
-                          onChange={(e) =>
-                            updateField(entityIndex, fieldIndex, {
-                              type: e.target.value as DatabaseFieldType,
-                            })
-                          }
-                          className="border px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] outline-none w-fit"
-                          style={{
-                            ...MONO,
-                            borderColor: BORDER,
-                            color: TYPE_COLORS[field.type],
-                            backgroundColor: INNER_BG,
-                          }}
-                        >
-                          {FIELD_TYPES.map((type) => (
-                            <option
-                              key={type}
-                              value={type}
-                              style={{
-                                backgroundColor: INNER_BG,
-                                color: "#fff",
-                              }}
-                            >
-                              {type}
-                            </option>
-                          ))}
-                        </select>
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={field.required}
-                            onChange={(e) =>
-                              updateField(entityIndex, fieldIndex, {
-                                required: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <span
-                            className="h-2.5 w-2.5 rounded-full transition-colors"
-                            style={{
-                              backgroundColor: field.required ? ACCENT : BORDER,
-                            }}
-                          />
-                          <span
-                            className="text-[10px] uppercase tracking-[0.1em]"
-                            style={{ ...MONO, color: MUTED }}
-                          >
-                            req
-                          </span>
-                        </label>
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(field.unique)}
-                            onChange={(e) =>
-                              updateField(entityIndex, fieldIndex, {
-                                unique: e.target.checked,
-                              })
-                            }
-                            className="sr-only peer"
-                          />
-                          <Check
-                            size={14}
-                            style={{
-                              color: field.unique ? "#22c55e" : "#3a3a3a",
-                            }}
-                          />
-                        </label>
-
-                        <button
-                          onClick={() => removeField(entityIndex, fieldIndex)}
-                          className="justify-self-end p-1.5 transition hover:text-red-400"
-                          style={{ color: MUTED }}
-                          aria-label="Remove field"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))}
-
-                    <button
-                      onClick={() => addField(entityIndex)}
-                      className="w-full border-t py-3 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:text-white"
-                      style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                    >
-                      + Add Field to {entity.name || "Entity"}
-                    </button>
-                  </div>
-
-                  {/* Relationships + Indexes for this entity */}
-                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {/* Relationships panel */}
-                    <div
-                      className="border p-5"
-                      style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-                    >
-                      <p
-                        className="mb-4 text-[10px] font-bold uppercase tracking-[0.18em]"
-                        style={{ ...MONO, color: MUTED }}
-                      >
-                        Relationships
-                      </p>
-                      {entityRelationships.length === 0 ? (
-                        <p
-                          className="text-sm"
-                          style={{ ...INTER, color: MUTED }}
-                        >
-                          No relationships yet.
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-4">
-                          {entityRelationships.map((relation, i) => {
-                            const otherEntity =
-                              relation.from === entity.name
-                                ? relation.to
-                                : relation.from;
-                            const relLabel =
-                              relation.type === "one-to-many"
-                                ? "Has Many"
-                                : relation.type === "one-to-one"
-                                  ? "Has One"
-                                  : "Many To Many";
-                            const globalIndex =
-                              schema.relationships.indexOf(relation);
-                            return (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between gap-2"
-                              >
-                                <div>
-                                  <p
-                                    className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1"
-                                    style={{ ...MONO, color: MUTED }}
-                                  >
-                                    {relLabel}
-                                  </p>
-                                  <p
-                                    className="text-sm font-bold uppercase tracking-[0.02em]"
-                                    style={{ ...INTER_TIGHT, color: ACCENT }}
-                                  >
-                                    {otherEntity || "—"}
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={() =>
-                                    removeRelationship(globalIndex)
-                                  }
-                                  style={{ color: MUTED }}
-                                  className="hover:text-red-400 transition"
-                                >
-                                  <Link2 size={18} />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                    <div className="mt-4 grid grid-cols-[minmax(0,1fr)_60px_40px_34px] gap-2 border-b border-line pb-1 font-mono text-[9px] text-ink-muted">
+                      <span>FIELD</span>
+                      <span>TYPE</span>
+                      <span>KEY</span>
+                      <span>REQ</span>
                     </div>
 
-                    {/* Indexes panel */}
-                    <div
-                      className="border p-5"
-                      style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-                    >
-                      <p
-                        className="mb-4 text-[10px] font-bold uppercase tracking-[0.18em]"
-                        style={{ ...MONO, color: MUTED }}
-                      >
-                        Indexes
-                      </p>
-                      {entityIndexes.length === 0 ? (
-                        <p
-                          className="text-sm"
-                          style={{ ...INTER, color: MUTED }}
-                        >
-                          No indexes yet.
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-3">
-                          {entityIndexes.map((idx, i) => {
-                            const globalIndex = (schema.indexes ?? []).indexOf(
-                              idx,
-                            );
-                            return (
-                              <div key={i} className="flex items-center gap-3">
-                                <span
-                                  className="flex h-6 w-7 shrink-0 items-center justify-center text-[9px] font-bold uppercase"
-                                  style={{
-                                    ...MONO,
-                                    border: `1px solid ${BORDER}`,
-                                    color: idx.unique ? "#22c55e" : MUTED,
-                                  }}
-                                >
-                                  {idx.unique ? "UX" : "IX"}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <p
-                                    className="text-[11px] font-bold uppercase tracking-[0.08em] text-white truncate"
-                                    style={MONO}
-                                  >
-                                    {idx.unique
-                                      ? `UNIQUE_${(idx.fields[0] || "").toUpperCase()}`
-                                      : `IDX_${(idx.fields[0] || "").toUpperCase()}`}
-                                  </p>
-                                  <p
-                                    className="text-[10px]"
-                                    style={{ ...MONO, color: MUTED }}
-                                  >
-                                    ({idx.fields.join(", ") || "—"})
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={() => removeIndex(globalIndex)}
-                                  style={{ color: MUTED }}
-                                  className="hover:text-red-400 transition shrink-0"
-                                >
-                                  <X size={18} />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Global relationship builder */}
-          <motion.div variants={fadeUp(5)} className="mb-12">
-            <div className="mb-4 flex items-center justify-between">
-              <h2
-                className="flex items-center gap-2 text-xl font-bold text-white"
-                style={INTER_TIGHT}
-              >
-                <Link2 size={16} style={{ color: ACCENT }} />
-                Manage Relationships
-              </h2>
-              <button
-                onClick={addRelationship}
-                disabled={entityNames.length === 0}
-                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
-                style={{
-                  ...MONO,
-                  borderColor: ACCENT,
-                  color: ACCENT,
-                  backgroundColor: `${ACCENT}12`,
-                }}
-              >
-                <Plus size={12} />
-                Add Relationship
-              </button>
-            </div>
-
-            <div
-              className="border p-3 flex flex-col gap-2"
-              style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-            >
-              {schema.relationships.length === 0 && (
-                <p
-                  className="px-2 py-2 text-sm"
-                  style={{ ...INTER, color: MUTED }}
-                >
-                  No relationships yet.
-                </p>
-              )}
-
-              {schema.relationships.map((relation, index) => (
-                <div
-                  key={`${relation.from}-${relation.to}-${index}`}
-                  className="border p-3"
-                  style={{ borderColor: BORDER }}
-                >
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                    <select
-                      value={relation.from}
-                      onChange={(e) =>
-                        updateRelationship(index, { from: e.target.value })
-                      }
-                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
-                      style={{
-                        borderColor: BORDER,
-                        color: "#fff",
-                        backgroundColor: BG,
-                        ...INTER,
-                      }}
-                    >
-                      {entityNames.map((name) => (
-                        <option key={`from-${name}`} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={relation.type}
-                      onChange={(e) =>
-                        updateRelationship(index, {
-                          type: e.target.value as RelationType,
-                        })
-                      }
-                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
-                      style={{
-                        borderColor: BORDER,
-                        color: "#60a5fa",
-                        backgroundColor: BG,
-                        ...MONO,
-                      }}
-                    >
-                      {RELATION_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={relation.to}
-                      onChange={(e) =>
-                        updateRelationship(index, { to: e.target.value })
-                      }
-                      className="md:col-span-3 border px-2 py-1.5 text-xs outline-none"
-                      style={{
-                        borderColor: BORDER,
-                        color: "#fff",
-                        backgroundColor: BG,
-                        ...INTER,
-                      }}
-                    >
-                      {entityNames.map((name) => (
-                        <option key={`to-${name}`} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      onClick={() => removeRelationship(index)}
-                      className="md:col-span-3 border px-2 py-1.5 text-xs transition hover:text-red-400"
-                      style={{ borderColor: BORDER, color: MUTED, ...MONO }}
-                    >
-                      Remove
-                    </button>
-
-                    <input
-                      value={relation.description ?? ""}
-                      onChange={(e) =>
-                        updateRelationship(index, {
-                          description: e.target.value,
-                        })
-                      }
-                      className="md:col-span-12 border px-2 py-1.5 text-xs outline-none text-white"
-                      style={{
-                        borderColor: BORDER,
-                        backgroundColor: BG,
-                        ...INTER,
-                      }}
-                      placeholder="Relationship description"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Global index builder */}
-          <motion.div variants={fadeUp(6)} className="mb-12">
-            <div className="mb-4 flex items-center justify-between">
-              <button
-                onClick={() => setIndexExpanded((current) => !current)}
-                className="flex cursor-pointer items-center gap-2 text-xl font-bold text-white"
-                style={INTER_TIGHT}
-              >
-                {indexExpanded ? (
-                  <ChevronDown size={16} style={{ color: ACCENT }} />
-                ) : (
-                  <ChevronRight size={16} style={{ color: ACCENT }} />
-                )}
-                <Rows3 size={16} style={{ color: ACCENT }} />
-                Manage Indexes
-              </button>
-              <button
-                onClick={addIndex}
-                disabled={entityNames.length === 0}
-                className="flex cursor-pointer items-center gap-1.5 border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-40"
-                style={{
-                  ...MONO,
-                  borderColor: ACCENT,
-                  color: ACCENT,
-                  backgroundColor: `${ACCENT}12`,
-                }}
-              >
-                <Plus size={12} />
-                Add Index
-              </button>
-            </div>
-
-            {indexExpanded && (
-              <div
-                className="border p-3 flex flex-col gap-2"
-                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-              >
-                {(schema.indexes ?? []).length === 0 && (
-                  <p
-                    className="px-2 py-2 text-sm"
-                    style={{ ...INTER, color: MUTED }}
-                  >
-                    No indexes yet.
-                  </p>
-                )}
-
-                {(schema.indexes ?? []).map((item, index) => {
-                  const selectedEntity = schema.entities.find(
-                    (entity) => entity.name === item.entity,
-                  );
-
-                  return (
-                    <div
-                      key={`${item.entity}-${index}`}
-                      className="border p-3"
-                      style={{ borderColor: BORDER }}
-                    >
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
-                        <select
-                          value={item.entity}
-                          onChange={(e) =>
-                            updateIndex(index, {
-                              entity: e.target.value,
-                              fields: [],
-                            })
-                          }
-                          className="md:col-span-4 border px-2 py-1.5 text-xs outline-none"
-                          style={{
-                            borderColor: BORDER,
-                            color: "#fff",
-                            backgroundColor: BG,
-                            ...INTER,
-                          }}
-                        >
-                          {entityNames.map((name) => (
-                            <option key={`index-entity-${name}`} value={name}>
-                              {name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <select
-                          value={item.fields[0] ?? ""}
-                          onChange={(e) =>
-                            updateIndex(index, {
-                              fields: e.target.value ? [e.target.value] : [],
-                            })
-                          }
-                          className="md:col-span-4 border px-2 py-1.5 text-xs outline-none"
-                          style={{
-                            borderColor: BORDER,
-                            color: "#fff",
-                            backgroundColor: BG,
-                            ...INTER,
-                          }}
-                        >
-                          <option value="">Select field</option>
-                          {(selectedEntity?.fields ?? []).map((field) => (
-                            <option
-                              key={`index-field-${field.name}`}
-                              value={field.name}
-                            >
-                              {field.name}
-                            </option>
-                          ))}
-                        </select>
-
-                        <label
-                          className="md:col-span-2 flex items-center gap-2 border px-2 py-1.5 text-[11px]"
-                          style={{ borderColor: BORDER, color: MUTED }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={Boolean(item.unique)}
-                            onChange={(e) =>
-                              updateIndex(index, { unique: e.target.checked })
-                            }
-                          />
-                          unique
-                        </label>
-
-                        <button
-                          onClick={() => removeIndex(index)}
-                          className="md:col-span-2 border px-2 py-1.5 text-xs transition hover:text-red-400"
-                          style={{ borderColor: BORDER, color: MUTED, ...MONO }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Backend contract note */}
-          <motion.div
-            variants={fadeUp(7)}
-            className="border border-dashed p-5"
-            style={{ borderColor: BORDER }}
-          >
-            <div
-              className="flex items-center gap-2 mb-2"
-              style={{ color: ACCENT }}
-            >
-              <Sparkles size={13} />
-              <p
-                className="text-[10px] uppercase tracking-[0.2em]"
-                style={MONO}
-              >
-                Backend Contract
-              </p>
-            </div>
-            <p
-              className="text-xs leading-relaxed"
-              style={{ ...INTER, color: MUTED }}
-            >
-              Frontend data shape matches backend contract: entities,
-              relationships, and indexes, with field types restricted to uuid,
-              string, text, integer, boolean, datetime, float, and json.
-            </p>
-          </motion.div>
-
-          {/* ── Manual Schema Builder Overview ── */}
-          <motion.div
-            variants={fadeUp(8)}
-            className="mt-10 border p-6"
-            style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-          >
-            <h2
-              className="text-2xl font-bold text-white mb-2"
-              style={INTER_TIGHT}
-            >
-              Manual Schema Builder
-            </h2>
-            <p
-              className="text-sm leading-relaxed max-w-2xl mb-6"
-              style={{ ...INTER, color: MUTED }}
-            >
-              Start with singular entities, add their columns, connect entities
-              with relationships, and finish by adding indexes for frequently
-              queried fields.
-            </p>
-
-            <div
-              className="grid grid-cols-1 gap-px sm:grid-cols-3"
-              style={{ backgroundColor: BORDER }}
-            >
-              {[
-                { label: "Entities", value: schemaOverview.entities },
-                { label: "Relations", value: schemaOverview.relationships },
-                { label: "Indexes", value: schemaOverview.indexes },
-              ].map((stat) => (
-                <div
-                  key={stat.label}
-                  className="p-4"
-                  style={{ backgroundColor: INNER_BG }}
-                >
-                  <p
-                    className="text-2xl font-black text-white"
-                    style={INTER_TIGHT}
-                  >
-                    {stat.value}
-                  </p>
-                  <p
-                    className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em]"
-                    style={{ ...MONO, color: MUTED }}
-                  >
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </motion.div>
-      </div>
-
-      <AIRightSidebar
-        isOpen={aiOpen}
-        onOpenChange={setAiOpen}
-        onApplySuggestion={handleAISuggestion}
-      />
-
-      {/* Preview modal */}
-      <AnimatePresence>
-        {previewData && (
-          <>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleRejectPreview}
-              className="fixed inset-0 z-40 bg-black/60"
-              aria-label="Close preview modal"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto border p-6 no-scrollbar"
-              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <p
-                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
-                  style={INTER_TIGHT}
-                >
-                  Preview Generated Database Schema
-                </p>
-                <button
-                  onClick={handleRejectPreview}
-                  className="p-1 transition hover:text-white"
-                  style={{ color: MUTED }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {(previewData.entities || []).length > 0 && (
-                  <div>
-                    <p
-                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
-                      style={{ ...MONO, color: MUTED }}
-                    >
-                      Entities
-                    </p>
-                    <div className="space-y-2">
-                      {previewData.entities.map((entity, idx) => (
-                        <div
-                          key={idx}
-                          className="border p-3"
-                          style={{
-                            borderColor: BORDER,
-                            backgroundColor: INNER_BG,
-                          }}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <p
-                              className="font-semibold text-white"
-                              style={INTER}
-                            >
-                              {entity.name}
-                            </p>
-                            <p className="text-xs" style={{ color: MUTED }}>
-                              {entity.description}
-                            </p>
-                          </div>
+                    <div className="divide-y divide-line">
+                      {entity.fields.map((field, fieldIndex) =>
+                        isEditing ? (
                           <div
-                            className="text-xs space-y-1"
-                            style={{ color: MUTED }}
+                            key={`${field.name}-${fieldIndex}`}
+                            className="space-y-2 py-2"
                           >
-                            {entity.fields.map((f, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center justify-between"
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={field.name}
+                                onChange={(event) =>
+                                  updateField(entityIndex, fieldIndex, {
+                                    name: event.target.value,
+                                  })
+                                }
+                                className="font-mono"
+                              />
+                              <select
+                                value={field.type}
+                                onChange={(event) =>
+                                  updateField(entityIndex, fieldIndex, {
+                                    type: event.target.value,
+                                  })
+                                }
+                                className="h-10 rounded-lg border border-line bg-surface px-2 font-mono text-[11px] text-ink outline-none focus:border-brand"
                               >
-                                <div className="text-white">
-                                  {f.name}{" "}
-                                  <span style={{ color: MUTED }}>
-                                    · {f.type}
-                                    {f.required ? " · required" : ""}
-                                  </span>
-                                </div>
-                                <div>{f.unique ? "unique" : ""}</div>
-                              </div>
-                            ))}
+                                {FIELD_TYPES.map((type) => (
+                                  <option key={type} value={type}>
+                                    {type}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  removeField(entityIndex, fieldIndex)
+                                }
+                                aria-label="Remove field"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </div>
+                            <div className="flex items-center gap-4 text-[11px] text-ink-soft">
+                              <label className="flex items-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={field.required}
+                                  onChange={(event) =>
+                                    updateField(entityIndex, fieldIndex, {
+                                      required: event.target.checked,
+                                    })
+                                  }
+                                  className="h-3.5 w-3.5 accent-brand"
+                                />
+                                Required
+                              </label>
+                              <label className="flex items-center gap-1.5">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(field.unique)}
+                                  onChange={(event) =>
+                                    updateField(entityIndex, fieldIndex, {
+                                      unique: event.target.checked,
+                                    })
+                                  }
+                                  className="h-3.5 w-3.5 accent-brand"
+                                />
+                                Unique
+                              </label>
+                            </div>
+                            <Input
+                              value={field.description ?? ""}
+                              onChange={(event) =>
+                                updateField(entityIndex, fieldIndex, {
+                                  description: event.target.value,
+                                })
+                              }
+                              placeholder="Field description"
+                            />
                           </div>
+                        ) : (
+                          <div
+                            key={`${field.name}-${fieldIndex}`}
+                            className="grid grid-cols-[minmax(0,1fr)_60px_40px_34px] items-start gap-2 py-1.5"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-mono text-[11px] text-ink">
+                                {field.name}
+                              </p>
+                              {field.description ? (
+                                <p className="mt-0.5 line-clamp-1 text-[10px] text-ink-muted">
+                                  {field.description}
+                                </p>
+                              ) : null}
+                            </div>
+                            <span className="pt-0.5 font-mono text-[10px] text-ink-muted">
+                              {field.type}
+                            </span>
+                            <span className="pt-0.5 font-mono text-[9px] text-brand">
+                              {fieldKey(field)}
+                            </span>
+                            <span
+                              className="pt-0.5 font-mono text-[9px] text-ink-muted"
+                              title={field.required ? "Not null" : "Nullable"}
+                            >
+                              {field.required ? "NN" : "—"}
+                            </span>
+                          </div>
+                        ),
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<Plus size={13} />}
+                        onClick={() => addField(entityIndex)}
+                        className="mt-2"
+                      >
+                        Add field
+                      </Button>
+                    ) : constraints ? (
+                      <p className="mt-3 border-t border-line pt-2 text-[10px] text-ink-muted">
+                        {constraints}
+                      </p>
+                    ) : null}
+                  </Card>
+                );
+              })}
+
+              {isEditing ? (
+                <Button
+                  variant="secondary"
+                  leftIcon={<Plus size={15} />}
+                  onClick={addEntity}
+                  className="h-full min-h-[120px]"
+                >
+                  Add entity
+                </Button>
+              ) : null}
+              </div>
+
+              {displayed.relationships.length > 0 ? (
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-[14px] font-semibold text-ink">
+                        Relationships
+                      </h2>
+                      <span className="font-mono text-[11px] text-ink-muted">
+                        {displayed.relationships.length}
+                      </span>
+                    </div>
+                    <div className="mt-4 divide-y divide-line">
+                      {displayed.relationships.map((relation, index) => (
+                        <div
+                          key={`${relation.from}-${relation.to}-${index}`}
+                          className="flex flex-wrap items-center gap-3 py-2.5 first:pt-0 last:pb-0"
+                        >
+                          <span className="font-mono text-[11px] text-ink">
+                            {relation.from}
+                          </span>
+                          <ArrowRight size={14} className="text-ink-muted" />
+                          <span className="font-mono text-[11px] text-ink">
+                            {relation.to}
+                          </span>
+                          <Badge tone="neutral">{relation.type}</Badge>
+                          {relation.description ? (
+                            <span className="text-[11px] text-ink-muted">
+                              {relation.description}
+                            </span>
+                          ) : null}
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  </CardContent>
+                </Card>
+              ) : null}
 
-                {(previewData.relationships || []).length > 0 && (
-                  <div>
-                    <p
-                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
-                      style={{ ...MONO, color: MUTED }}
-                    >
-                      Relationships
-                    </p>
-                    <div className="space-y-2">
-                      {previewData.relationships.map((r, i) => (
+              {displayed.indexes && displayed.indexes.length > 0 ? (
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-[14px] font-semibold text-ink">
+                        Indexes
+                      </h2>
+                      <span className="font-mono text-[11px] text-ink-muted">
+                        {displayed.indexes.length}
+                      </span>
+                    </div>
+                    <div className="mt-4 divide-y divide-line">
+                      {displayed.indexes.map((index, itemIndex) => (
                         <div
-                          key={i}
-                          className="border p-3"
-                          style={{
-                            borderColor: BORDER,
-                            backgroundColor: INNER_BG,
-                          }}
+                          key={`${index.entity}-${itemIndex}`}
+                          className="flex flex-wrap items-center gap-3 py-2.5 first:pt-0 last:pb-0"
                         >
-                          <p className="text-sm text-white" style={INTER}>
-                            {r.from} → {r.to} ({r.type})
-                          </p>
-                          {r.description && (
-                            <p className="text-xs" style={{ color: MUTED }}>
-                              {r.description}
-                            </p>
+                          <span className="font-mono text-[11px] text-ink">
+                            {index.entity}
+                          </span>
+                          <span className="font-mono text-[10px] text-ink-muted">
+                            {index.fields.join(", ")}
+                          </span>
+                          {index.unique ? (
+                            <Badge tone="brand">Unique</Badge>
+                          ) : (
+                            <Badge tone="neutral">Index</Badge>
                           )}
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {(previewData.indexes ?? []).length > 0 && (
-                  <div>
-                    <p
-                      className="mb-3 text-[10px] font-bold uppercase tracking-[0.14em]"
-                      style={{ ...MONO, color: MUTED }}
-                    >
-                      Indexes
-                    </p>
-                    <div className="space-y-2">
-                      {(previewData.indexes ?? []).map((idx, i) => (
-                        <div
-                          key={i}
-                          className="border p-3 text-sm text-white"
-                          style={{
-                            borderColor: BORDER,
-                            backgroundColor: INNER_BG,
-                            ...INTER,
-                          }}
-                        >
-                          {idx.entity} · {idx.fields.join(", ")}
-                          {idx.unique ? " · unique" : ""}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div
-                className="mt-6 flex justify-end gap-3 border-t pt-6"
-                style={{ borderColor: BORDER }}
-              >
-                <button
-                  onClick={handleRegenerate}
-                  disabled={loading}
-                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition disabled:opacity-50"
-                  style={{
-                    ...MONO,
-                    borderColor: "#60a5fa55",
-                    color: "#60a5fa",
-                    backgroundColor: "#60a5fa12",
-                  }}
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Copy size={14} />}
+                  onClick={() => void copySql()}
                 >
-                  Regenerate
-                </button>
-                <button
-                  onClick={handleRejectPreview}
-                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
-                  style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={handleAcceptPreview}
-                  className="border px-6 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition"
-                  style={{
-                    ...MONO,
-                    borderColor: "#22c55e55",
-                    color: "#22c55e",
-                    backgroundColor: "#22c55e12",
-                  }}
-                >
-                  Accept
-                </button>
+                  {copied ? "Copied" : "Copy SQL"}
+                </Button>
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <pre className="overflow-x-auto rounded-lg border border-line bg-surface p-4 font-mono text-[11px] leading-relaxed text-ink-soft">
+                {buildSql(displayed) || "No SQL generated yet."}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Add Entity Modal */}
-      <AnimatePresence>
-        {addEntityModalOpen && (
-          <>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setAddEntityModalOpen(false)}
-              className="fixed inset-0 z-40 bg-black/60"
-              aria-label="Close modal backdrop"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
-              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
-            >
-              <div className="mb-5 flex items-center justify-between">
-                <p
-                  className="text-lg font-bold uppercase tracking-[0.06em] text-white"
-                  style={INTER_TIGHT}
-                >
-                  Add New Entity
-                </p>
-                <button
-                  onClick={() => setAddEntityModalOpen(false)}
-                  className="p-1 transition hover:text-white"
-                  style={{ color: MUTED }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <form onSubmit={submitNewEntity} className="space-y-4">
-                <div>
-                  <p
-                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
-                    style={{ ...MONO, color: MUTED }}
-                  >
-                    Entity Name
-                  </p>
-                  <input
-                    value={newEntityName}
-                    onChange={(e) => setNewEntityName(e.target.value)}
-                    placeholder="e.g. User, Product, Order"
-                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
-                    style={{
-                      borderColor: BORDER,
-                      backgroundColor: INNER_BG,
-                      ...INTER,
-                    }}
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <p
-                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
-                    style={{ ...MONO, color: MUTED }}
-                  >
-                    Description
-                  </p>
-                  <textarea
-                    value={newEntityDescription}
-                    onChange={(e) => setNewEntityDescription(e.target.value)}
-                    rows={3}
-                    placeholder="Describe what this entity represents..."
-                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
-                    style={{
-                      borderColor: BORDER,
-                      backgroundColor: INNER_BG,
-                      ...INTER,
-                    }}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setAddEntityModalOpen(false)}
-                    className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white"
-                    style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80"
-                    style={{
-                      ...MONO,
-                      borderColor: ACCENT,
-                      color: ACCENT,
-                      backgroundColor: `${ACCENT}12`,
-                    }}
-                  >
-                    Add Entity
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-      {/* Add Field Modal */}
-      <AnimatePresence>
-        {addFieldEntityIndex !== null && (
-          <>
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setAddFieldEntityIndex(null)}
-              className="fixed inset-0 z-40 bg-black/60"
-              aria-label="Close modal backdrop"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.98 }}
-              transition={{ duration: 0.22, ease: EASE }}
-              className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6"
-              style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
-            >
-              <div className="mb-5 flex items-center justify-between">
-                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>
-                  Add New Field
-                </p>
-                <button
-                  onClick={() => setAddFieldEntityIndex(null)}
-                  className="p-1 transition hover:text-white"
-                  style={{ color: MUTED }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <form onSubmit={submitNewField} className="space-y-4">
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Field Name</p>
-                  <input
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.target.value)}
-                    placeholder="e.g. user_id, price"
-                    className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30"
-                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }}
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Field Type</p>
-                  <select
-                    value={newFieldType}
-                    onChange={(e) => setNewFieldType(e.target.value as DatabaseFieldType)}
-                    className="w-full border px-4 py-3 text-base text-white outline-none"
-                    style={{ borderColor: BORDER, backgroundColor: INNER_BG, ...INTER }}
-                  >
-                    {["uuid", "string", "text", "integer", "boolean", "datetime", "float", "json"].map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
-                    <input type="checkbox" checked={newFieldRequired} onChange={(e) => setNewFieldRequired(e.target.checked)} />
-                    Required
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
-                    <input type="checkbox" checked={newFieldUnique} onChange={(e) => setNewFieldUnique(e.target.checked)} />
-                    Unique
-                  </label>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setAddFieldEntityIndex(null)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
-                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Field</button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Add Relationship Modal */}
-      <AnimatePresence>
-        {addRelModalOpen && (
-          <>
-            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddRelModalOpen(false)} className="fixed inset-0 z-40 bg-black/60" />
-            <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }} className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6" style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}>
-              <div className="mb-5 flex items-center justify-between">
-                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>Add Relationship</p>
-                <button onClick={() => setAddRelModalOpen(false)} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
-              </div>
-              <form onSubmit={submitNewRelationship} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>From</p>
-                    <select value={newRelFrom} onChange={(e) => setNewRelFrom(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
-                      {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>To</p>
-                    <select value={newRelTo} onChange={(e) => setNewRelTo(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
-                      {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Type</p>
-                  <select value={newRelType} onChange={(e) => setNewRelType(e.target.value as RelationType)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
-                    {RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Description</p>
-                  <input value={newRelDesc} onChange={(e) => setNewRelDesc(e.target.value)} placeholder="e.g. Users have many posts" className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30" style={{ borderColor: BORDER, backgroundColor: INNER_BG }} />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setAddRelModalOpen(false)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
-                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Relationship</button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Add Index Modal */}
-      <AnimatePresence>
-        {addIndexModalOpen && (
-          <>
-            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setAddIndexModalOpen(false)} className="fixed inset-0 z-40 bg-black/60" />
-            <motion.div initial={{ opacity: 0, y: 20, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.98 }} transition={{ duration: 0.22, ease: EASE }} className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 border p-6" style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}>
-              <div className="mb-5 flex items-center justify-between">
-                <p className="text-lg font-bold uppercase tracking-[0.06em] text-white" style={INTER_TIGHT}>Add Index</p>
-                <button onClick={() => setAddIndexModalOpen(false)} className="p-1 transition hover:text-white" style={{ color: MUTED }}><X size={16} /></button>
-              </div>
-              <form onSubmit={submitNewIndex} className="space-y-4">
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Entity</p>
-                  <select value={newIndexEntity} onChange={(e) => setNewIndexEntity(e.target.value)} className="w-full border px-4 py-3 text-base text-white outline-none" style={{ borderColor: BORDER, backgroundColor: INNER_BG }}>
-                    {entityNames.map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ ...MONO, color: MUTED }}>Fields (comma separated)</p>
-                  <input value={newIndexFields} onChange={(e) => setNewIndexFields(e.target.value)} placeholder="e.g. email, user_id" className="w-full border px-4 py-3 text-base text-white outline-none placeholder:text-white/30" style={{ borderColor: BORDER, backgroundColor: INNER_BG }} autoFocus />
-                </div>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2 text-sm text-white cursor-pointer" style={INTER}>
-                    <input type="checkbox" checked={newIndexUnique} onChange={(e) => setNewIndexUnique(e.target.checked)} />
-                    Unique Index
-                  </label>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setAddIndexModalOpen(false)} className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:text-white cursor-pointer" style={{ ...MONO, borderColor: BORDER, color: MUTED }}>Cancel</button>
-                  <button type="submit" className="border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] transition hover:opacity-80 cursor-pointer" style={{ ...MONO, borderColor: ACCENT, color: ACCENT, backgroundColor: `${ACCENT}12` }}>Add Index</button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <StickyApprovalBar
+        statusLabel={statusLabel}
+        nextLabel={nextLabel}
+        onRegenerate={() => void queueGeneration(true)}
+        onEdit={handleEdit}
+        onApprove={() => void handleApprove()}
+        onCancel={handleCancel}
+        regenerating={generating || jobActive}
+        saving={saving}
+        canApprove={dirty}
+        editing={isEditing}
+      />
     </div>
   );
 }

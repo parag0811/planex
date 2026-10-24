@@ -22,7 +22,7 @@ export const createProject = async (
     const { name } = req.body;
     const userId = String(req.user!.id);
 
-    await prisma.project.create({
+    const project = await prisma.project.create({
       data: {
         name: name,
         owner: {
@@ -31,7 +31,10 @@ export const createProject = async (
       },
     });
 
-    return res.status(201).json({ message: "Project created successfully." });
+    return res.status(201).json({
+      message: "Project created successfully.",
+      data: project,
+    });
   } catch (error) {
     next(error);
   }
@@ -64,12 +67,37 @@ export const getProjects = async (
             avatarUrl: true,
           },
         },
+        projectSections: {
+          select: {
+            type: true,
+            content: true,
+          },
+        },
       },
+    });
+
+    // A section only exists once its preview has been accepted, so the number
+    // of sections is also the number of approved blueprint stages.
+    const data = projects.map(({ projectSections, ...project }) => {
+      const idea = projectSections.find((section) => section.type === "IDEA");
+      const content = idea?.content as Record<string, unknown> | null | undefined;
+      const candidate = content?.raw_idea ?? content?.overview;
+      const summary =
+        typeof candidate === "string"
+          ? candidate.trim().slice(0, 180)
+          : null;
+
+      return {
+        ...project,
+        summary,
+        approvedStages: projectSections.length,
+        sections: projectSections.map((section) => section.type),
+      };
     });
 
     return res.status(200).json({
       message: "Project fetched successfully.",
-      data: projects,
+      data,
     });
   } catch (error) {
     next(error);
@@ -107,6 +135,12 @@ export const getProjectById = async (
             },
           },
         },
+        projectSections: {
+          select: {
+            type: true,
+            updatedAt: true,
+          },
+        },
       },
     });
 
@@ -130,12 +164,17 @@ export const getProjectById = async (
       inviteLink = `${frontendBaseUrl}/invite/${slug}/${project.inviteToken}`;
     }
 
-    const { inviteToken, inviteTokenExpiry, ...projectData } = project;
+    const { inviteToken, inviteTokenExpiry, projectSections, ...projectData } =
+      project;
     const isOwner = project.owner_id === userId;
 
     return res.status(200).json({
       message: "Project loaded.",
-      project: projectData,
+      project: {
+        ...projectData,
+        sections: projectSections.map((section) => section.type),
+        approvedStages: projectSections.length,
+      },
       inviteLink: isOwner ? inviteLink : null,
     });
   } catch (error) {

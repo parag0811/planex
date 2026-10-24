@@ -13,7 +13,13 @@ export const useRedirectIfAuthenticated = () => {
 
   useEffect(() => {
     if (!authCheckLoading && isAuth) {
-      router.replace("/projects");
+      const next =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("next")
+          : null;
+      const destination =
+        next && next.startsWith("/") ? next : "/projects";
+      router.replace(destination);
     }
   }, [authCheckLoading, isAuth, router]);
 

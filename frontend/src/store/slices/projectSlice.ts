@@ -19,6 +19,16 @@ export interface Project {
   id: string;
   name: string;
   owner_id?: string;
+  createdAt?: string;
+  summary?: string | null;
+  approvedStages?: number;
+  sections?: string[];
+  owner?: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    avatarUrl?: string | null;
+  } | null;
   members?: Array<{
     id: string;
     user_id: string;
@@ -117,9 +127,9 @@ export const createProject = createAsyncThunk(
   "project/createProject",
   async (data: { name: string }, { dispatch, rejectWithValue }) => {
     try {
-      await axiosInstance.post("/projects/create-project", data);
+      const res = await axiosInstance.post("/projects/create-project", data);
       await dispatch(fetchProjects()).unwrap();
-      return true;
+      return (res.data.data ?? null) as Project | null;
     } catch (error: any) {
       return rejectWithValue(
         getErrorMessage(error, "Failed to create project"),

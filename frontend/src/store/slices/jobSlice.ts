@@ -35,6 +35,7 @@ interface GenerateIdeaParams {
 
 interface GenerateSectionParams {
   projectId: string;
+  forceRegenerate?: boolean;
 }
 
 interface RegenerateSectionParams {
@@ -127,10 +128,11 @@ export const generateDatabase = createAsyncThunk(
   "job/generateDatabase",
   async (params: GenerateSectionParams, { rejectWithValue }) => {
     try {
-      const { projectId } = params;
+      const { projectId, forceRegenerate = false } = params;
 
       const res = await axiosInstance.post(
         `/projects/${projectId}/ai/generate-database`,
+        { forceRegenerate },
       );
 
       const jobId: string | undefined = res.data?.jobId;
@@ -162,9 +164,11 @@ export const generateApi = createAsyncThunk(
   "job/generateApi",
   async (params: GenerateSectionParams, { rejectWithValue }) => {
     try {
-      const { projectId } = params;
+      const { projectId, forceRegenerate = false } = params;
 
-      const res = await axiosInstance.post(`/projects/${projectId}/ai/generate-api`);
+      const res = await axiosInstance.post(`/projects/${projectId}/ai/generate-api`, {
+        forceRegenerate,
+      });
 
       const jobId: string | undefined = res.data?.jobId;
       const cachedData = res.data?.status === "cached" ? res.data?.data : undefined;
@@ -190,10 +194,11 @@ export const generateFolder = createAsyncThunk(
   "job/generateFolder",
   async (params: GenerateSectionParams, { rejectWithValue }) => {
     try {
-      const { projectId } = params;
+      const { projectId, forceRegenerate = false } = params;
 
       const res = await axiosInstance.post(
         `/projects/${projectId}/ai/generate-folders`,
+        { forceRegenerate },
       );
 
       const jobId: string | undefined = res.data?.jobId;

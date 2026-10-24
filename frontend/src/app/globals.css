@@ -1,67 +1,69 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f8f5;
+  --foreground: #202923;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/*
+ * Planex design tokens — extracted from the Figma variables
+ * ("Planex · Theme", "Planex · Dark Theme", "Planex · Spacing and shape").
+ * Values are the source of truth; keep names aligned with the design.
+ */
+@theme {
+  /* Light theme (default) */
+  --color-canvas: #f7f8f5;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f3ef;
+  --color-surface-inverse: #171d19;
+
+  --color-ink: #202923;
+  --color-ink-soft: #525e55;
+  --color-ink-muted: #727a73;
+
+  --color-line: #e2e6df;
+  --color-line-strong: #cfd6cc;
+
+  --color-brand: #245b43;
+  --color-brand-hover: #1d4a36;
+  --color-brand-soft: #eaf1eb;
+  --color-brand-contrast: #ffffff;
+
+  --color-danger: #af4a3d;
+  --color-danger-soft: #faeeea;
+  --color-success: #245b43;
+  --color-success-soft: #eaf1eb;
+  --color-warning: #916629;
+  --color-warning-soft: #f7f1e5;
+  --color-info: #436a8c;
+  --color-info-soft: #edf3f8;
+  --color-neutral: #a5ada5;
+
+  /* Shape: 4 / 6 / 8 / 12 / 99 */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 12px;
+
+  /* The design is intentionally flat: 1px borders, no card shadow. */
+  --shadow-card: 0 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-popover: 0 16px 40px -24px rgba(32, 41, 35, 0.28);
+
+  --font-display: var(--font-inter);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* Keep auth form inputs dark in all states, including browser autofill/focus overrides. */
-input.auth-input,
-textarea.auth-input {
-  background-color: transparent !important;
-  color: #ffffff !important;
-  caret-color: #ffffff;
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-input.auth-input:focus,
-input.auth-input:active,
-textarea.auth-input:focus,
-textarea.auth-input:active {
-  background-color: transparent !important;
-  color: #ffffff !important;
-}
-
-input.auth-input:-webkit-autofill,
-input.auth-input:-webkit-autofill:hover,
-input.auth-input:-webkit-autofill:focus,
-input.auth-input:-webkit-autofill:active,
-textarea.auth-input:-webkit-autofill,
-textarea.auth-input:-webkit-autofill:hover,
-textarea.auth-input:-webkit-autofill:focus,
-textarea.auth-input:-webkit-autofill:active {
-  -webkit-text-fill-color: #ffffff !important;
-  -webkit-box-shadow: 0 0 0 1000px #110d00 inset !important;
-  box-shadow: 0 0 0 1000px #110d00 inset !important;
-  caret-color: #ffffff;
-  transition: background-color 9999s ease-out 0s;
-}
-
-input.auth-input:-moz-autofill,
-textarea.auth-input:-moz-autofill {
-  box-shadow: 0 0 0 1000px #110d00 inset !important;
-  color: #ffffff !important;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 /* Hide scrollbar */
@@ -74,13 +76,12 @@ textarea.auth-input:-moz-autofill {
 }
 
 /* Ensure all clickable items have a pointer cursor */
-button, 
-a, 
-select, 
-input[type="submit"], 
-input[type="button"], 
-input[type="checkbox"], 
+button,
+a,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
 input[type="radio"] {
   cursor: pointer !important;
 }
-

@@ -142,8 +142,11 @@ const registerValidation = [
     .notEmpty()
     .withMessage("Password is required.")
     .bail()
-    .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters."),
+    .isLength({ min: 12 })
+    .withMessage("Password must be at least 12 characters.")
+    .bail()
+    .matches(/\d/)
+    .withMessage("Password must include at least one number."),
 ];
 
 const loginValidation = [

@@ -4,8 +4,21 @@ import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 import { usePathname, useRouter } from "next/navigation";
-import Header from "@/src/components/layout/Header";
-import FullPageLoader from "@/src/components/common/FullPageLoader";
+import { DashboardShell } from "@/src/components/layout/dashboard-shell";
+
+/** Routes under /projects that are pages, not project ids. */
+const STATIC_PROJECT_ROUTES = new Set(["create-project", "templates"]);
+
+function ShellLoader({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div
+        className="h-7 w-7 animate-spin rounded-full border-2 border-brand/20 border-t-brand"
+        aria-label={label}
+      />
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -17,9 +30,12 @@ export default function DashboardLayout({
   const { authCheckLoading, isAuth } = useSelector(
     (state: RootState) => state.auth,
   );
-  const isProjectDetailPage = /^\/projects\/[^/]+(?:\/.*)?$/.test(
-    pathname || "",
-  );
+
+  const segments = (pathname || "").split("/").filter(Boolean);
+  const isProjectDetailPage =
+    segments[0] === "projects" &&
+    segments.length >= 2 &&
+    !STATIC_PROJECT_ROUTES.has(segments[1] ?? "");
 
   useEffect(() => {
     if (authCheckLoading) return;
@@ -28,21 +44,19 @@ export default function DashboardLayout({
     }
   }, [authCheckLoading, isAuth, router]);
 
-  let content = children;
-  if (!isProjectDetailPage) {
-    if (authCheckLoading) {
-      content = <FullPageLoader />;
-    } else if (!isAuth) {
-      content = <FullPageLoader subtitle="Redirecting to login..." />;
-    }
+  if (isProjectDetailPage) {
+    return <div className="flex h-full w-full flex-col">{children}</div>;
   }
 
   return (
-    <>
-      {!isProjectDetailPage && <Header />}
-      <div className={isProjectDetailPage ? "h-full w-full flex flex-col" : "pt-14 min-h-screen flex flex-col"}>
-        {content}
-      </div>
-    </>
+    <DashboardShell>
+      {authCheckLoading ? (
+        <ShellLoader label="Restoring session" />
+      ) : !isAuth ? (
+        <ShellLoader label="Redirecting to login" />
+      ) : (
+        children
+      )}
+    </DashboardShell>
   );
 }
