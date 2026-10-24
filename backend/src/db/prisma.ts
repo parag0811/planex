@@ -82,7 +82,10 @@ const adapter = new PrismaPg({
 
 const prisma = new PrismaClient({
   adapter,
-  log: ["query"],
+  log:
+    process.env.NODE_ENV === "production"
+      ? ["warn", "error"]
+      : ["query", "warn", "error"],
 });
 
 export default prisma;

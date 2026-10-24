@@ -23,6 +23,7 @@ const createAppError = (message: string, status: number, data?: unknown) => {
 interface DatabasePipelineOptions extends DatabasePromptOptions {
   useCache?: boolean;
   cacheTtlSeconds?: number;
+  signal?: AbortSignal;
 }
 
 export const runDatabasePipeline = async (
@@ -69,6 +70,7 @@ export const runDatabasePipeline = async (
         ? { instruction: options.instruction }
         : {}),
     }),
+    options.signal ? { signal: options.signal } : {},
   );
 
   const validatedDatabaseSection = DatabaseSectionContentSchema.safeParse(

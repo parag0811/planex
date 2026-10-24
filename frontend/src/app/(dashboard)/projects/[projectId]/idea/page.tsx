@@ -39,9 +39,9 @@ import {
 import {
   clearJobState,
   generateIdea,
-  getJobStatusThunk,
   regenerateSection,
 } from "@/src/store/slices/jobSlice";
+import { useJobPolling } from "@/src/hooks/useJobPolling";
 import type { AppDispatch, RootState } from "@/src/store/store";
 import AIRightSidebar, {
   type ApplySuggestion,
@@ -322,7 +322,10 @@ export default function IdeaPage() {
   const sectionError =
     ideaSectionState?.fetch.error ?? ideaSectionState?.save.error ?? null;
   const error =
-    sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+    sectionError ??
+    (jobState.status === "failed" || jobState.status === "timed_out"
+      ? jobState.error
+      : null);
 
   const fetchIdea = useCallback(async () => {
     if (!resolvedProjectId) {
@@ -463,25 +466,11 @@ export default function IdeaPage() {
     }
   };
 
-  useEffect(() => {
-    if (!jobState.jobId) {
-      return;
-    }
-
-    if (jobState.status === "completed" || jobState.status === "failed") {
-      return;
-    }
-
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "idea" }));
-
-    const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "idea" }));
-    }, 2500);
-
-    return () => {
-      window.clearInterval(pollTimer);
-    };
-  }, [dispatch, jobState.jobId, jobState.status]);
+  useJobPolling({
+    jobId: jobState.jobId,
+    status: jobState.status,
+    section: "idea",
+  });
 
   useEffect(() => {
     if (jobState.status !== "completed") {
@@ -501,7 +490,10 @@ export default function IdeaPage() {
   }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") {
+    if (
+      jobState.status !== "failed" &&
+      jobState.status !== "timed_out"
+    ) {
       return;
     }
 

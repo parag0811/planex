@@ -6,7 +6,8 @@ export type JobStatusType =
   | "pending"
   | "processing"
   | "completed"
-  | "failed";
+  | "failed"
+  | "timed_out";
 
 export type SectionName = "idea" | "database" | "api" | "folder" | "chat";
 
@@ -286,9 +287,10 @@ export const getAiJobStatusThunk = createAsyncThunk(
         jobData: res.data?.jobData,
       } satisfies JobStatusResponse;
     } catch (error: any) {
-      return rejectWithValue(
-        getErrorMessage(error, "Failed to get job status"),
-      );
+      return rejectWithValue({
+        status: error.response?.status ?? null,
+        message: getErrorMessage(error, "Failed to get job status"),
+      });
     }
   },
 );
@@ -309,9 +311,10 @@ export const getJobStatusThunk = createAsyncThunk(
         jobData: res.data?.jobData,
       } satisfies JobStatusResponse;
     } catch (error: any) {
-      return rejectWithValue(
-        getErrorMessage(error, "Failed to get job status"),
-      );
+      return rejectWithValue({
+        status: error.response?.status ?? null,
+        message: getErrorMessage(error, "Failed to get job status"),
+      });
     }
   },
 );
@@ -341,6 +344,31 @@ const jobSlice = createSlice({
   name: "job",
   initialState,
   reducers: {
+    markJobTimedOut: (
+      state,
+      action: PayloadAction<{
+        section: SectionName;
+        jobId?: string | null;
+        message?: string;
+      }>,
+    ) => {
+      const { section, jobId, message } = action.payload;
+      const current = state.jobs[section];
+
+      if (!current) return;
+      if (current.status !== "pending" && current.status !== "processing") {
+        return;
+      }
+
+      state.jobs[section] = {
+        jobId: current.jobId ?? jobId ?? null,
+        status: "timed_out",
+        result: null,
+        error:
+          message ??
+          "This is taking longer than expected. The job may still be running; please check back shortly.",
+      };
+    },
     clearJobState: (
       state,
       action: PayloadAction<{ section?: SectionName } | SectionName | undefined>,
@@ -459,22 +487,59 @@ const jobSlice = createSlice({
 
     const handleJobStatusRejected = (
       state: JobState,
-      action: { meta: { arg: JobParams }; payload?: unknown; error: { message?: string | null } },
+      action: {
+        meta: { arg: JobParams };
+        payload?: unknown;
+        error: { message?: string | null };
+      },
     ) => {
-      const { section: argSection } = action.meta.arg || {};
-      const errorMsg = (action.payload as string) ?? action.error.message ?? "Failed to get job status";
+      const { section: argSection, jobId } = action.meta.arg || {};
+      const payload = action.payload as
+        | { status?: number | null; message?: string }
+        | string
+        | undefined;
+      const status =
+        payload && typeof payload === "object" ? payload.status : undefined;
+      const errorMsg =
+        (typeof payload === "string" ? payload : payload?.message) ??
+        action.error.message ??
+        "Failed to get job status";
 
-      if (argSection && state.jobs[argSection]) {
-        state.jobs[argSection] = {
-          jobId: action.meta.arg.jobId || null,
-          status: "failed",
-          result: null,
+      // Only a missing/expired job is terminal. 429s, 5xx responses, and
+      // network errors are transient; keep polling and let the next request
+      // recover instead of falsely marking the generation as failed.
+      if (status === 404) {
+        if (argSection && state.jobs[argSection]) {
+          state.jobs[argSection] = {
+            jobId: jobId || null,
+            status: "failed",
+            result: null,
+            error: errorMsg,
+          };
+        }
+
+        state.status = "failed";
+        state.error = errorMsg;
+        return;
+      }
+
+      const current = argSection ? state.jobs[argSection] : undefined;
+
+      if (
+        current &&
+        (current.status === "completed" ||
+          current.status === "failed" ||
+          current.status === "timed_out")
+      ) {
+        return;
+      }
+
+      if (current) {
+        state.jobs[argSection!] = {
+          ...current,
           error: errorMsg,
         };
       }
-
-      state.status = "failed";
-      state.error = errorMsg;
     };
 
     builder
@@ -525,6 +590,6 @@ const jobSlice = createSlice({
   },
 });
 
-export const { clearJobState } = jobSlice.actions;
+export const { clearJobState, markJobTimedOut } = jobSlice.actions;
 export default jobSlice.reducer;
 

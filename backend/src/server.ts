@@ -116,7 +116,23 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use(globalLimiter);
+// Job status polling is a deliberately frequent, per-user operation. It has
+// its own limiter on the route so multiple tabs do not exhaust the global
+// IP-based bucket and produce false 429s.
+const JOB_STATUS_PATH = /^\/jobs\/[^/]+\/?$/;
+
+app.use((req, res, next) => {
+  const isAuthenticatedJobPoll =
+    req.method === "GET" &&
+    JOB_STATUS_PATH.test(req.path) &&
+    Boolean(req.headers.authorization?.startsWith("Bearer "));
+
+  if (isAuthenticatedJobPoll) {
+    return next();
+  }
+
+  return globalLimiter(req, res, next);
+});
 
 const PORT = process.env.PORT || 5000;
 

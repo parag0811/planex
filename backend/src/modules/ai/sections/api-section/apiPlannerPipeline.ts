@@ -29,6 +29,7 @@ const createAppError = (message: string, status: number, data?: unknown) => {
 interface ApiPipelineOptions extends ApiPromptOptions {
   useCache?: boolean;
   cacheTtlSeconds?: number;
+  signal?: AbortSignal;
 }
 
 export const runApiPipeline = async (
@@ -86,7 +87,10 @@ export const runApiPipeline = async (
     `🔌 runApiPipeline: Prompt length: ${prompt.length} chars, calling LLM...`,
   );
 
-  const apiSection = await generateSection(prompt);
+  const apiSection = await generateSection(
+    prompt,
+    options.signal ? { signal: options.signal } : {},
+  );
   const validatedApiSection = ApiSectionContentSchema.safeParse(apiSection);
 
   if (!validatedApiSection.success) {

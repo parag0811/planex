@@ -36,9 +36,9 @@ import {
 import {
   clearJobState,
   generateApi,
-  getJobStatusThunk,
   regenerateSection,
 } from "@/src/store/slices/jobSlice";
+import { useJobPolling } from "@/src/hooks/useJobPolling";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -595,7 +595,11 @@ export default function ApiDesignPage() {
   const isJobLoading = jobState.status === "pending" || jobState.status === "processing";
   const loading = isFetching || isSaving || isJobLoading;
   const sectionError = apiSectionState?.fetch.error ?? apiSectionState?.save.error ?? null;
-  const error = sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+  const error =
+    sectionError ??
+    (jobState.status === "failed" || jobState.status === "timed_out"
+      ? jobState.error
+      : null);
   const canRegenerate = Boolean(previewData) || hasGeneratedOnce || hasApiContent(api);
 
   const fetchApi = useCallback(async () => {
@@ -649,12 +653,11 @@ export default function ApiDesignPage() {
     }
   };
 
-  useEffect(() => {
-    if (!jobState.jobId || jobState.status === "completed" || jobState.status === "failed") return;
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "api" }));
-    const t = window.setInterval(() => dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "api" })), 2500);
-    return () => window.clearInterval(t);
-  }, [dispatch, jobState.jobId, jobState.status]);
+  useJobPolling({
+    jobId: jobState.jobId,
+    status: jobState.status,
+    section: "api",
+  });
 
   useEffect(() => {
     if (jobState.status !== "completed") return;
@@ -668,7 +671,12 @@ export default function ApiDesignPage() {
   }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") return;
+    if (
+      jobState.status !== "failed" &&
+      jobState.status !== "timed_out"
+    ) {
+      return;
+    }
     setStatus(jobState.error ?? "API generation failed.");
     setStatusType("error");
   }, [jobState.error, jobState.status]);

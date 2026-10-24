@@ -1,6 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
+interface LlmRequestOptions {
+  signal?: AbortSignal;
+}
+
 const getProvider = (): "gemini" | "groq" => {
   if (process.env.AI_PROVIDER) {
     return process.env.AI_PROVIDER.toLowerCase() === "groq" ? "groq" : "gemini";
@@ -12,7 +16,11 @@ const getProvider = (): "gemini" | "groq" => {
   return "groq";
 };
 
-const callGemini = async (prompt: string, attempt = 1): Promise<string> => {
+const callGemini = async (
+  prompt: string,
+  options: LlmRequestOptions = {},
+  attempt = 1,
+): Promise<string> => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not defined in environment variables");
@@ -33,7 +41,10 @@ const callGemini = async (prompt: string, attempt = 1): Promise<string> => {
   });
 
   try {
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(
+      prompt,
+      options.signal ? { signal: options.signal } : undefined,
+    );
     const response = result.response;
     const text = response.text()?.trim();
 
@@ -46,17 +57,20 @@ const callGemini = async (prompt: string, attempt = 1): Promise<string> => {
     return text;
   } catch (error: any) {
     const isTransient = error?.status === 503 || String(error).includes("503") || String(error).includes("high demand");
-    if (isTransient && attempt < 2) {
+    if (isTransient && attempt < 2 && !options.signal?.aborted) {
       console.warn(`⚠️ Gemini 503 spike encountered. Retrying in 1.5s with gemini-3.5-flash...`);
       await new Promise((r) => setTimeout(r, 1500));
       process.env.GEMINI_MODEL = "gemini-3.5-flash";
-      return callGemini(prompt, attempt + 1);
+      return callGemini(prompt, options, attempt + 1);
     }
     throw error;
   }
 };
 
-const callGroq = async (prompt: string): Promise<string> => {
+const callGroq = async (
+  prompt: string,
+  options: LlmRequestOptions = {},
+): Promise<string> => {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new Error("GROQ_API_KEY is not defined in environment variables");
@@ -79,7 +93,7 @@ const callGroq = async (prompt: string): Promise<string> => {
       max_tokens: 4000,
       ...(isDeepSeek ? {} : { response_format: { type: "json_object" } }),
     },
-    { timeout: 60000 },
+    options.signal ? { timeout: 60000, signal: options.signal } : { timeout: 60000 },
   );
 
   let text = chatCompletion.choices[0]?.message?.content?.trim();
@@ -96,25 +110,33 @@ const callGroq = async (prompt: string): Promise<string> => {
   return text;
 };
 
-export const callLLM = async (prompt: string): Promise<string> => {
+export const callLLM = async (
+  prompt: string,
+  options: LlmRequestOptions = {},
+): Promise<string> => {
   const provider = getProvider();
 
   try {
     if (provider === "gemini") {
-      return await callGemini(prompt);
+      return await callGemini(prompt, options);
     }
-    return await callGroq(prompt);
+    return await callGroq(prompt, options);
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error(`❌ Error calling AI provider (${provider}): ${errorMsg}`);
 
+    // A cancelled/timed-out job must not start a second provider call.
+    if (options.signal?.aborted) {
+      throw error;
+    }
+
     // Graceful fallback if both keys exist
     if (provider === "gemini" && process.env.GROQ_API_KEY) {
       console.warn("⚠️ Falling back to Groq after Gemini failure...");
-      return await callGroq(prompt);
+      return await callGroq(prompt, options);
     } else if (provider === "groq" && process.env.GEMINI_API_KEY) {
       console.warn("⚠️ Falling back to Gemini after Groq failure...");
-      return await callGemini(prompt);
+      return await callGemini(prompt, options);
     }
 
     throw error;

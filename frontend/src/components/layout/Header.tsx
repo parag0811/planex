@@ -27,7 +27,9 @@ export default function Header() {
   const dispatch = useDispatch();
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuth, user } = useSelector((state: RootState) => state.auth);
+  const { isAuth, authCheckLoading, user } = useSelector(
+    (state: RootState) => state.auth,
+  );
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -153,8 +155,16 @@ export default function Header() {
             className="relative flex items-center gap-4 ml-auto"
             ref={menuRef}
           >
+            {/* Auth check in progress — avoid flashing the guest Login button */}
+            {authCheckLoading && !isAuth && (
+              <div
+                className="h-8 w-8 animate-pulse rounded-full bg-white/5"
+                aria-hidden="true"
+              />
+            )}
+
             {/* Guest — LOGIN button */}
-            {!isAuth && (
+            {!authCheckLoading && !isAuth && (
               <Link
                 href="/login"
                 className="inline-flex items-center px-5 py-2 bg-[#ff3d00] border border-[#ff3d00] text-white hover:bg-transparent hover:text-[#ff3d00] transition-all duration-150 text-[11px] font-bold uppercase tracking-[0.12em]"

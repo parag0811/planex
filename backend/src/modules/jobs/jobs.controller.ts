@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import { getJsonCache, setJsonCache } from "../../db/cache";
 import prisma from "../../db/prisma";
@@ -176,6 +177,7 @@ export const retryJob = async (
     }
 
     const job = await aiQueue.add(jobFound.jobName!, retriedJobData, {
+      jobId: `retry-${crypto.randomUUID()}`,
       attempts: 1,
       removeOnComplete: true,
       removeOnFail: false,

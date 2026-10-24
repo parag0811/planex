@@ -3,13 +3,19 @@ import { parseJson } from "../../modules/ai/outputParser";
 
 const isDev = process.env.NODE_ENV !== "production";
 
-export const generateSection = async (prompt : string) => {
+export const generateSection = async (
+    prompt: string,
+    options: { signal?: AbortSignal } = {},
+) => {
     try {
         if (isDev) {
             console.log(`🔄 generateSection: Starting with prompt length ${prompt.length}`);
         }
         
-        const text = await callLLM(prompt);
+        const text = await callLLM(
+            prompt,
+            options.signal ? { signal: options.signal } : {},
+        );
         if (!text) {
             throw new Error("LLM response is undefined");
         }

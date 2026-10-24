@@ -11,12 +11,14 @@ interface ChatServiceParams {
   context?: {
     section?: Section;
   };
+  signal?: AbortSignal;
 }
 
 export const chatService = async ({
   projectId,
   message,
   context,
+  signal,
 }: ChatServiceParams): Promise<AiResponse> => {
   try {
     const sectionsData = await getProjectSectionsService(projectId);
@@ -51,7 +53,7 @@ export const chatService = async ({
       currentContent,
     });
 
-    const raw = await generateSection(prompt);
+    const raw = await generateSection(prompt, signal ? { signal } : {});
     const parsed: AiResponse = parseAiResponse(raw);
 
     if (

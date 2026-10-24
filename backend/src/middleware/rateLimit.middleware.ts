@@ -43,6 +43,28 @@ export const globalLimiter = rateLimit({
   },
 });
 
+// Job polling is high-frequency by design. Keep it out of the global IP limit
+// and use a generous per-user limit so multiple tabs cannot cause false 429s.
+export const jobStatusLimiter = rateLimit({
+  ...limiterDefaults,
+  windowMs: 15 * 60 * 1000,
+  max: 3000,
+  store: createStore("rl_job_status:"),
+  keyGenerator: (req) => {
+    const user = (req as any).user;
+
+    if (user?.id) {
+      return `job-status:${user.id}`;
+    }
+
+    return getIpKey(req);
+  },
+  message: {
+    success: false,
+    message: "Too many job status requests. Please wait a moment.",
+  },
+});
+
 export const aiLimiter = rateLimit({
   ...limiterDefaults,
   windowMs: 60 * 1000,

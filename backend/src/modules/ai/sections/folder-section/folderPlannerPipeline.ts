@@ -25,6 +25,7 @@ const createAppError = (message: string, status: number, data?: unknown) => {
 interface FolderPipelineOptions extends FolderPromptOptions {
   useCache?: boolean;
   cacheTtlSeconds?: number;
+  signal?: AbortSignal;
 }
 
 export const runFolderPipeline = async (
@@ -76,6 +77,7 @@ export const runFolderPipeline = async (
         ? { instruction: options.instruction }
         : {}),
     }),
+    options.signal ? { signal: options.signal } : {},
   );
 
   const validatedFolderStructure =

@@ -34,9 +34,9 @@ import {
 import {
   clearJobState,
   generateDatabase,
-  getJobStatusThunk,
   regenerateSection,
 } from "@/src/store/slices/jobSlice";
+import { useJobPolling } from "@/src/hooks/useJobPolling";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 type DatabaseFieldType =
@@ -520,7 +520,9 @@ export default function DatabasePage() {
   const error =
     databaseSectionState?.fetch.error ??
     databaseSectionState?.save.error ??
-    (jobState.status === "failed" ? jobState.error : null);
+    (jobState.status === "failed" || jobState.status === "timed_out"
+      ? jobState.error
+      : null);
 
   useEffect(() => {
     if (isSampleView) return;
@@ -623,18 +625,11 @@ export default function DatabasePage() {
     }
   };
 
-  useEffect(() => {
-    if (!jobState.jobId) return;
-    if (jobState.status === "completed" || jobState.status === "failed") return;
-
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "database" }));
-
-    const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "database" }));
-    }, 2500);
-
-    return () => window.clearInterval(pollTimer);
-  }, [dispatch, jobState.jobId, jobState.status]);
+  useJobPolling({
+    jobId: jobState.jobId,
+    status: jobState.status,
+    section: "database",
+  });
 
   useEffect(() => {
     if (jobState.status !== "completed") return;
@@ -656,7 +651,12 @@ export default function DatabasePage() {
   }, [dispatch, jobState.result, jobState.status]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") return;
+    if (
+      jobState.status !== "failed" &&
+      jobState.status !== "timed_out"
+    ) {
+      return;
+    }
     setStatus(jobState.error ?? "Database generation failed.");
     setStatusType("error");
   }, [jobState.error, jobState.status]);

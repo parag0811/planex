@@ -18,6 +18,7 @@ const createAppError = (message: string, status: number, data?: unknown) => {
 interface IdeaPipelineOptions extends IdeaPromptOptions {
   useCache?: boolean;
   cacheTtlSeconds?: number;
+  signal?: AbortSignal;
 }
 
 export const runPlannerPipeline = async (
@@ -61,6 +62,7 @@ export const runPlannerPipeline = async (
         ? { instruction: options.instruction }
         : {}),
     }),
+    options.signal ? { signal: options.signal } : {},
   );
 
   const validatedIdeaSection = IdeaSectionContentSchema.safeParse(ideaSection);

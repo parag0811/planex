@@ -2,6 +2,32 @@ import { Worker } from "bullmq";
 import { aiHandlers } from "./aiHandler";
 import redis from "../../db/redis";
 
+// Slightly below the worker lock duration (5 minutes) so the job fails cleanly
+// and the underlying provider request is aborted before the lock expires.
+const AI_JOB_TIMEOUT_MS = 290000;
+
+const runHandlerWithTimeout = async (
+  handler: (data: any, signal: AbortSignal) => Promise<any>,
+  data: any,
+): Promise<any> => {
+  const controller = new AbortController();
+  let timer: NodeJS.Timeout | undefined;
+
+  try {
+    return await Promise.race([
+      handler(data, controller.signal),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`AI job exceeded ${AI_JOB_TIMEOUT_MS}ms timeout`));
+        }, AI_JOB_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 export const aiWorker = new Worker(
   "ai-queue",
   async (job) => {
@@ -11,7 +37,7 @@ export const aiWorker = new Worker(
       throw new Error(`No handler found for job: ${job.name}`);
     }
 
-    return await handler(job.data);
+    return await runHandlerWithTimeout(handler, job.data);
   },
   {
     concurrency: 3,
@@ -116,6 +142,15 @@ const sanitizeWorkerError = (error: Error | any): string => {
   }
 
   if (
+    msg.toLowerCase().includes("timeout") ||
+    msg.toLowerCase().includes("timed out") ||
+    msg.includes("AbortError") ||
+    msg.toLowerCase().includes("aborted")
+  ) {
+    return "AI generation timed out. Please try again.";
+  }
+
+  if (
     msg.includes("Idea and Database must exist first") ||
     msg.includes("Idea section missing") ||
     msg.includes("Idea, Database, and API must exist first") ||
@@ -147,6 +182,37 @@ aiWorker.on("failed", async (job, error) => {
   const jobId = job.id;
   const cacheKey = `job:${jobId}`;
 
+  const maxAttempts = job.opts.attempts ?? 1;
+  const isFinalAttempt = job.attemptsMade >= maxAttempts;
+
+  if (!isFinalAttempt) {
+    // BullMQ still has attempts left. Keep the job pending so the UI keeps
+    // polling instead of stopping on a transient provider failure.
+    const retryState: JobStatus = {
+      status: "pending",
+      jobName: job.name,
+      jobData: job.data,
+      userId: job.data?.userId,
+      projectId: job.data?.projectId,
+      retrying: true,
+      attemptsMade: job.attemptsMade,
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(retryState), "EX", 900);
+      console.log(
+        `🔁 Job ${jobId} failed attempt ${job.attemptsMade}/${maxAttempts}; retrying.`,
+      );
+    } catch (err) {
+      console.error(
+        `❌ Failed to update job ${jobId} retry status in Redis:`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+
+    return;
+  }
+
   const userFacingError = sanitizeWorkerError(error);
 
   const jobState: JobStatus = {
@@ -156,6 +222,8 @@ aiWorker.on("failed", async (job, error) => {
     jobData: job.data,
     userId: job.data?.userId,
     projectId: job.data?.projectId,
+    retrying: false,
+    attemptsMade: job.attemptsMade,
   };
 
   try {

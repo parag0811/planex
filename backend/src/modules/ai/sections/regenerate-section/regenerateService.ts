@@ -12,13 +12,15 @@ import { type ApiSectionContent } from "../api-section/apiPromptBuilder";
 interface RegenSeviceParams {
     projectId : string,
     section : TYPES,
-    instruction : string
+    instruction : string,
+    signal?: AbortSignal,
 }
 
 export const regenerateService = async ({
   projectId,
   section,
   instruction,
+  signal,
 } : RegenSeviceParams) => {
   const existing = await getSectionByTypeService(projectId, section);
 
@@ -47,6 +49,7 @@ export const regenerateService = async ({
       useCache: false,
       instruction,
       regenerationSeed,
+      ...(signal ? { signal } : {}),
     });
 
     return result.idea;
@@ -70,6 +73,7 @@ export const regenerateService = async ({
         useCache: false,
         instruction,
         regenerationSeed,
+        ...(signal ? { signal } : {}),
       },
     );
   }
@@ -94,6 +98,7 @@ export const regenerateService = async ({
         useCache: false,
         instruction,
         regenerationSeed,
+        ...(signal ? { signal } : {}),
       },
     );
   }
@@ -124,6 +129,7 @@ export const regenerateService = async ({
         useCache: false,
         instruction,
         regenerationSeed,
+        ...(signal ? { signal } : {}),
       },
     );
   }

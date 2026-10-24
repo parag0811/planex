@@ -1,6 +1,42 @@
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  createAsyncThunk,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 import axiosInstance from "@/src/lib/axios";
 import { updateProfile } from "@/src/services/auth.service";
+
+const AUTH_USER_STORAGE_KEY = "planex_user";
+
+export const getCachedAuthUser = (): any | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const cacheAuthUser = (user: any | null) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (user) {
+      window.localStorage.setItem(
+        AUTH_USER_STORAGE_KEY,
+        JSON.stringify(user),
+      );
+    } else {
+      window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    }
+  } catch {
+    // localStorage can be unavailable (private mode/quota); auth still works.
+  }
+};
 
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
@@ -143,8 +179,22 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
+    hydrateAuth: (
+      state,
+      action: PayloadAction<{ token: string; user: any }>,
+    ) => {
+      state.token = action.payload.token;
+      state.user = action.payload.user;
+      state.isAuth = true;
+      state.authCheckLoading = false;
+    },
     setToken: (state, action) => {
       state.token = action.payload;
+      // A new OAuth token belongs to a new session; do not keep the previous
+      // account's cached profile visible while /auth/me loads.
+      state.user = null;
+      state.isAuth = false;
+      cacheAuthUser(null);
       state.authCheckLoading = false;
       state.loginLoading = false;
       state.profileLoading = false;
@@ -160,6 +210,7 @@ const authSlice = createSlice({
       state.registerError = null;
 
       localStorage.removeItem("token");
+      cacheAuthUser(null);
     },
     clearAuthErrors: (state) => {
       state.error = null;
@@ -217,6 +268,7 @@ const authSlice = createSlice({
         state.authCheckLoading = false;
         state.user = action.payload;
         state.isAuth = true;
+        cacheAuthUser(action.payload);
       })
       .addCase(fetchUser.rejected, (state, action) => {
         state.authCheckLoading = false;
@@ -228,6 +280,7 @@ const authSlice = createSlice({
           state.isAuth = false;
           state.token = null;
           localStorage.removeItem("token");
+          cacheAuthUser(null);
         } else if (localStorage.getItem("token")) {
           // Optimistically keep them logged in if it's just a backend restart
           state.isAuth = true;
@@ -242,6 +295,7 @@ const authSlice = createSlice({
       .addCase(updateUserProfile.fulfilled, (state, action) => {
         state.profileLoading = false;
         state.user = action.payload;
+        cacheAuthUser(action.payload);
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.profileLoading = false;
@@ -250,5 +304,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, setToken, clearAuthErrors } = authSlice.actions;
+export const { hydrateAuth, logout, setToken, clearAuthErrors } =
+  authSlice.actions;
 export default authSlice.reducer;

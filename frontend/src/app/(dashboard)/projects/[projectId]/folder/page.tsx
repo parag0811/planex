@@ -31,9 +31,9 @@ import {
 import {
   clearJobState,
   generateFolder,
-  getJobStatusThunk,
   regenerateSection,
 } from "@/src/store/slices/jobSlice";
+import { useJobPolling } from "@/src/hooks/useJobPolling";
 
 // ─── Types ───────────────────────────────────────────────────────
 interface FolderNode {
@@ -522,7 +522,10 @@ export default function FolderStructurePage() {
   const sectionError =
     folderSectionState?.fetch.error ?? folderSectionState?.save.error ?? null;
   const error =
-    sectionError ?? (jobState.status === "failed" ? jobState.error : null);
+    sectionError ??
+    (jobState.status === "failed" || jobState.status === "timed_out"
+      ? jobState.error
+      : null);
   const canRegenerate =
     Boolean(previewData) || hasGeneratedOnce || folder.root.length > 0 || shown;
 
@@ -640,15 +643,11 @@ export default function FolderStructurePage() {
     }
   };
 
-  useEffect(() => {
-    if (!jobState.jobId) return;
-    if (jobState.status === "completed" || jobState.status === "failed") return;
-    dispatch(getJobStatusThunk({ jobId: jobState.jobId, section: "folder" }));
-    const pollTimer = window.setInterval(() => {
-      dispatch(getJobStatusThunk({ jobId: jobState.jobId!, section: "folder" }));
-    }, 2500);
-    return () => window.clearInterval(pollTimer);
-  }, [dispatch, jobState.jobId, jobState.status]);
+  useJobPolling({
+    jobId: jobState.jobId,
+    status: jobState.status,
+    section: "folder",
+  });
 
   useEffect(() => {
     if (jobState.status !== "completed") return;
@@ -662,7 +661,12 @@ export default function FolderStructurePage() {
   }, [dispatch, jobState.status, jobState.result]);
 
   useEffect(() => {
-    if (jobState.status !== "failed") return;
+    if (
+      jobState.status !== "failed" &&
+      jobState.status !== "timed_out"
+    ) {
+      return;
+    }
     setStatus(jobState.error ?? "Folder generation failed.");
     setStatusType("error");
   }, [jobState.error, jobState.status]);

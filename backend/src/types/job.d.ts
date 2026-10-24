@@ -12,6 +12,8 @@ declare global {
     jobData?: any;
     userId?: string;
     projectId?: string;
+    retrying?: boolean;
+    attemptsMade?: number;
   }
 }
 

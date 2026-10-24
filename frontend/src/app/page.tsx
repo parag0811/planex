@@ -669,12 +669,16 @@ function LoggedInLanding({
 export default function LandingPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuth, authCheckLoading: loading, token, user } = useSelector(
+  const { isAuth, authCheckLoading: loading, user } = useSelector(
     (state: RootState) => state.auth,
   );
   const { projects, fetch } = useSelector((state: RootState) => state.project);
 
-  const authPending = Boolean(token) && loading && !isAuth;
+  // Show the loading state for the whole auth check. The token lives in
+  // localStorage, so it is not available in the initial Redux state; keying
+  // this off `token` caused the guest landing page (and Login button) to
+  // flash until /auth/me resolved.
+  const authPending = loading && !isAuth;
 
   useEffect(() => {
     if (isAuth) {

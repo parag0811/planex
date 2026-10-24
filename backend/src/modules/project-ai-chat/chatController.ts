@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Request, Response, NextFunction } from "express";
 import { aiQueue } from "../queues/aiQueue";
 import { setJsonCache } from "../../db/cache";
@@ -29,6 +30,7 @@ export const chatController = async (
         userId: String(req.user!.id),
       },
       {
+        jobId: `chat-${crypto.randomUUID()}`,
         attempts: 3,
         backoff: {
           type: "exponential",

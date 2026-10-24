@@ -35,8 +35,7 @@ function LoginFormContent() {
     setQueryError(searchParams.get("error"));
   }, [dispatch, searchParams]);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const submitCredentials = async () => {
     setFieldErrors({});
 
     const errors: Record<string, string> = {};
@@ -59,6 +58,11 @@ function LoginFormContent() {
         setFieldErrors(err.fieldErrors);
       }
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    await submitCredentials();
   };
 
   const handleOAuth = (provider: "github" | "google") => {
@@ -175,7 +179,20 @@ function LoginFormContent() {
             {/* Error Notification */}
             {(error || queryError) && (
               <div className="mb-6 border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error || queryError}
+                <div className="flex items-start justify-between gap-4">
+                  <span>{error || queryError}</span>
+
+                  {error && Object.keys(fieldErrors).length === 0 && (
+                    <button
+                      type="button"
+                      onClick={submitCredentials}
+                      disabled={loginLoading}
+                      className="shrink-0 text-[10px] font-bold uppercase tracking-[0.16em] text-[#ff3d00] transition-colors hover:text-[#ff5a26] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {loginLoading ? "Retrying..." : "Try again"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
