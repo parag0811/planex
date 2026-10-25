@@ -1,13 +1,10 @@
 "use client";
 
 import { useSelector, useDispatch } from "react-redux";
-import Sidebar from "@/src/components/layout/project-section/SidebarLeft";
-import ProjectHeader from "@/src/components/layout/project-section/ProjectHeader";
 import { WorkspaceShell } from "@/src/components/workspace/workspace-shell";
-import FullPageLoader from "@/src/components/common/FullPageLoader";
 import type { RootState, AppDispatch } from "@/src/store/store";
 import { usePathname, useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   fetchProjectById,
   clearProjectErrors,
@@ -41,6 +38,7 @@ export default function ProjectIdLayout({
   const { authCheckLoading, isAuth } = useSelector(
     (state: RootState) => state.auth,
   );
+
   const ideaJobStatus = useSelector(
     (state: RootState) => state.job.jobs.idea?.status,
   );
@@ -54,8 +52,6 @@ export default function ProjectIdLayout({
     (state: RootState) => state.job.jobs.folder?.status,
   );
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProjectById(projectId));
@@ -68,64 +64,27 @@ export default function ProjectIdLayout({
     dispatch(clearJobState());
   }, [dispatch, pathname]);
 
-  const isRequirementsPage = pathname?.endsWith("/idea") ?? false;
-  const isDatabasePage = pathname?.endsWith("/database") ?? false;
-  const isApiPage = pathname?.endsWith("/api") ?? false;
-  const isFolderPage = pathname?.endsWith("/folder") ?? false;
-  const usesWorkspaceShell =
-    isRequirementsPage || isDatabasePage || isApiPage || isFolderPage;
-
-  if (usesWorkspaceShell) {
-    const jobStatus = isDatabasePage
-      ? databaseJobStatus
-      : isApiPage
-        ? apiJobStatus
-        : isFolderPage
-          ? folderJobStatus
-          : ideaJobStatus;
-
-    return (
-      <WorkspaceShell
-        project={currentProject}
-        projectId={projectId || ""}
-        jobStatus={jobStatus}
-      >
-        {authCheckLoading ? (
-          <WorkspaceLoader label="Loading workspace" />
-        ) : !isAuth ? (
-          <WorkspaceLoader label="Redirecting to login" />
-        ) : (
-          children
-        )}
-      </WorkspaceShell>
-    );
-  }
+  const jobStatus = pathname?.endsWith("/database")
+    ? databaseJobStatus
+    : pathname?.endsWith("/api")
+      ? apiJobStatus
+      : pathname?.endsWith("/folder")
+        ? folderJobStatus
+        : ideaJobStatus;
 
   return (
-    <div
-      className="h-[100dvh] flex flex-col bg-[#05070d]"
-      style={{ fontFamily: "'Rajdhani', sans-serif", color: "#e0d5c5" }}
+    <WorkspaceShell
+      project={currentProject}
+      projectId={projectId || ""}
+      jobStatus={jobStatus}
     >
-      <ProjectHeader
-        projectName={currentProject?.name || "Project"}
-        onMobileMenuToggle={() => setMobileMenuOpen((prev) => !prev)}
-      />
-      <div className="flex flex-1 relative min-h-0">
-        <Sidebar
-          projectId={projectId}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
-        <div className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
-          {authCheckLoading ? (
-            <FullPageLoader />
-          ) : !isAuth ? (
-            <FullPageLoader subtitle="Redirecting to login..." />
-          ) : (
-            children
-          )}
-        </div>
-      </div>
-    </div>
+      {authCheckLoading ? (
+        <WorkspaceLoader label="Loading workspace" />
+      ) : !isAuth ? (
+        <WorkspaceLoader label="Redirecting to login" />
+      ) : (
+        children
+      )}
+    </WorkspaceShell>
   );
 }

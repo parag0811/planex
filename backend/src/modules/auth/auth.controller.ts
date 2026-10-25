@@ -111,7 +111,9 @@ export const loginUser = async (
 export const getUser = async (
   req: Request<{}, {}, {}>,
   res: Response<
-    UserResponse<Pick<PrismaUser, "name" | "email" | "created_at">>
+    UserResponse<
+      Pick<PrismaUser, "id" | "name" | "email" | "avatarUrl" | "created_at">
+    >
   >,
   next: NextFunction,
 ) => {
@@ -128,8 +130,10 @@ export const getUser = async (
         id: userId,
       },
       select: {
+        id: true,
         name: true,
         email: true,
+        avatarUrl: true,
         created_at: true,
       },
     });

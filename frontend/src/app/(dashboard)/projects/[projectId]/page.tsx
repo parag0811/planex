@@ -1,771 +1,622 @@
 "use client";
 
-import { AppDispatch } from "@/src/store/store";
-import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
 import {
-  Copy,
-  X,
-  UserPlus,
+  ArrowRight,
   Check,
-  Users,
-  Link2,
+  Copy,
   Pencil,
+  Trash2,
+  UserPlus,
 } from "lucide-react";
-import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Input,
+  Skeleton,
+} from "@/src/components/ui";
+import { WORKSPACE_STAGES } from "@/src/lib/stages";
+import {
+  deleteProject,
+  fetchProjectActivities,
+  fetchProjectById,
   generateInviteLink,
-  hideInviteLink,
   removeMember,
-  showInviteLink,
   updateMemberRole,
   updateProject,
-  fetchProjectActivities,
 } from "@/src/store/slices/projectSlice";
-import { fetchAllSections } from "@/src/store/slices/sectionSlice";
-import ComplexityOverviewCard from "@/src/components/project/ComplexityOverviewCard";
-import ExportBlueprintModal from "@/src/components/project/ExportBlueprintModal";
-import { Download } from "lucide-react";
-import { useDispatch, useSelector } from "react-redux";
-import type { RootState } from "@/src/store/store";
+import type { AppDispatch, RootState } from "@/src/store/store";
 
-// ─── Design tokens — identical to Idea page ──────────────────────────────────
-const BG = "#141414";
-const ACCENT = "#d84c28";
-const BORDER = "#2b2321";
-const MUTED = "#a6786d";
-const INNER_BG = "#101010";
+type MemberRole = "EDITOR" | "VIEWER";
 
-const MONO: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", "Fira Code", monospace',
-};
-const INTER: React.CSSProperties = {
-  fontFamily: '"Inter", system-ui, sans-serif',
-};
-const INTER_TIGHT: React.CSSProperties = {
-  fontFamily: '"Inter Tight", "Inter", system-ui, sans-serif',
+const ROLE_LABEL: Record<MemberRole, string> = {
+  EDITOR: "Editor",
+  VIEWER: "Viewer",
 };
 
-const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
-const fadeUp = (i: number) => ({
-  hidden: { opacity: 0, y: 20 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.08, duration: 0.45, ease: EASE },
-  },
-});
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.08 } },
+const formatDate = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
 };
 
-function getRelativeTime(dateString: string) {
-  const date = new Date(dateString);
-  const diffInSeconds = Math.floor((date.getTime() - Date.now()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-  
-  if (Math.abs(diffInSeconds) < 60) return "just now";
-  const diffInMinutes = Math.round(diffInSeconds / 60);
-  if (Math.abs(diffInMinutes) < 60) return rtf.format(diffInMinutes, 'minute');
-  const diffInHours = Math.round(diffInMinutes / 60);
-  if (Math.abs(diffInHours) < 24) return rtf.format(diffInHours, 'hour');
-  const diffInDays = Math.round(diffInHours / 24);
-  if (Math.abs(diffInDays) < 30) return rtf.format(diffInDays, 'day');
-  const diffInMonths = Math.round(diffInDays / 30);
-  if (Math.abs(diffInMonths) < 12) return rtf.format(diffInMonths, 'month');
-  return date.toLocaleDateString();
-}
+const relativeTime = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(value);
+};
 
-// ─── Invite Modal ─────────────────────────────────────────────────
-interface InviteModalProps {
-  open: boolean;
-  onClose: () => void;
-  members: any[];
-  inviteLink: string | null;
-  onRemove: (userId: string) => void;
-  onRoleChange: (memberId: string, role: "EDITOR" | "VIEWER") => void;
-  onGenerateLink: () => void;
-  onCopyLink: () => void;
-  generateLoading: boolean;
-  removeLoading: boolean;
-  updateLoading: boolean;
-}
+const humanizeAction = (action: string) => {
+  const text = action.toLowerCase().replace(/_/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
 
-function InviteModal({
-  open,
-  onClose,
-  members,
-  inviteLink,
-  onRemove,
-  onRoleChange,
-  onGenerateLink,
-  onCopyLink,
-  generateLoading,
-  removeLoading,
-  updateLoading,
-}: InviteModalProps) {
-  const [copied, setCopied] = useState(false);
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  const handleCopy = () => {
-    if (!inviteLink) return;
-    onCopyLink();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  if (!open) return null;
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        ref={overlayRef}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={(e) => {
-          if (e.target === overlayRef.current) onClose();
-        }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 20, scale: 0.98 }}
-          transition={{ duration: 0.22, ease: EASE }}
-          className="w-full max-w-lg border p-6"
-          style={{ borderColor: BORDER, backgroundColor: BG, ...INTER }}
-        >
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <p
-                className="mb-1 text-[11px] font-bold uppercase tracking-[0.2em]"
-                style={{ ...MONO, color: ACCENT }}
-              >
-                Collaboration // Add
-              </p>
-              <h2
-                className="text-2xl font-black uppercase leading-none text-white"
-                style={INTER_TIGHT}
-              >
-                Invite Teammates
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 transition hover:text-white"
-              style={{ color: MUTED }}
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Invite link generator */}
-          <div className="mb-6">
-            <p
-              className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em]"
-              style={{ ...MONO, color: MUTED }}
-            >
-              Invite Link
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={onGenerateLink}
-                disabled={generateLoading}
-                className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 border px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] transition disabled:opacity-50"
-                style={{
-                  ...MONO,
-                  borderColor: ACCENT,
-                  color: ACCENT,
-                  backgroundColor: `${ACCENT}12`,
-                }}
-              >
-                <Link2 size={12} />
-                {generateLoading
-                  ? "Generating..."
-                  : inviteLink
-                    ? "Regenerate Link"
-                    : "Generate Link"}
-              </button>
-            </div>
-
-            {inviteLink && (
-              <div
-                className="mt-2 flex items-center gap-2 border px-3 py-2.5"
-                style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-              >
-                <span
-                  className="flex-1 truncate text-[12px]"
-                  style={{ color: MUTED }}
-                >
-                  {inviteLink}
-                </span>
-                <button
-                  onClick={handleCopy}
-                  className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[0.1em] transition"
-                  style={{
-                    ...MONO,
-                    borderColor: BORDER,
-                    color: "#fff",
-                  }}
-                >
-                  {copied ? <Check size={11} /> : <Copy size={11} />}
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Members List */}
-          <div className="mb-2 flex items-center gap-3">
-            <span
-              className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ ...MONO, color: MUTED }}
-            >
-              Team Members ({members.length})
-            </span>
-            <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
-          </div>
-
-          <div className="flex max-h-72 flex-col gap-1.5 overflow-y-auto">
-            {members.length === 0 ? (
-              <div
-                className="border p-4 text-sm"
-                style={{ borderColor: BORDER, backgroundColor: INNER_BG, color: MUTED, ...INTER }}
-              >
-                No members yet.
-              </div>
-            ) : (
-              members.map((member) => {
-                const name =
-                  member.user?.name ?? member.user?.email ?? member.user_id;
-                const email = member.user?.email ?? "";
-                const initials = String(name)
-                  .split(" ")
-                  .map((p: string) => p[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
-                const isOwner = member.role === "OWNER";
-
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between gap-3 border px-3 py-2.5"
-                    style={{
-                      borderColor: BORDER,
-                      backgroundColor: isOwner ? `${ACCENT}0c` : INNER_BG,
-                    }}
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center text-[11px] font-bold text-white"
-                        style={{
-                          backgroundColor: isOwner ? ACCENT : "rgba(255,255,255,0.08)",
-                        }}
-                      >
-                        {initials || "?"}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-semibold text-white" style={INTER}>
-                          {name}
-                        </p>
-                        {email && (
-                          <p className="truncate text-[10px]" style={{ color: MUTED }}>
-                            {email}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2.5">
-                      {isOwner ? (
-                        <span
-                          className="text-[9px] font-bold uppercase tracking-[0.12em]"
-                          style={{ ...MONO, color: ACCENT }}
-                        >
-                          Owner
-                        </span>
-                      ) : (
-                        <>
-                          <select
-                            value={member.role ?? "VIEWER"}
-                            onChange={(e) =>
-                              onRoleChange(member.id, e.target.value as "EDITOR" | "VIEWER")
-                            }
-                            disabled={updateLoading}
-                            className="cursor-pointer bg-transparent text-[9px] font-bold uppercase tracking-[0.1em] text-white outline-none"
-                            style={MONO}
-                          >
-                            <option style={{ backgroundColor: INNER_BG }} value="EDITOR">
-                              Editor
-                            </option>
-                            <option style={{ backgroundColor: INNER_BG }} value="VIEWER">
-                              Viewer
-                            </option>
-                          </select>
-                          <button
-                            onClick={() => onRemove(member.user_id)}
-                            disabled={removeLoading}
-                            className="cursor-pointer p-1 transition hover:text-red-400"
-                            style={{ color: MUTED }}
-                          >
-                            <X size={13} />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-6 flex justify-end border-t pt-4" style={{ borderColor: BORDER }}>
-            <button
-              onClick={onClose}
-              className="cursor-pointer border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] transition"
-              style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-            >
-              Done
-            </button>
-          </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────
-export default function ProjectOverviewPage() {
-  const params = useParams();
-  const projectId =
-    typeof params?.projectId === "string"
-      ? params.projectId
-      : Array.isArray(params?.projectId)
-        ? params.projectId[0]
-        : undefined;
+export default function ProjectSettingsPage() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const currentProject = useSelector(
+
+  const project = useSelector(
     (state: RootState) => state.project.currentProject,
   );
-  const { update, remove, inviteLink, inviteLinkVisible, inviteLinkState, activities } =
-    useSelector((state: RootState) => state.project);
+  const user = useSelector((state: RootState) => state.auth.user);
+  const activities = useSelector(
+    (state: RootState) => state.project.activities,
+  );
+  const fetchActivities = useSelector(
+    (state: RootState) => state.project.fetchActivities,
+  );
+  const inviteLink = useSelector(
+    (state: RootState) => state.project.inviteLink,
+  );
+  const inviteLinkState = useSelector(
+    (state: RootState) => state.project.inviteLinkState,
+  );
+  const removeState = useSelector((state: RootState) => state.project.remove);
 
-  const [projectNameDraft, setProjectNameDraft] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
-  const [statusType, setStatusType] = useState<"success" | "error" | null>(null);
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (currentProject?.name) {
-      setProjectNameDraft(currentProject.name);
-    }
-  }, [currentProject?.name]);
-
-  useEffect(() => {
-    if (status) {
-      const timer = setTimeout(() => {
-        setStatus(null);
-        setStatusType(null);
-      }, 3500);
-      return () => clearTimeout(timer);
-    }
-  }, [status]);
+  const [name, setName] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
       dispatch(fetchProjectActivities(projectId));
-      dispatch(fetchAllSections(projectId));
-      const interval = setInterval(() => {
-        dispatch(fetchProjectActivities(projectId));
-      }, 30000); // 30 seconds polling
-      return () => clearInterval(interval);
     }
-  }, [projectId, dispatch]);
+  }, [dispatch, projectId]);
 
-  const sectionState = useSelector((state: RootState) =>
-    projectId ? state.section.projects[projectId] : undefined,
-  );
+  useEffect(() => {
+    if (project?.name) setName(project.name);
+  }, [project?.name]);
 
-  const sectionsMap = {
-    idea: sectionState?.idea?.content,
-    database: sectionState?.database?.content,
-    api: sectionState?.api?.content,
-    folder: sectionState?.folder?.content,
-  };
+  if (!project) {
+    return (
+      <div className="mx-auto w-full max-w-[1200px] space-y-6 px-5 py-6 sm:px-8">
+        <Skeleton className="h-20 w-full rounded-lg" />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <Skeleton className="h-96 rounded-lg" />
+          <Skeleton className="h-96 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
 
-  const sectionsLoading =
-    Boolean(sectionState?.idea?.fetch.loading) ||
-    Boolean(sectionState?.database?.fetch.loading) ||
-    Boolean(sectionState?.api?.fetch.loading) ||
-    Boolean(sectionState?.folder?.fetch.loading);
+  const members = project.members ?? [];
+  const myMembership = members.find((member) => member.user_id === user?.id);
+  const isOwner = Boolean(user?.id && project.owner_id === user.id);
+  const canEdit =
+    isOwner || myMembership?.role === "EDITOR";
+  const sections = project.sections ?? [];
+  const approvedStages = Math.min(project.approvedStages ?? 0, 4);
+  const nextStage =
+    WORKSPACE_STAGES.find((stage) => !sections.includes(stage.type)) ??
+    WORKSPACE_STAGES[0]!;
+  const owner = project.owner;
 
-  const members = currentProject?.members ?? [];
-  const projectName = currentProject?.name ?? "Project";
-
-  const [isEditingName, setIsEditingName] = useState(false);
-
-  const handleUpdateProjectName = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!projectId) return;
-    const trimmedName = projectNameDraft.trim();
-    if (!trimmedName || trimmedName.length < 3) {
-      setStatus("Name must be at least 3 characters.");
-      setStatusType("error");
+  const saveName = async () => {
+    const trimmed = name.trim();
+    if (trimmed.length < 3 || trimmed.length > 50) {
+      setError("Project name must be between 3 and 50 characters.");
       return;
     }
-    if (trimmedName === currentProject?.name) {
-      setIsEditingName(false);
-      return;
-    }
+
+    setSavingName(true);
+    setError(null);
+
     try {
-      await dispatch(updateProject({ projectId, name: trimmedName })).unwrap();
-      setStatus("Project name updated.");
-      setStatusType("success");
-      setIsEditingName(false);
-    } catch (err: any) {
-      setStatus(typeof err === "string" ? err : "Unable to update project.");
-      setStatusType("error");
+      await dispatch(updateProject({ projectId, name: trimmed })).unwrap();
+      await dispatch(fetchProjectById(projectId)).unwrap();
+      setEditingName(false);
+    } catch (err) {
+      setError(
+        typeof err === "string" ? err : "Could not update the project name.",
+      );
+    } finally {
+      setSavingName(false);
     }
   };
 
-  // updateMemberRole updates by ProjectMember.id
-  const handleRoleChange = (memberId: string, role: "EDITOR" | "VIEWER") => {
-    if (!projectId) return;
-    dispatch(updateMemberRole({ projectId, memberId, role }));
+  const handleRoleChange = async (memberId: string, role: MemberRole) => {
+    setError(null);
+    try {
+      await dispatch(
+        updateMemberRole({ projectId, memberId, role }),
+      ).unwrap();
+      await dispatch(fetchProjectById(projectId)).unwrap();
+    } catch (err) {
+      setError(
+        typeof err === "string" ? err : "Could not update the member role.",
+      );
+    }
   };
 
-  // removeMember deletes by user_id (matches user_id_project_id compound key)
-  const handleRemoveMember = (userId: string) => {
-    if (!projectId) return;
-    dispatch(removeMember({ projectId, memberId: userId }));
+  const handleRemoveMember = async (userId: string) => {
+    if (!window.confirm("Remove this member from the project?")) return;
+    setError(null);
+    try {
+      await dispatch(removeMember({ projectId, memberId: userId })).unwrap();
+      await dispatch(fetchProjectById(projectId)).unwrap();
+    } catch (err) {
+      setError(
+        typeof err === "string" ? err : "Could not remove the member.",
+      );
+    }
   };
 
-  const handleGenerateInviteLink = () => {
-    if (!projectId) return;
-    dispatch(generateInviteLink(projectId));
+  const handleGenerateInvite = async () => {
+    setError(null);
+    try {
+      await dispatch(generateInviteLink(projectId)).unwrap();
+    } catch (err) {
+      setError(
+        typeof err === "string" ? err : "Could not generate an invite link.",
+      );
+    }
   };
 
-  const handleCopyInviteLink = async () => {
+  const copyInvite = async () => {
     if (!inviteLink) return;
-    await navigator.clipboard.writeText(inviteLink);
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Could not copy the invite link.");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (
+      !window.confirm(
+        "Delete this project and all of its sections? This cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+    try {
+      await dispatch(deleteProject(projectId)).unwrap();
+      router.push("/projects");
+    } catch (err) {
+      setError(
+        typeof err === "string" ? err : "Could not delete the project.",
+      );
+      setDeleting(false);
+    }
   };
 
   return (
-    <>
-      <InviteModal
-        open={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        members={members}
-        inviteLink={inviteLink}
-        onRemove={handleRemoveMember}
-        onRoleChange={handleRoleChange}
-        onGenerateLink={handleGenerateInviteLink}
-        onCopyLink={handleCopyInviteLink}
-        generateLoading={inviteLinkState.loading}
-        removeLoading={remove.loading}
-        updateLoading={update.loading}
-      />
+    <div className="mx-auto w-full max-w-[1200px] px-5 py-6 sm:px-8 sm:py-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-brand">
+            Project / Settings
+          </p>
+          <h1 className="mt-2 text-[28px] font-semibold leading-tight text-ink">
+            {project.name}
+          </h1>
+          <p className="mt-1 text-[13px] text-ink-muted">
+            Manage details, members and the blueprint.
+          </p>
+        </div>
 
-      <ExportBlueprintModal
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        projectName={projectName}
-        sections={sectionsMap}
-      />
+        <Button
+          rightIcon={<ArrowRight size={15} />}
+          onClick={() =>
+            router.push(`/projects/${projectId}/${nextStage.path}`)
+          }
+        >
+          Open blueprint
+        </Button>
+      </div>
 
-      <div
-        className="relative w-full flex-1 overflow-y-auto overflow-x-hidden"
-        style={{ ...INTER, backgroundColor: BG }}
-      >
-        <div className="min-w-0 flex-1 overflow-y-auto">
-          <motion.div
-            className="mx-auto w-full max-w-[1200px] px-5 py-10 sm:px-8 lg:px-10"
-            variants={stagger}
-            initial="hidden"
-            animate="show"
-          >
-            {/* Status toast */}
-            <AnimatePresence>
-              {status && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.97 }}
-                  transition={{ duration: 0.25 }}
-                  className="mb-6 flex items-center gap-3 border px-4 py-3"
-                  style={{
-                    borderColor:
-                      statusType === "success"
-                        ? "rgba(34,197,94,0.3)"
-                        : "rgba(245,158,11,0.3)",
-                    backgroundColor:
-                      statusType === "success"
-                        ? "rgba(34,197,94,0.08)"
-                        : "rgba(245,158,11,0.08)",
-                  }}
-                >
-                  <p
-                    className="text-sm font-medium"
-                    style={{
-                      ...INTER,
-                      color: statusType === "success" ? "#34d399" : "#fbbf24",
-                    }}
-                  >
-                    {status}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {error ? (
+        <div
+          role="alert"
+          className="mt-5 rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-3 text-[12px] text-danger"
+        >
+          {error}
+        </div>
+      ) : null}
 
-            {/* Breadcrumb */}
-            <motion.div variants={fadeUp(0)} className="mb-3">
-              <p
-                className="text-[11px] font-bold uppercase tracking-[0.2em]"
-                style={{ ...MONO, color: ACCENT }}
-              >
-                Section // 00 / Overview
-              </p>
-            </motion.div>
-
-            {/* Giant headline with inline pencil edit */}
-            <motion.div variants={fadeUp(1)} className="mb-8">
-              {isEditingName ? (
-                <form onSubmit={handleUpdateProjectName} className="flex items-center gap-3 max-w-3xl">
-                  <button
-                    type="button"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center border"
-                    style={{ borderColor: ACCENT, backgroundColor: `${ACCENT}12` }}
-                  >
-                    <Pencil size={18} style={{ color: ACCENT }} />
-                  </button>
-                  <input
-                    type="text"
-                    autoFocus
-                    value={projectNameDraft}
-                    onChange={(e) => setProjectNameDraft(e.target.value)}
-                    placeholder="Project name"
-                    className="flex-1 bg-transparent text-[2.2rem] sm:text-[3.2rem] md:text-[3.8rem] font-black uppercase text-white outline-none border-b-2 pb-1"
-                    style={{ ...INTER_TIGHT, borderColor: ACCENT }}
-                  />
-                  <button
-                    type="submit"
-                    disabled={update.loading}
-                    className="flex h-11 cursor-pointer items-center gap-1.5 border px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-white transition disabled:opacity-50"
-                    style={{ ...MONO, borderColor: ACCENT, backgroundColor: ACCENT }}
-                  >
-                    <Check size={14} />
-                    {update.loading ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditingName(false);
-                      setProjectNameDraft(currentProject?.name ?? "");
-                    }}
-                    className="flex h-11 cursor-pointer items-center justify-center border px-3 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:text-white"
-                    style={{ ...MONO, borderColor: BORDER, color: MUTED }}
-                  >
-                    <X size={14} />
-                  </button>
-                </form>
-              ) : (
-                <div className="flex items-center gap-4 group">
-                  <button
-                    onClick={() => setIsEditingName(true)}
-                    title="Click to edit project name"
-                    className="flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 cursor-pointer items-center justify-center border transition hover:border-[color:var(--accent)]"
-                    style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-                  >
-                    <Pencil size={18} className="transition group-hover:scale-110" style={{ color: ACCENT }} />
-                  </button>
-                  <h1
-                    onClick={() => setIsEditingName(true)}
-                    className="cursor-pointer text-[2.8rem] sm:text-[3.6rem] md:text-[4.2rem] font-black uppercase leading-[0.92] tracking-[-0.04em] text-white truncate transition hover:opacity-90"
-                    style={INTER_TIGHT}
-                    title="Click to edit project name"
-                  >
-                    {projectName}
-                  </h1>
-                </div>
-              )}
-            </motion.div>
-
-            {/* Team (Manage Team above Project Complexity) */}
-            <motion.div variants={fadeUp(2)} className="mb-12">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 flex-1">
-                  <span
-                    className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
-                    style={{ ...MONO, color: MUTED }}
-                  >
-                    Team ({members.length})
-                  </span>
-                  <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setInviteModalOpen(true)}
-                    className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:border-white/30"
-                    style={{
-                      ...MONO,
-                      borderColor: BORDER,
-                      color: MUTED,
-                    }}
-                  >
-                    <UserPlus size={13} />
-                    Manage Team
-                  </button>
-                  <button
-                    onClick={() => setExportModalOpen(true)}
-                    className="flex shrink-0 cursor-pointer items-center gap-1.5 border px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] transition hover:bg-[#d84c28] hover:text-black"
-                    style={{
-                      ...MONO,
-                      borderColor: ACCENT,
-                      color: ACCENT,
-                      backgroundColor: `${ACCENT}12`,
-                    }}
-                  >
-                    <Download size={13} />
-                    Export Blueprint
-                  </button>
-                </div>
-              </div>
-
-              {members.length === 0 ? (
-                <div
-                  className="border p-8 text-center"
-                  style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-                >
-                  <p className="text-base" style={{ ...INTER, color: MUTED }}>
-                    No members yet. Invite your team to start collaborating.
-                  </p>
-                </div>
-              ) : (
-                <div className="border" style={{ borderColor: BORDER }}>
-                  {members.slice(0, 5).map((member, i) => {
-                    const name =
-                      member.user?.name ?? member.user?.email ?? member.user_id;
-                    const initials = String(name)
-                      .split(" ")
-                      .map((p: string) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
-                    return (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-4 border-t px-5 py-4 first:border-t-0"
-                        style={{ borderColor: BORDER }}
-                      >
-                        <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center text-[11px] font-bold text-white"
-                          style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-                        >
-                          {initials || "?"}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-base font-semibold text-white" style={INTER}>
-                            {name}
-                          </p>
-                        </div>
-                        <span
-                          className="shrink-0 text-[9px] font-bold uppercase tracking-[0.1em]"
-                          style={{ ...MONO, color: MUTED }}
-                        >
-                          {member.role ?? "VIEWER"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
-
-            {/* Project Complexity Assessment */}
-            <motion.div variants={fadeUp(3)} className="mb-12">
-              <ComplexityOverviewCard
-                projectId={projectId || ""}
-                sectionsMap={sectionsMap}
-                loading={sectionsLoading}
-              />
-            </motion.div>
-
-            {/* Activity Feed */}
-            <motion.div variants={fadeUp(5)} className="mb-12">
-              <div className="mb-4 flex items-center gap-3">
-                <span
-                  className="shrink-0 text-[11px] font-bold uppercase tracking-[0.2em]"
-                  style={{ ...MONO, color: MUTED }}
-                >
-                  Activity / Changes
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[14px] font-semibold text-ink">
+                  Project details
+                </h2>
+                <span className="font-mono text-[11px] text-ink-muted">
+                  01 / SETTINGS
                 </span>
-                <span className="h-px flex-1" style={{ backgroundColor: BORDER }} />
               </div>
 
-              {(!activities || activities.length === 0) ? (
-                <div
-                  className="border p-8 text-center"
-                  style={{ borderColor: BORDER, backgroundColor: INNER_BG }}
-                >
-                  <p className="text-base" style={{ ...INTER, color: MUTED }}>
-                    No activity recorded yet.
+              <div className="mt-4 space-y-5">
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                    Name
+                  </p>
+                  {editingName ? (
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                        maxLength={50}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          loading={savingName}
+                          onClick={() => void saveName()}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setName(project.name);
+                            setEditingName(false);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-[16px] font-medium text-ink">
+                        {project.name}
+                      </p>
+                      {canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<Pencil size={13} />}
+                          onClick={() => setEditingName(true)}
+                        >
+                          Edit
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                      Owner
+                    </p>
+                    <p className="mt-1 text-[13px] text-ink">
+                      {owner?.name || owner?.email || "—"}
+                      {owner?.id === user?.id ? " (you)" : ""}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                      Created
+                    </p>
+                    <p className="mt-1 text-[13px] text-ink">
+                      {formatDate(project.createdAt)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                      Stages approved
+                    </p>
+                    <p className="mt-1 text-[13px] text-ink">
+                      {approvedStages}/4
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                      Visibility
+                    </p>
+                    <div className="mt-1">
+                      <Badge tone="neutral">Private project</Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[14px] font-semibold text-ink">
+                    Members
+                  </h2>
+                  <Badge tone="neutral">{members.length + 1}</Badge>
+                </div>
+                {isOwner ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<UserPlus size={14} />}
+                    loading={inviteLinkState.loading}
+                    onClick={() => void handleGenerateInvite()}
+                  >
+                    Invite
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="mt-3 divide-y divide-line">
+                <div className="flex items-center gap-3 py-3">
+                  <Avatar
+                    src={owner?.avatarUrl}
+                    name={owner?.name || owner?.email}
+                    size="md"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-ink">
+                      {owner?.name || owner?.email || "Owner"}
+                      {owner?.id === user?.id ? " (you)" : ""}
+                    </p>
+                    <p className="truncate text-[11px] text-ink-muted">
+                      {owner?.email}
+                    </p>
+                  </div>
+                  <Badge tone="brand">Owner</Badge>
+                </div>
+
+                {members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex flex-wrap items-center gap-3 py-3"
+                  >
+                    <Avatar
+                      src={
+                        typeof member.user?.avatarUrl === "string"
+                          ? member.user.avatarUrl
+                          : ""
+                      }
+                      name={member.user?.name || member.user?.email}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-ink">
+                        {member.user?.name || member.user?.email || "Member"}
+                        {member.user_id === user?.id ? " (you)" : ""}
+                      </p>
+                      <p className="truncate text-[11px] text-ink-muted">
+                        {member.user?.email}
+                      </p>
+                    </div>
+
+                    {isOwner ? (
+                      <>
+                        <select
+                          value={member.role ?? "VIEWER"}
+                          onChange={(event) =>
+                            void handleRoleChange(
+                              member.id,
+                              event.target.value as MemberRole,
+                            )
+                          }
+                          className="h-8 rounded-md border border-line bg-surface px-2 text-[11px] text-ink outline-none focus:border-brand"
+                        >
+                          <option value="EDITOR">Editor</option>
+                          <option value="VIEWER">Viewer</option>
+                        </select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            void handleRemoveMember(member.user_id)
+                          }
+                          aria-label="Remove member"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </>
+                    ) : (
+                      <Badge tone="neutral">
+                        {ROLE_LABEL[(member.role ?? "VIEWER") as MemberRole]}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {inviteLink && isOwner ? (
+                <div className="mt-4 rounded-lg bg-canvas p-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+                    Invite link
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Input
+                      readOnly
+                      value={inviteLink}
+                      className="font-mono text-[11px]"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={() => void copyInvite()}
+                      aria-label="Copy invite link"
+                    >
+                      {copied ? <Check size={14} /> : <Copy size={14} />}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-[10px] leading-relaxed text-ink-muted">
+                    Anyone with this link joins as a Viewer. The link expires
+                    in 7 days.
                   </p>
                 </div>
-              ) : (
-                <div className="border" style={{ borderColor: BORDER }}>
-                  {activities.map((activity, i) => {
-                    const name = activity.user?.name ?? activity.user?.email ?? "Unknown User";
-                    const initials = String(name)
-                      .split(" ")
-                      .map((p: string) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
+              ) : null}
+            </CardContent>
+          </Card>
 
-                    return (
-                      <div
-                        key={activity.id}
-                        className="flex items-start gap-4 border-t px-5 py-4 first:border-t-0"
-                        style={{ borderColor: BORDER }}
-                      >
-                        <div
-                          className="flex h-9 w-9 shrink-0 items-center justify-center text-[11px] font-bold text-white mt-0.5"
-                          style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-                        >
-                          {initials || "?"}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-base font-semibold text-white" style={INTER}>
-                            {name}
-                          </p>
-                          <p className="text-sm mt-0.5" style={{ ...INTER, color: MUTED }}>
-                            {activity.details || activity.action}
-                          </p>
-                        </div>
-                        <span
-                          className="shrink-0 text-[9px] font-bold uppercase tracking-[0.1em]"
-                          style={{ ...MONO, color: MUTED }}
-                        >
-                          {getRelativeTime(activity.createdAt)}
-                        </span>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[14px] font-semibold text-ink">
+                  Activity
+                </h2>
+                <span className="font-mono text-[11px] text-ink-muted">
+                  {activities.length}
+                </span>
+              </div>
+
+              {fetchActivities.loading ? (
+                <div className="mt-4 space-y-3">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : activities.length === 0 ? (
+                <p className="mt-3 text-[12px] text-ink-muted">
+                  No activity yet.
+                </p>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {activities.slice(0, 8).map((activity) => (
+                    <div key={activity.id} className="flex gap-3">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] text-ink">
+                          {humanizeAction(activity.action)}
+                          {activity.details ? ` — ${activity.details}` : ""}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-ink-muted">
+                          {activity.user?.name ||
+                            activity.user?.email ||
+                            "System"}{" "}
+                          · {relativeTime(activity.createdAt)}
+                        </p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               )}
-            </motion.div>
+            </CardContent>
+          </Card>
+        </div>
 
-          </motion.div>
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[14px] font-semibold text-ink">
+                  Blueprint
+                </h2>
+                <span className="font-mono text-[11px] text-ink-muted">
+                  {approvedStages}/4
+                </span>
+              </div>
+
+              <div className="mt-3 flex gap-1">
+                {[0, 1, 2, 3].map((segment) => (
+                  <span
+                    key={segment}
+                    className={
+                      segment < approvedStages
+                        ? "h-1 flex-1 rounded-xs bg-brand"
+                        : "h-1 flex-1 rounded-xs bg-surface-muted"
+                    }
+                  />
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-1">
+                {WORKSPACE_STAGES.map((stage) => {
+                  const approved = sections.includes(stage.type);
+                  return (
+                    <Link
+                      key={stage.id}
+                      href={`/projects/${projectId}/${stage.path}`}
+                      className="flex items-center justify-between gap-2 rounded-md px-2 py-2 transition-colors hover:bg-surface-muted"
+                    >
+                      <span className="flex items-center gap-2 text-[12px] text-ink">
+                        <span className="font-mono text-[10px] text-ink-muted">
+                          {stage.number}
+                        </span>
+                        {stage.label}
+                      </span>
+                      <Badge tone={approved ? "brand" : "neutral"}>
+                        {approved ? "Approved" : "Draft"}
+                      </Badge>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <h2 className="text-[14px] font-semibold text-ink">
+                Danger zone
+              </h2>
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-muted">
+                Deleting this project removes every section, membership and
+                invite. This cannot be undone.
+              </p>
+              <Button
+                variant="danger"
+                className="mt-4 w-full"
+                leftIcon={<Trash2 size={15} />}
+                loading={deleting || removeState.loading}
+                disabled={!isOwner}
+                onClick={() => void handleDelete()}
+              >
+                Delete project
+              </Button>
+              {!isOwner ? (
+                <p className="mt-2 text-[10px] text-ink-muted">
+                  Only the owner can delete this project.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
         </div>
       </div>
-    </>
+    </div>
   );
 }

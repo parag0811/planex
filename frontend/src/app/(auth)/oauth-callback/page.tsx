@@ -1,19 +1,60 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useReducer } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
-import FullPageLoader from "@/src/components/common/FullPageLoader";
-import { fetchUser } from "@/src/store/slices/authSlice";
-import { setToken } from "@/src/store/slices/authSlice";
+import { AlertCircle } from "lucide-react";
+import { Brand } from "@/src/components/layout/brand";
+import { Button } from "@/src/components/ui/button";
+import { fetchUser, setToken } from "@/src/store/slices/authSlice";
 import type { AppDispatch } from "@/src/store/store";
+
+function CallbackLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[100dvh] flex-col bg-canvas">
+      <header className="flex h-[88px] shrink-0 items-center px-5 sm:px-8 lg:px-16">
+        <Brand />
+      </header>
+      <main className="flex flex-1 items-center justify-center px-5 py-10">
+        {children}
+      </main>
+      <footer className="flex h-[72px] shrink-0 items-center justify-between px-5 text-[11px] text-ink-muted sm:px-8 lg:px-16">
+        <span>Built for the thinking before the code.</span>
+        <span className="hidden font-mono sm:block">PLANEX / AUTH</span>
+      </footer>
+    </div>
+  );
+}
+
+function SigningIn() {
+  return (
+    <div className="w-full max-w-md rounded-lg border border-line bg-surface p-8 text-center">
+      <div
+        className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-brand/20 border-t-brand"
+        aria-label="Signing you in"
+      />
+      <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+        OAuth / Callback
+      </p>
+      <h1 className="mt-2 text-[20px] font-semibold text-ink">
+        Signing you in…
+      </h1>
+      <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
+        Verifying your account and loading your workspace.
+      </p>
+    </div>
+  );
+}
 
 function OAuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useReducer(
+    (_state: string | null, next: string | null) => next,
+    null as string | null,
+  );
 
   useEffect(() => {
     const hashParams = new URLSearchParams(
@@ -53,13 +94,15 @@ function OAuthCallbackContent() {
     dispatch(fetchUser())
       .unwrap()
       .then(() => router.replace("/projects"))
-      .catch((err: any) => {
+      .catch((err: unknown) => {
+        const status = (err as { status?: number })?.status;
         // Only an explicit 401 means the OAuth token is invalid. A 5xx/503
         // during a cold start must not discard a valid session.
-        if (err?.status === 401) {
+        if (status === 401) {
           localStorage.removeItem("token");
           setError(
-            err.message || "Your session is invalid. Please log in again.",
+            (err as { message?: string })?.message ||
+              "Your session is invalid. Please log in again.",
           );
           return;
         }
@@ -68,38 +111,47 @@ function OAuthCallbackContent() {
       });
   }, [dispatch, router, searchParams]);
 
-  if (error) {
+  if (!error) {
     return (
-      <div className="min-h-screen bg-[#06070c] flex items-center justify-center px-6 text-white">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#10141d] p-8 text-center shadow-[0_24px_80px_rgba(0,0,0,0.4)]">
-          <p className="text-sm font-semibold tracking-[0.12em] uppercase text-[#f97316]">
-            OAuth Error
-          </p>
-          <p className="mt-2 text-sm text-[#8b93a6]">{error}</p>
-          <div className="mt-6 flex flex-col gap-3">
-            <Link
-              href="/login"
-              className="w-full rounded-xl bg-[#f97316] py-2.5 text-sm font-bold uppercase tracking-widest text-black transition-colors hover:bg-[#ea6c0a]"
-            >
-              Go to Login
-            </Link>
-            <Link
-              href="/register"
-              className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-semibold uppercase tracking-widest text-white transition-colors hover:bg-white/10"
-            >
-              Create Account
-            </Link>
-          </div>
-        </div>
-      </div>
+      <CallbackLayout>
+        <SigningIn />
+      </CallbackLayout>
     );
   }
 
   return (
-    <FullPageLoader
-      title="Signing you in"
-      subtitle="Verifying account and loading your workspace..."
-    />
+    <CallbackLayout>
+      <div className="w-full max-w-md rounded-lg border border-line bg-surface p-8 text-center">
+        <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg bg-danger-soft text-danger">
+          <AlertCircle size={18} />
+        </span>
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
+          OAuth / Error
+        </p>
+        <h1 className="mt-2 text-[20px] font-semibold text-ink">
+          We couldn’t sign you in.
+        </h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-ink-muted">
+          {error}
+        </p>
+
+        <div className="mt-5 flex flex-col gap-2">
+          <Button onClick={() => router.push("/login")}>Go to login</Button>
+          <Button
+            variant="secondary"
+            onClick={() => router.push("/register")}
+          >
+            Create account
+          </Button>
+        </div>
+
+        <p className="mt-4 text-[11px] text-ink-muted">
+          <Link href="/" className="transition-colors hover:text-ink">
+            Return to Planex
+          </Link>
+        </p>
+      </div>
+    </CallbackLayout>
   );
 }
 
@@ -107,10 +159,9 @@ export default function OAuthCallbackPage() {
   return (
     <Suspense
       fallback={
-        <FullPageLoader
-          title="Signing you in"
-          subtitle="Verifying account and loading your workspace..."
-        />
+        <CallbackLayout>
+          <SigningIn />
+        </CallbackLayout>
       }
     >
       <OAuthCallbackContent />

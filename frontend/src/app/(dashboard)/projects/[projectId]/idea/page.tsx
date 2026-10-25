@@ -66,6 +66,7 @@ export default function RequirementsPage() {
   const [regenerating, setRegenerating] = useState(false);
   const [urlJobId, setUrlJobId] = useState<string | null>(null);
   const [regenJobId, setRegenJobId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [newIdea, setNewIdea] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +108,29 @@ export default function RequirementsPage() {
     return () => {
       cancelled = true;
     };
-  }, [dispatch, projectId]);
+  }, [dispatch, projectId, refreshKey]);
+
+  useEffect(() => {
+    const handleSectionUpdated = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ projectId: string; section: string }>
+      ).detail;
+      if (
+        detail?.projectId !== projectId ||
+        detail?.section !== "idea"
+      ) {
+        return;
+      }
+      setRefreshKey((value) => value + 1);
+    };
+
+    window.addEventListener("planex:section-updated", handleSectionUpdated);
+    return () =>
+      window.removeEventListener(
+        "planex:section-updated",
+        handleSectionUpdated,
+      );
+  }, [projectId]);
 
   useEffect(() => {
     if (job?.status === "completed" && job.result) {

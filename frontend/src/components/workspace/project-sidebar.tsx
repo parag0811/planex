@@ -41,6 +41,7 @@ export function ProjectSidebar({
   const activeStage = WORKSPACE_STAGES.find((stage) =>
     pathname.endsWith(`/${stage.path}`),
   );
+  const settingsActive = pathname === `/projects/${projectId}`;
 
   return (
     <div className="flex h-full flex-col gap-6 overflow-y-auto bg-surface px-4 py-6">
@@ -140,7 +141,12 @@ export function ProjectSidebar({
         <Link
           href={`/projects/${projectId}`}
           onClick={onNavigate}
-          className="flex items-center gap-2 px-2 text-[12px] text-ink-muted transition-colors hover:text-ink"
+          className={cn(
+            "flex items-center gap-2 rounded-md px-2 py-1.5 text-[12px] transition-colors",
+            settingsActive
+              ? "bg-brand-soft text-brand"
+              : "text-ink-muted hover:text-ink",
+          )}
         >
           <Settings2 size={16} />
           Project settings

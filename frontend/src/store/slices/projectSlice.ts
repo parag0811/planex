@@ -442,7 +442,7 @@ const projectSlice = createSlice({
         if (!state.currentProject?.members) return;
 
         state.currentProject.members = state.currentProject.members.filter(
-          (member) => member.id !== action.payload.memberId,
+          (member) => member.user_id !== action.payload.memberId,
         );
       })
       .addCase(removeMember.rejected, (state, action) => {

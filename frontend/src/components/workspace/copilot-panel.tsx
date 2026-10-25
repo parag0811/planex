@@ -2,8 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
+import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeSanitize from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
 import { Send, Sparkles } from "lucide-react";
 import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
 import { cn } from "@/src/lib/cn";
 import { WORKSPACE_STAGES } from "@/src/lib/stages";
 import {
@@ -11,18 +15,103 @@ import {
   sendChatMessage,
   type ChatSectionType,
 } from "@/src/store/slices/jobSlice";
+import { fetchProjectById } from "@/src/store/slices/projectSlice";
+import { upsertSection } from "@/src/store/slices/sectionSlice";
 import type { AppDispatch } from "@/src/store/store";
+
+type ApplySection = Exclude<ChatSectionType, "none">;
+
+interface Suggestion {
+  section: ApplySection;
+  payload: unknown;
+}
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  suggestion?: boolean;
+  suggestion?: Suggestion;
   error?: boolean;
 }
 
-const sectionLabel = (section: ChatSectionType) =>
+const SECTION_LABEL = (section: ChatSectionType) =>
   WORKSPACE_STAGES.find((stage) => stage.id === section)?.label ?? "Workspace";
+
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  ul: ({ children }) => (
+    <ul className="mb-2 list-disc space-y-1 pl-4">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="mb-2 list-decimal space-y-1 pl-4">{children}</ol>
+  ),
+  li: ({ children }) => <li className="pl-0.5">{children}</li>,
+  strong: ({ children }) => (
+    <strong className="font-semibold text-ink">{children}</strong>
+  ),
+  h1: ({ children }) => (
+    <h1 className="mb-1 mt-3 text-[13px] font-semibold text-ink first:mt-0">
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="mb-1 mt-3 text-[13px] font-semibold text-ink first:mt-0">
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="mb-1 mt-3 text-[12px] font-semibold text-ink first:mt-0">
+      {children}
+    </h3>
+  ),
+  code: ({ className, children }) => (
+    <code
+      className={cn(
+        "font-mono text-[11px]",
+        className
+          ? "text-ink-soft"
+          : "rounded bg-surface-muted px-1 py-0.5 text-ink",
+      )}
+    >
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => (
+    <pre className="mb-2 overflow-x-auto rounded-lg bg-canvas p-3 font-mono text-[11px] leading-relaxed text-ink-soft">
+      {children}
+    </pre>
+  ),
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-brand underline"
+    >
+      {children}
+    </a>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="mb-2 border-l-2 border-brand/30 pl-3 italic text-ink-muted">
+      {children}
+    </blockquote>
+  ),
+  table: ({ children }) => (
+    <div className="mb-2 overflow-x-auto">
+      <table className="w-full border-collapse text-[11px]">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="border-b border-line px-2 py-1 text-left font-semibold text-ink">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border-b border-line px-2 py-1 text-ink-soft">
+      {children}
+    </td>
+  ),
+};
 
 export function CopilotPanel({
   projectId,
@@ -32,7 +121,7 @@ export function CopilotPanel({
   section: ChatSectionType;
 }) {
   const dispatch = useDispatch<AppDispatch>();
-  const label = sectionLabel(section);
+  const label = SECTION_LABEL(section);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -43,6 +132,10 @@ export function CopilotPanel({
   ]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [applying, setApplying] = useState<string | null>(null);
+  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +152,7 @@ export function CopilotPanel({
     ]);
     setInput("");
     setThinking(true);
+    setActionError(null);
 
     try {
       const queued = await dispatch(
@@ -122,9 +216,21 @@ export function CopilotPanel({
         type?: string;
         explanation?: string;
         message?: string;
+        section?: string;
+        content?: unknown;
       };
 
       const isUpdate = result.type === "update";
+      const resultSection =
+        result.section === "idea" ||
+        result.section === "database" ||
+        result.section === "api" ||
+        result.section === "folder"
+          ? (result.section as ApplySection)
+          : section !== "none"
+            ? section
+            : null;
+
       setMessages((prev) => [
         ...prev,
         {
@@ -132,8 +238,15 @@ export function CopilotPanel({
           role: "assistant",
           content: isUpdate
             ? result.explanation || "Here is a suggested revision."
-            : result?.message || "No response.",
-          suggestion: isUpdate,
+            : result.message || "No response.",
+          ...(isUpdate && resultSection
+            ? {
+                suggestion: {
+                  section: resultSection,
+                  payload: result.content,
+                },
+              }
+            : {}),
         },
       ]);
     } catch (error) {
@@ -152,6 +265,47 @@ export function CopilotPanel({
     } finally {
       setThinking(false);
     }
+  };
+
+  const applySuggestion = async (message: Message) => {
+    if (!message.suggestion || applying) return;
+
+    setApplying(message.id);
+    setActionError(null);
+
+    try {
+      await dispatch(
+        upsertSection({
+          projectId,
+          type: message.suggestion.section,
+          content: message.suggestion.payload,
+        }),
+      ).unwrap();
+
+      dispatch(fetchProjectById(projectId));
+      window.dispatchEvent(
+        new CustomEvent("planex:section-updated", {
+          detail: {
+            projectId,
+            section: message.suggestion.section,
+          },
+        }),
+      );
+
+      setApplied((prev) => new Set(prev).add(message.id));
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Could not apply the suggestion.",
+      );
+    } finally {
+      setApplying(null);
+    }
+  };
+
+  const dismissSuggestion = (messageId: string) => {
+    setDismissed((prev) => new Set(prev).add(messageId));
   };
 
   return (
@@ -174,27 +328,64 @@ export function CopilotPanel({
             <p
               className={cn(
                 "text-[11px]",
-                message.role === "assistant"
-                  ? "text-brand"
-                  : "text-ink-muted",
+                message.role === "assistant" ? "text-brand" : "text-ink-muted",
               )}
             >
               {message.role === "assistant" ? "Planex Copilot" : "You"}
             </p>
-            <p
-              className={cn(
-                "whitespace-pre-wrap text-[13px] leading-relaxed",
-                message.error
-                  ? "text-danger"
-                  : message.role === "assistant"
-                    ? "text-ink-soft"
-                    : "text-ink",
-              )}
-            >
-              {message.content}
-            </p>
-            {message.suggestion ? (
-              <Badge tone="neutral">Suggestion only · Not saved</Badge>
+
+            {message.role === "assistant" ? (
+              <div
+                className={cn(
+                  "text-[13px] leading-relaxed",
+                  message.error ? "text-danger" : "text-ink-soft",
+                )}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeSanitize]}
+                  components={markdownComponents}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink">
+                {message.content}
+              </p>
+            )}
+
+            {message.suggestion &&
+            !applied.has(message.id) &&
+            !dismissed.has(message.id) ? (
+              <div className="rounded-lg border border-line bg-canvas p-3">
+                <Badge tone="neutral">Suggestion only · Not saved</Badge>
+                <p className="mt-2 text-[11px] leading-relaxed text-ink-soft">
+                  Applying writes this to the saved blueprint. You can edit it
+                  afterwards.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    loading={applying === message.id}
+                    onClick={() => void applySuggestion(message)}
+                  >
+                    Apply to{" "}
+                    {SECTION_LABEL(message.suggestion.section).toLowerCase()}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => dismissSuggestion(message.id)}
+                  >
+                    Not now
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {message.suggestion && applied.has(message.id) ? (
+              <Badge tone="brand">Applied to saved blueprint</Badge>
             ) : null}
           </div>
         ))}
@@ -207,6 +398,12 @@ export function CopilotPanel({
       </div>
 
       <div className="shrink-0 border-t border-line p-4">
+        {actionError ? (
+          <p className="mb-2 text-[11px] text-danger" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
         <p className="mb-2 font-mono text-[10px] text-ink-muted">
           KEEP EXPLORING
         </p>
@@ -252,7 +449,7 @@ export function CopilotPanel({
         </div>
 
         <p className="mt-2 text-[10px] text-ink-muted">
-          Suggestions never change your saved blueprint.
+          Suggestions never change your saved blueprint until you apply them.
         </p>
       </div>
     </div>
