@@ -1,33 +1,88 @@
-export interface DatabaseField {
-  name: string;
-  type: string;
-  required: boolean;
-  unique?: boolean;
-  description?: string;
-}
+import type {
+  DatabaseContent,
+  DatabaseEntity,
+  DatabaseField,
+  DatabaseIndex,
+  DatabaseRelation,
+} from "./schemas/database.schema";
 
-export interface DatabaseEntity {
-  name: string;
-  description: string;
-  fields: DatabaseField[];
-}
-
-export interface DatabaseRelation {
-  from: string;
-  to: string;
-  type: string;
-  description?: string;
-}
-
-export interface DatabaseContent {
-  entities: DatabaseEntity[];
-  relationships: DatabaseRelation[];
-  indexes?: Array<{ entity: string; fields: string[]; unique?: boolean }>;
-}
+export type {
+  DatabaseContent,
+  DatabaseEntity,
+  DatabaseField,
+  DatabaseIndex,
+  DatabaseRelation,
+} from "./schemas/database.schema";
 
 export const EMPTY_DATABASE: DatabaseContent = {
   entities: [],
   relationships: [],
+  indexes: [],
+};
+
+const asString = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const asStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+
+const normalizeField = (value: unknown): DatabaseField => {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    name: asString(record.name),
+    type: asString(record.type) || "string",
+    required: typeof record.required === "boolean" ? record.required : true,
+    unique: record.unique === true,
+    description: asString(record.description),
+  };
+};
+
+const normalizeEntity = (value: unknown): DatabaseEntity => {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    name: asString(record.name),
+    description: asString(record.description),
+    fields: Array.isArray(record.fields)
+      ? record.fields.map(normalizeField)
+      : [],
+  };
+};
+
+const normalizeRelation = (value: unknown): DatabaseRelation => {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    from: asString(record.from),
+    to: asString(record.to),
+    type: asString(record.type),
+    description: asString(record.description),
+  };
+};
+
+const normalizeIndex = (value: unknown): DatabaseIndex => {
+  const record =
+    value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : {};
+
+  return {
+    entity: asString(record.entity),
+    fields: asStringArray(record.fields),
+    unique: record.unique === true,
+  };
 };
 
 export const normalizeDatabase = (payload: unknown): DatabaseContent => {
@@ -39,63 +94,15 @@ export const normalizeDatabase = (payload: unknown): DatabaseContent => {
       ? ((payload as Record<string, unknown>).content as Record<string, unknown>)
       : ((payload ?? {}) as Record<string, unknown>);
 
-  const entities = Array.isArray(source.entities)
-    ? source.entities
-        .map((entity) => {
-          const record = entity as Record<string, unknown>;
-          const fields = Array.isArray(record.fields)
-            ? record.fields
-                .map((field) => {
-                  const item = field as Record<string, unknown>;
-                  return {
-                    name: typeof item.name === "string" ? item.name : "",
-                    type: typeof item.type === "string" ? item.type : "string",
-                    required:
-                      typeof item.required === "boolean" ? item.required : true,
-                    unique: item.unique === true,
-                    description:
-                      typeof item.description === "string"
-                        ? item.description
-                        : "",
-                  };
-                })
-                .filter((field) => field.name)
-            : [];
-
-          return {
-            name: typeof record.name === "string" ? record.name : "",
-            description:
-              typeof record.description === "string"
-                ? record.description
-                : "",
-            fields,
-          };
-        })
-        .filter((entity) => entity.name)
-    : [];
-
-  const relationships = Array.isArray(source.relationships)
-    ? source.relationships
-        .map((relation) => {
-          const record = relation as Record<string, unknown>;
-          return {
-            from: typeof record.from === "string" ? record.from : "",
-            to: typeof record.to === "string" ? record.to : "",
-            type: typeof record.type === "string" ? record.type : "",
-            description:
-              typeof record.description === "string"
-                ? record.description
-                : "",
-          };
-        })
-        .filter((relation) => relation.from && relation.to)
-    : [];
-
   return {
-    entities,
-    relationships,
+    entities: Array.isArray(source.entities)
+      ? source.entities.map(normalizeEntity)
+      : [],
+    relationships: Array.isArray(source.relationships)
+      ? source.relationships.map(normalizeRelation)
+      : [],
     indexes: Array.isArray(source.indexes)
-      ? (source.indexes as DatabaseContent["indexes"])
+      ? source.indexes.map(normalizeIndex)
       : [],
   };
 };
@@ -136,5 +143,13 @@ export const buildSql = (content: DatabaseContent): string => {
       `-- ${relation.from} -> ${relation.to} (${relation.type})`,
   );
 
-  return [...tables, "", ...relationComments].join("\n");
+  const indexStatements = (content.indexes ?? [])
+    .filter((index) => index.entity && index.fields.length > 0)
+    .map((index) => {
+      const unique = index.unique ? "UNIQUE " : "";
+      const name = `${index.entity}_${index.fields.join("_")}_idx`;
+      return `CREATE ${unique}INDEX ${name} ON ${index.entity} (${index.fields.join(", ")});`;
+    });
+
+  return [...tables, "", ...relationComments, ...indexStatements].join("\n");
 };

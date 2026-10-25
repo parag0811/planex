@@ -1,13 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  AlertCircle,
-  CheckCircle2,
-  Save,
-  Upload,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Save } from "lucide-react";
 import {
   Avatar,
   Button,
@@ -41,22 +36,12 @@ export default function ProfilePage() {
 
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const name = nameDraft ?? user?.name ?? "";
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<"success" | "error" | null>(
     null,
   );
 
-  const avatarPreview = useMemo(() => {
-    if (avatarFile) return URL.createObjectURL(avatarFile);
-    return user?.avatarUrl || user?.avatar || user?.image || "";
-  }, [avatarFile, user]);
-
-  useEffect(() => {
-    return () => {
-      if (avatarFile && avatarPreview) URL.revokeObjectURL(avatarPreview);
-    };
-  }, [avatarFile, avatarPreview]);
+  const avatarPreview = user?.avatarUrl || user?.avatar || user?.image || "";
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -66,31 +51,6 @@ export default function ProfilePage() {
     }, 3500);
     return () => clearTimeout(timer);
   }, [statusMessage]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    setStatusMessage(null);
-    setStatusType(null);
-
-    if (!file) {
-      setAvatarFile(null);
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setStatusMessage("Please choose an image file.");
-      setStatusType("error");
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setStatusMessage("Image must be under 2 MB.");
-      setStatusType("error");
-      return;
-    }
-
-    setAvatarFile(file);
-  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -105,19 +65,17 @@ export default function ProfilePage() {
     }
 
     const hasNameChange = trimmedName !== (user?.name || "");
-    if (!hasNameChange && !avatarFile) {
+    if (!hasNameChange) {
       setStatusMessage("Nothing to update yet.");
       setStatusType("error");
       return;
     }
 
     const formData = new FormData();
-    if (hasNameChange) formData.append("name", trimmedName);
-    if (avatarFile) formData.append("avatar", avatarFile);
+    formData.append("name", trimmedName);
 
     try {
       await dispatch(updateUserProfile(formData)).unwrap();
-      setAvatarFile(null);
       setNameDraft(null);
       setStatusMessage("Profile updated successfully.");
       setStatusType("success");
@@ -142,7 +100,7 @@ export default function ProfilePage() {
         Profile
       </h1>
       <p className="mt-1 text-[13px] text-ink-muted">
-        Manage your account and avatar.
+        Manage your account details.
       </p>
 
       {displayMessage ? (
@@ -179,18 +137,8 @@ export default function ProfilePage() {
               {user?.email || "—"}
             </p>
 
-            <label className="mt-5 inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-line bg-surface text-[13px] text-ink transition-colors hover:bg-surface-muted">
-              <Upload size={15} />
-              Upload avatar
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </label>
-            <p className="mt-2 text-[10px] text-ink-muted">
-              PNG or JPG, up to 2 MB.
+            <p className="mt-5 text-[10px] leading-relaxed text-ink-muted">
+              Avatar images are managed by your sign-in provider.
             </p>
           </CardContent>
         </Card>

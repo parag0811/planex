@@ -229,7 +229,8 @@ export default function ProjectSettingsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-5 py-6 sm:px-8 sm:py-8">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto w-full max-w-[1200px] px-5 py-6 sm:px-8 sm:py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-brand">
@@ -350,14 +351,6 @@ export default function ProjectSettingsPage() {
                     <p className="mt-1 text-[13px] text-ink">
                       {approvedStages}/4
                     </p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
-                      Visibility
-                    </p>
-                    <div className="mt-1">
-                      <Badge tone="neutral">Private project</Badge>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -616,6 +609,7 @@ export default function ProjectSettingsPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
       </div>
     </div>
   );

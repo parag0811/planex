@@ -177,15 +177,7 @@ export default function RegisterPage() {
           </Field>
 
           <p className="text-[11px] leading-[1.65] text-ink-muted">
-            By creating an account, you agree to our{" "}
-            <Link href="#" className="text-brand hover:underline">
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link href="#" className="text-brand hover:underline">
-              Privacy Policy
-            </Link>
-            .
+            By creating an account, you agree to our Terms and Privacy Policy.
           </p>
 
           <Button

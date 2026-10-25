@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { Plus, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  Field,
   Input,
   Skeleton,
   Textarea,
@@ -20,7 +21,12 @@ import {
   normalizeIdea,
   STACK_KEYS,
   type IdeaSectionContent,
+  type StackCategory,
 } from "@/src/lib/idea-content";
+import {
+  IdeaEditorSchema,
+  getIdeaFieldErrors,
+} from "@/src/lib/schemas/idea.schema";
 import { generateIdea } from "@/src/store/slices/jobSlice";
 import { fetchProjectById } from "@/src/store/slices/projectSlice";
 import {
@@ -38,12 +44,37 @@ const STACK_LABELS: Record<string, string> = {
   frameworks: "Frameworks",
 };
 
+const STACK_ADD_LABELS: Record<string, string> = {
+  frontend: "frontend",
+  backend: "backend",
+  database: "database",
+  infrastructure: "infrastructure",
+  ai: "AI",
+  frameworks: "frameworks",
+};
+
 const getErrorMessage = (error: unknown, fallback: string) =>
   typeof error === "string"
     ? error
     : error instanceof Error
       ? error.message
       : fallback;
+
+function InlineError({
+  id,
+  message,
+}: {
+  id?: string;
+  message?: string;
+}) {
+  if (!message) return null;
+
+  return (
+    <p id={id} role="alert" className="text-[11px] leading-relaxed text-danger">
+      {message}
+    </p>
+  );
+}
 
 export default function RequirementsPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -169,6 +200,31 @@ export default function RequirementsPage() {
   const version = sectionRecord?.data?.version ?? 1;
   const projectName = project?.name || "this project";
 
+  const validation = useMemo(
+    () => IdeaEditorSchema.safeParse(content),
+    [content],
+  );
+  const previewValidation = useMemo(
+    () => (preview ? IdeaEditorSchema.safeParse(preview) : null),
+    [preview],
+  );
+
+  const fieldErrors = validation.success
+    ? {}
+    : getIdeaFieldErrors(validation.error);
+  const previewErrors =
+    previewValidation && !previewValidation.success
+      ? getIdeaFieldErrors(previewValidation.error)
+      : {};
+
+  const canSave = preview
+    ? Boolean(previewValidation?.success)
+    : validation.success;
+  const invalidCount = preview
+    ? Object.keys(previewErrors).length
+    : Object.keys(fieldErrors).length;
+  const showValidationWarning = dirty && !canSave;
+
   const statusLabel = dirty
     ? "Draft not saved"
     : hasSection
@@ -182,9 +238,11 @@ export default function RequirementsPage() {
 
   const stageBadge = preview
     ? { label: "AI draft", tone: "warning" as const }
-    : hasSection
-      ? { label: "Approved · Saved", tone: "brand" as const }
-      : { label: "Empty", tone: "neutral" as const };
+    : isEditing
+      ? { label: "Draft · Not saved", tone: "warning" as const }
+      : hasSection
+        ? { label: "Approved · Saved", tone: "brand" as const }
+        : { label: "Empty", tone: "neutral" as const };
 
   const updateFeature = (
     index: number,
@@ -243,6 +301,44 @@ export default function RequirementsPage() {
     }));
   };
 
+  const updateStackItem = (
+    key: StackCategory,
+    index: number,
+    value: string,
+  ) => {
+    setContent((prev) => ({
+      ...prev,
+      suggested_tech_stack: {
+        ...prev.suggested_tech_stack,
+        [key]: prev.suggested_tech_stack[key].map((item, itemIndex) =>
+          itemIndex === index ? value : item,
+        ),
+      },
+    }));
+  };
+
+  const addStackItem = (key: StackCategory) => {
+    setContent((prev) => ({
+      ...prev,
+      suggested_tech_stack: {
+        ...prev.suggested_tech_stack,
+        [key]: [...prev.suggested_tech_stack[key], ""],
+      },
+    }));
+  };
+
+  const removeStackItem = (key: StackCategory, index: number) => {
+    setContent((prev) => ({
+      ...prev,
+      suggested_tech_stack: {
+        ...prev.suggested_tech_stack,
+        [key]: prev.suggested_tech_stack[key].filter(
+          (_, itemIndex) => itemIndex !== index,
+        ),
+      },
+    }));
+  };
+
   const handleEdit = () => {
     if (preview) {
       setContent(preview);
@@ -261,11 +357,28 @@ export default function RequirementsPage() {
   const handleApprove = async () => {
     if (!dirty) return;
 
+    const source = preview ?? content;
+    const result = IdeaEditorSchema.safeParse(source);
+
+    if (!result.success) {
+      setError(
+        preview
+          ? "This draft is missing required fields. Fix the highlighted fields before saving."
+          : "Fix the highlighted fields before approving.",
+      );
+      if (preview) {
+        setContent(preview);
+        setPreview(null);
+        setIsEditing(true);
+      }
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
     try {
-      const payload = preview ?? content;
+      const payload = result.data;
       await dispatch(
         upsertSection({ projectId, type: "idea", content: payload }),
       ).unwrap();
@@ -363,6 +476,7 @@ export default function RequirementsPage() {
   const hasAnyContent =
     hasSection ||
     preview !== null ||
+    isEditing ||
     Boolean(displayed.overview) ||
     displayed.key_features.length > 0 ||
     displayed.requirements.length > 0;
@@ -457,8 +571,26 @@ export default function RequirementsPage() {
           ) : dirty ? (
             <div className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-3 text-[12px] text-brand">
               <Sparkles size={16} />
-              AI-generated draft. Review and edit before you approve. Nothing is
-              saved yet.
+              {isEditing
+                ? "Editing requirements. Fix any highlighted fields, then approve to save."
+                : "AI-generated draft. Review and edit before you approve. Nothing is saved yet."}
+            </div>
+          ) : null}
+
+          {showValidationWarning ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-3 text-[12px] text-danger"
+            >
+              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <span>
+                {invalidCount === 1
+                  ? "1 field needs attention"
+                  : `${invalidCount} fields need attention`}
+                {preview
+                  ? " in this AI draft. Choose Edit to fix them before saving."
+                  : " before you can approve this section."}
+              </span>
             </div>
           ) : null}
 
@@ -474,32 +606,86 @@ export default function RequirementsPage() {
               </div>
 
               {isEditing ? (
-                <Textarea
-                  value={content.overview}
-                  onChange={(event) =>
-                    setContent((prev) => ({
-                      ...prev,
-                      overview: event.target.value,
-                    }))
-                  }
-                  rows={4}
-                  className="mt-3"
-                  placeholder="What is this product, and who is it for?"
-                />
+                <div className="mt-3 space-y-4">
+                  <Field
+                    label="Overview"
+                    htmlFor="idea-overview"
+                    error={fieldErrors.overview}
+                  >
+                    <Textarea
+                      id="idea-overview"
+                      value={content.overview}
+                      onChange={(event) =>
+                        setContent((prev) => ({
+                          ...prev,
+                          overview: event.target.value,
+                        }))
+                      }
+                      rows={4}
+                      invalid={Boolean(fieldErrors.overview)}
+                      placeholder="What is this product, and who is it for?"
+                    />
+                  </Field>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      label="Estimated complexity"
+                      htmlFor="idea-complexity"
+                    >
+                      <select
+                        id="idea-complexity"
+                        value={content.estimated_complexity}
+                        onChange={(event) =>
+                          setContent((prev) => ({
+                            ...prev,
+                            estimated_complexity: event.target
+                              .value as IdeaSectionContent["estimated_complexity"],
+                          }))
+                        }
+                        className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-xs text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                      >
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                      </select>
+                    </Field>
+
+                    <Field
+                      label="Team size"
+                      htmlFor="idea-team-size"
+                      error={fieldErrors.team_size}
+                    >
+                      <Input
+                        id="idea-team-size"
+                        value={content.team_size}
+                        onChange={(event) =>
+                          setContent((prev) => ({
+                            ...prev,
+                            team_size: event.target.value,
+                          }))
+                        }
+                        invalid={Boolean(fieldErrors.team_size)}
+                        placeholder="1-3 developers"
+                      />
+                    </Field>
+                  </div>
+                </div>
               ) : (
                 <p className="mt-3 text-[13px] leading-relaxed text-ink-soft">
                   {displayed.overview || "No overview generated yet."}
                 </p>
               )}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Badge tone="neutral">
-                  Complexity: {displayed.estimated_complexity}
-                </Badge>
-                <Badge tone="neutral">
-                  Team: {displayed.team_size || "TBD"}
-                </Badge>
-              </div>
+              {!isEditing ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge tone="neutral">
+                    Complexity: {displayed.estimated_complexity}
+                  </Badge>
+                  <Badge tone="neutral">
+                    Team: {displayed.team_size || "TBD"}
+                  </Badge>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -516,52 +702,78 @@ export default function RequirementsPage() {
 
               {isEditing ? (
                 <div className="mt-4 space-y-4">
-                  {content.key_features.map((feature, index) => (
-                    <div
-                      key={index}
-                      className="space-y-2 rounded-lg border border-line p-3"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={feature.name}
-                          onChange={(event) =>
-                            updateFeature(index, "name", event.target.value)
-                          }
-                          placeholder="Requirement title"
-                        />
-                        <select
-                          value={feature.priority}
-                          onChange={(event) =>
-                            updateFeature(index, "priority", event.target.value)
-                          }
-                          className="h-10 shrink-0 rounded-lg border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand"
-                        >
-                          <option value="must_have">Must have</option>
-                          <option value="nice_to_have">Nice to have</option>
-                        </select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFeature(index)}
-                          aria-label="Remove requirement"
-                        >
-                          <Trash2 size={15} />
-                        </Button>
+                  {fieldErrors.key_features ? (
+                    <InlineError message={fieldErrors.key_features} />
+                  ) : null}
+
+                  {content.key_features.map((feature, index) => {
+                    const nameError =
+                      fieldErrors[`key_features.${index}.name`];
+                    const descriptionError =
+                      fieldErrors[`key_features.${index}.description`];
+
+                    return (
+                      <div
+                        key={index}
+                        className="space-y-2 rounded-lg border border-line p-3"
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <Input
+                              value={feature.name}
+                              onChange={(event) =>
+                                updateFeature(index, "name", event.target.value)
+                              }
+                              placeholder="Requirement title"
+                              aria-label={`Requirement ${index + 1} title`}
+                              invalid={Boolean(nameError)}
+                            />
+                            <InlineError message={nameError} />
+                          </div>
+                          <select
+                            value={feature.priority}
+                            onChange={(event) =>
+                              updateFeature(
+                                index,
+                                "priority",
+                                event.target.value,
+                              )
+                            }
+                            aria-label={`Requirement ${index + 1} priority`}
+                            className="h-10 shrink-0 rounded-lg border border-line bg-surface px-2 text-xs text-ink outline-none focus:border-brand"
+                          >
+                            <option value="must_have">Must have</option>
+                            <option value="nice_to_have">Nice to have</option>
+                          </select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFeature(index)}
+                            aria-label="Remove requirement"
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                        <div className="space-y-1">
+                          <Textarea
+                            value={feature.description}
+                            onChange={(event) =>
+                              updateFeature(
+                                index,
+                                "description",
+                                event.target.value,
+                              )
+                            }
+                            rows={2}
+                            placeholder="Acceptance summary"
+                            aria-label={`Requirement ${index + 1} description`}
+                            invalid={Boolean(descriptionError)}
+                          />
+                          <InlineError message={descriptionError} />
+                        </div>
                       </div>
-                      <Textarea
-                        value={feature.description}
-                        onChange={(event) =>
-                          updateFeature(
-                            index,
-                            "description",
-                            event.target.value,
-                          )
-                        }
-                        rows={2}
-                        placeholder="Acceptance summary"
-                      />
-                    </div>
-                  ))}
+                    );
+                  })}
                   <Button
                     variant="secondary"
                     size="sm"
@@ -626,25 +838,39 @@ export default function RequirementsPage() {
 
               {isEditing ? (
                 <div className="mt-4 space-y-2">
-                  {content.requirements.map((requirement, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={requirement}
-                        onChange={(event) =>
-                          updateRequirement(index, event.target.value)
-                        }
-                        placeholder="System requirement or constraint"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeRequirement(index)}
-                        aria-label="Remove constraint"
-                      >
-                        <Trash2 size={15} />
-                      </Button>
-                    </div>
-                  ))}
+                  {fieldErrors.requirements ? (
+                    <InlineError message={fieldErrors.requirements} />
+                  ) : null}
+
+                  {content.requirements.map((requirement, index) => {
+                    const requirementError =
+                      fieldErrors[`requirements.${index}`];
+
+                    return (
+                      <div key={index} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={requirement}
+                            onChange={(event) =>
+                              updateRequirement(index, event.target.value)
+                            }
+                            placeholder="System requirement or constraint"
+                            aria-label={`Constraint ${index + 1}`}
+                            invalid={Boolean(requirementError)}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeRequirement(index)}
+                            aria-label="Remove constraint"
+                          >
+                            <Trash2 size={15} />
+                          </Button>
+                        </div>
+                        <InlineError message={requirementError} />
+                      </div>
+                    );
+                  })}
                   <Button
                     variant="secondary"
                     size="sm"
@@ -674,20 +900,78 @@ export default function RequirementsPage() {
             </CardContent>
           </Card>
 
-          {STACK_KEYS.some(
-            (key) => (displayed.suggested_tech_stack[key] ?? []).length > 0,
-          ) ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[14px] font-semibold text-ink">
-                    Suggested stack
-                  </h2>
-                  <span className="font-mono text-[11px] text-ink-muted">
-                    04 / STACK
-                  </span>
-                </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[14px] font-semibold text-ink">
+                  Suggested stack
+                </h2>
+                <span className="font-mono text-[11px] text-ink-muted">
+                  04 / STACK
+                </span>
+              </div>
 
+              {isEditing ? (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {STACK_KEYS.map((key) => {
+                    const items = content.suggested_tech_stack[key];
+                    const label = STACK_LABELS[key] ?? key;
+
+                    return (
+                      <div key={key}>
+                        <p className="font-mono text-[10px] text-ink-muted">
+                          {label.toUpperCase()}
+                        </p>
+                        <div className="mt-2 space-y-2">
+                          {items.map((item, index) => {
+                            const itemError =
+                              fieldErrors[
+                                `suggested_tech_stack.${key}.${index}`
+                              ];
+
+                            return (
+                              <div key={index} className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={item}
+                                    onChange={(event) =>
+                                      updateStackItem(
+                                        key,
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder={`Add ${label.toLowerCase()}`}
+                                    aria-label={`${label} item ${index + 1}`}
+                                    invalid={Boolean(itemError)}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeStackItem(key, index)}
+                                    aria-label={`Remove ${label} item ${index + 1}`}
+                                  >
+                                    <Trash2 size={15} />
+                                  </Button>
+                                </div>
+                                <InlineError message={itemError} />
+                              </div>
+                            );
+                          })}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Plus size={14} />}
+                            onClick={() => addStackItem(key)}
+                          >
+                            Add {STACK_ADD_LABELS[key] ?? label.toLowerCase()}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   {STACK_KEYS.map((key) => {
                     const items = displayed.suggested_tech_stack[key] ?? [];
@@ -707,28 +991,52 @@ export default function RequirementsPage() {
                       </div>
                     );
                   })}
+                  {!STACK_KEYS.some(
+                    (key) =>
+                      (displayed.suggested_tech_stack[key] ?? []).length > 0,
+                  ) ? (
+                    <p className="text-[13px] text-ink-muted sm:col-span-2">
+                      No suggested stack yet.
+                    </p>
+                  ) : null}
                 </div>
-              </CardContent>
-            </Card>
-          ) : null}
+              )}
+            </CardContent>
+          </Card>
 
-          {displayed.raw_idea ? (
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-[14px] font-semibold text-ink">
-                    Original idea
-                  </h2>
-                  <span className="font-mono text-[11px] text-ink-muted">
-                    SOURCE
-                  </span>
-                </div>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-[14px] font-semibold text-ink">
+                  Original idea
+                </h2>
+                <span className="font-mono text-[11px] text-ink-muted">
+                  SOURCE
+                </span>
+              </div>
+
+              {isEditing ? (
+                <Textarea
+                  id="idea-raw"
+                  aria-label="Original idea"
+                  value={content.raw_idea}
+                  onChange={(event) =>
+                    setContent((prev) => ({
+                      ...prev,
+                      raw_idea: event.target.value,
+                    }))
+                  }
+                  rows={4}
+                  className="mt-3"
+                  placeholder="The idea this blueprint was generated from."
+                />
+              ) : (
                 <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-ink-soft">
-                  {displayed.raw_idea}
+                  {displayed.raw_idea || "No original idea recorded."}
                 </p>
-              </CardContent>
-            </Card>
-          ) : null}
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -741,7 +1049,7 @@ export default function RequirementsPage() {
         onCancel={handleCancel}
         regenerating={regenerating || jobActive}
         saving={saving}
-        canApprove={dirty}
+        canApprove={dirty && canSave}
         editing={isEditing}
       />
     </div>

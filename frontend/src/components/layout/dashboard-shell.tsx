@@ -5,32 +5,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Archive,
   ChevronDown,
-  ChevronsUpDown,
-  CircleHelp,
   Folder,
   LogOut,
   Menu,
-  Settings2,
   User,
   X,
 } from "lucide-react";
 import { Avatar } from "@/src/components/ui/avatar";
-import { Badge } from "@/src/components/ui/badge";
 import { Brand } from "@/src/components/layout/brand";
 import { cn } from "@/src/lib/cn";
+import { useMounted } from "@/src/hooks/useMounted";
 import { logout } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 const NAV_ITEMS = [
-  { label: "Projects", href: "/projects", icon: Folder, available: true },
-  { label: "Archive", href: "#", icon: Archive, available: false },
-  { label: "Settings", href: "#", icon: Settings2, available: false },
+  { label: "Projects", href: "/projects", icon: Folder },
+  { label: "Profile", href: "/profile", icon: User },
 ] as const;
 
 function getInitials(name?: string | null) {
-  if (!name) return "AK";
+  if (!name) return "U";
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
@@ -41,10 +36,11 @@ function getInitials(name?: string | null) {
 function RailContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() || "";
   const { user } = useSelector((state: RootState) => state.auth);
-  const displayName = user?.name || user?.email || "Your workspace";
-  const workspaceName = user?.name
-    ? `${String(user.name).split(" ")[0]}’s workspace`
-    : "Personal workspace";
+  const mounted = useMounted();
+  const displayName = mounted
+    ? user?.name || user?.email || "Your workspace"
+    : "Your workspace";
+  const email = mounted ? user?.email || "Signed in" : "";
 
   return (
     <div className="flex h-full flex-col gap-2 bg-surface px-4 py-8">
@@ -52,39 +48,20 @@ function RailContent({ onNavigate }: { onNavigate?: () => void }) {
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-surface-muted text-[11px] font-semibold text-ink">
           {getInitials(displayName)}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
-          {workspaceName}
-        </span>
-        <ChevronsUpDown size={14} className="shrink-0 text-ink-muted" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12px] font-medium text-ink">
+            {displayName}
+          </p>
+          <p className="truncate text-[10px] text-ink-muted">
+            {email}
+          </p>
+        </div>
       </div>
 
-      <nav aria-label="Workspace" className="mt-4 space-y-1">
-        {NAV_ITEMS.map(({ label, href, icon: Icon, available }) => {
+      <nav aria-label="Workspace" className="mt-4 flex-1 space-y-1">
+        {NAV_ITEMS.map(({ label, href, icon: Icon }) => {
           const active =
-            available &&
-            (pathname === href || pathname.startsWith(`${href}/`));
-
-          const className = cn(
-            "flex h-11 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors",
-            active
-              ? "bg-brand-soft text-brand"
-              : "text-ink-soft hover:bg-surface-muted hover:text-ink",
-            !available && "cursor-default hover:bg-transparent",
-          );
-
-          if (!available) {
-            return (
-              <span
-                key={label}
-                className={className}
-                title="Coming soon"
-                aria-disabled
-              >
-                <Icon size={18} strokeWidth={1.6} />
-                {label}
-              </span>
-            );
-          }
+            pathname === href || pathname.startsWith(`${href}/`);
 
           return (
             <Link
@@ -92,7 +69,12 @@ function RailContent({ onNavigate }: { onNavigate?: () => void }) {
               href={href}
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
-              className={className}
+              className={cn(
+                "flex h-11 items-center gap-3 rounded-lg px-3 text-[13px] transition-colors",
+                active
+                  ? "bg-brand-soft text-brand"
+                  : "text-ink-soft hover:bg-surface-muted hover:text-ink",
+              )}
             >
               <Icon size={18} strokeWidth={1.6} />
               {label}
@@ -100,13 +82,6 @@ function RailContent({ onNavigate }: { onNavigate?: () => void }) {
           );
         })}
       </nav>
-
-      <div className="mt-auto rounded-lg bg-canvas p-4">
-        <Badge tone="neutral">Personal workspace</Badge>
-        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
-          A little clarity for your next big idea.
-        </p>
-      </div>
     </div>
   );
 }
@@ -119,10 +94,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mounted = useMounted();
 
-  const displayName = user?.name || user?.email || "Your account";
-  const avatarSrc =
-    user?.avatarUrl || user?.avatar || user?.image || user?.picture || "";
+  const displayName = mounted
+    ? user?.name || user?.email || "Your account"
+    : "Your account";
+  const avatarSrc = mounted
+    ? user?.avatarUrl || user?.avatar || user?.image || user?.picture || ""
+    : "";
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -171,14 +150,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="flex items-center gap-6">
-          <Link
-            href="#"
-            aria-label="Help"
-            className="hidden text-ink-muted transition-colors hover:text-ink sm:block"
-          >
-            <CircleHelp size={18} strokeWidth={1.6} />
-          </Link>
-
           <div className="relative" ref={menuRef}>
             <button
               type="button"

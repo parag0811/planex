@@ -1,29 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { Copy, FileText, Folder, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  Copy,
+  FilePlus,
+  FileText,
+  Folder,
+  FolderPlus,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import {
   Badge,
   Button,
   Card,
   CardContent,
+  Input,
   Skeleton,
-  Textarea,
 } from "@/src/components/ui";
 import { StickyApprovalBar } from "@/src/components/workspace/sticky-approval-bar";
 import { useJobPolling } from "@/src/hooks/useJobPolling";
 import {
+  addFolderNode,
   countFolderNodes,
   EMPTY_FOLDER,
+  getFolderChildren,
   normalizeFolder,
-  parseFolder,
+  removeFolderNode,
+  renameFolderNode,
   serializeFolder,
+  uniqueFolderName,
   type FolderContent,
   type FolderNode,
 } from "@/src/lib/folder-content";
+import {
+  FolderEditorSchema,
+  getFolderFieldErrors,
+} from "@/src/lib/schemas/folder.schema";
 import { generateFolder } from "@/src/store/slices/jobSlice";
 import { fetchProjectById } from "@/src/store/slices/projectSlice";
 import {
@@ -38,6 +55,22 @@ const getErrorMessage = (error: unknown, fallback: string) =>
     : error instanceof Error
       ? error.message
       : fallback;
+
+function InlineError({
+  id,
+  message,
+}: {
+  id?: string;
+  message?: string;
+}) {
+  if (!message) return null;
+
+  return (
+    <p id={id} role="alert" className="text-[11px] leading-relaxed text-danger">
+      {message}
+    </p>
+  );
+}
 
 function TreeRows({
   nodes,
@@ -73,6 +106,120 @@ function TreeRows({
   );
 }
 
+function TreeEditor({
+  nodes,
+  fieldErrors,
+  onRename,
+  onAdd,
+  onRemove,
+  path = [],
+  errorPrefix = "root",
+  depth = 0,
+}: {
+  nodes: FolderNode[];
+  fieldErrors: Record<string, string>;
+  onRename: (path: number[], name: string) => void;
+  onAdd: (parentPath: number[], type: FolderNode["type"]) => void;
+  onRemove: (path: number[]) => void;
+  path?: number[];
+  errorPrefix?: string;
+  depth?: number;
+}) {
+  return (
+    <>
+      {nodes.map((node, index) => {
+        const nodePath = [...path, index];
+        const nodeKey = `${errorPrefix}.${index}`;
+        const nameError = fieldErrors[`${nodeKey}.name`];
+        const childrenError = fieldErrors[`${nodeKey}.children`];
+
+        return (
+          <div key={nodePath.join(".")}>
+            <div
+              className="flex flex-wrap items-start gap-2 rounded-md px-2 py-1.5 hover:bg-surface-muted/60"
+              style={{ marginLeft: `${depth * 20}px` }}
+            >
+              <span className="pt-2">
+                {node.type === "folder" ? (
+                  <Folder size={14} className="text-brand" />
+                ) : (
+                  <FileText size={14} className="text-ink-muted" />
+                )}
+              </span>
+
+              <div className="min-w-0 flex-1 space-y-1">
+                <Input
+                  value={node.name}
+                  onChange={(event) => onRename(nodePath, event.target.value)}
+                  aria-label={`${node.type === "folder" ? "Folder" : "File"} name`}
+                  invalid={Boolean(nameError)}
+                  className="h-8 font-mono text-[11px]"
+                />
+                <InlineError message={nameError} />
+              </div>
+
+              <Badge tone={node.type === "folder" ? "brand" : "neutral"}>
+                {node.type === "folder" ? "Folder" : "File"}
+              </Badge>
+
+              {node.type === "folder" ? (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<FilePlus size={13} />}
+                    onClick={() => onAdd(nodePath, "file")}
+                    aria-label={`Add file inside ${node.name || "folder"}`}
+                  >
+                    Add file
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    leftIcon={<FolderPlus size={13} />}
+                    onClick={() => onAdd(nodePath, "folder")}
+                    aria-label={`Add folder inside ${node.name || "folder"}`}
+                  >
+                    Add folder
+                  </Button>
+                </div>
+              ) : null}
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => onRemove(nodePath)}
+                aria-label={`Remove ${node.name || node.type}`}
+              >
+                <Trash2 size={14} />
+              </Button>
+            </div>
+
+            {childrenError ? (
+              <div style={{ marginLeft: `${depth * 20 + 24}px` }}>
+                <InlineError message={childrenError} />
+              </div>
+            ) : null}
+
+            {node.children && node.children.length > 0 ? (
+              <TreeEditor
+                nodes={node.children}
+                fieldErrors={fieldErrors}
+                onRename={onRename}
+                onAdd={onAdd}
+                onRemove={onRemove}
+                path={nodePath}
+                errorPrefix={`${nodeKey}.children`}
+                depth={depth + 1}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 export default function FolderPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const dispatch = useDispatch<AppDispatch>();
@@ -90,7 +237,6 @@ export default function FolderPage() {
   const [hasSection, setHasSection] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState("");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -163,6 +309,31 @@ export default function FolderPage() {
   const projectName = project?.name || "this project";
   const counts = countFolderNodes(displayed.root);
 
+  const validation = useMemo(
+    () => FolderEditorSchema.safeParse(content),
+    [content],
+  );
+  const previewValidation = useMemo(
+    () => (preview ? FolderEditorSchema.safeParse(preview) : null),
+    [preview],
+  );
+
+  const fieldErrors = validation.success
+    ? {}
+    : getFolderFieldErrors(validation.error);
+  const previewErrors =
+    previewValidation && !previewValidation.success
+      ? getFolderFieldErrors(previewValidation.error)
+      : {};
+
+  const canSave = preview
+    ? Boolean(previewValidation?.success)
+    : validation.success;
+  const invalidCount = preview
+    ? Object.keys(previewErrors).length
+    : Object.keys(fieldErrors).length;
+  const showValidationWarning = dirty && !canSave;
+
   const statusLabel = dirty
     ? "Draft not saved"
     : hasSection
@@ -174,9 +345,11 @@ export default function FolderPage() {
       : "Approve to complete your blueprint";
   const stageBadge = preview
     ? { label: "AI draft", tone: "warning" as const }
-    : hasSection
-      ? { label: "Approved · Saved", tone: "brand" as const }
-      : { label: "Empty", tone: "neutral" as const };
+    : isEditing
+      ? { label: "Draft · Not saved", tone: "warning" as const }
+      : hasSection
+        ? { label: "Approved · Saved", tone: "brand" as const }
+        : { label: "Empty", tone: "neutral" as const };
 
   const queueGeneration = async (forceRegenerate: boolean) => {
     setGenerating(true);
@@ -204,11 +377,28 @@ export default function FolderPage() {
   const handleApprove = async () => {
     if (!dirty) return;
 
+    const source = preview ?? content;
+    const result = FolderEditorSchema.safeParse(source);
+
+    if (!result.success) {
+      setError(
+        preview
+          ? "This draft is missing required fields. Fix the highlighted fields before saving."
+          : "Fix the highlighted fields before approving.",
+      );
+      if (preview) {
+        setContent(preview);
+        setPreview(null);
+        setIsEditing(true);
+      }
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
     try {
-      const payload = preview ?? content;
+      const payload = result.data;
       await dispatch(
         upsertSection({ projectId, type: "folder", content: payload }),
       ).unwrap();
@@ -227,12 +417,10 @@ export default function FolderPage() {
   };
 
   const handleEdit = () => {
-    const source = preview ?? content;
     if (preview) {
       setContent(preview);
       setPreview(null);
     }
-    setEditText(serializeFolder(source.root));
     setIsEditing(true);
   };
 
@@ -241,6 +429,39 @@ export default function FolderPage() {
     setPreview(null);
     setIsEditing(false);
     setError(null);
+  };
+
+  const addNode = (parentPath: number[], type: FolderNode["type"]) => {
+    setContent((prev) => {
+      const siblings = getFolderChildren(prev.root, parentPath);
+      const name = uniqueFolderName(
+        siblings,
+        type === "folder" ? "new-folder" : "new-file",
+      );
+
+      return {
+        ...prev,
+        root: addFolderNode(prev.root, parentPath, {
+          name,
+          type,
+          ...(type === "folder" ? { children: [] } : {}),
+        }),
+      };
+    });
+  };
+
+  const renameNode = (path: number[], name: string) => {
+    setContent((prev) => ({
+      ...prev,
+      root: renameFolderNode(prev.root, path, name),
+    }));
+  };
+
+  const removeNode = (path: number[]) => {
+    setContent((prev) => ({
+      ...prev,
+      root: removeFolderNode(prev.root, path),
+    }));
   };
 
   const copyTree = async () => {
@@ -268,7 +489,7 @@ export default function FolderPage() {
     );
   }
 
-  if (displayed.root.length === 0 && !jobActive) {
+  if (displayed.root.length === 0 && !jobActive && !isEditing) {
     return (
       <div className="flex h-full items-center justify-center px-5 py-8">
         <Card className="w-full max-w-xl">
@@ -351,8 +572,26 @@ export default function FolderPage() {
           ) : dirty ? (
             <div className="flex items-center gap-2 rounded-lg bg-brand-soft px-3 py-3 text-[12px] text-brand">
               <Sparkles size={16} />
-              AI-generated draft. Review and edit before you approve. Nothing is
-              saved yet.
+              {isEditing
+                ? "Editing the tree. Add, rename or remove files and folders, then approve to save."
+                : "AI-generated draft. Review and edit before you approve. Nothing is saved yet."}
+            </div>
+          ) : null}
+
+          {showValidationWarning ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-3 text-[12px] text-danger"
+            >
+              <AlertCircle size={15} className="mt-0.5 shrink-0" />
+              <span>
+                {invalidCount === 1
+                  ? "1 field needs attention"
+                  : `${invalidCount} fields need attention`}
+                {preview
+                  ? " in this AI draft. Choose Edit to fix them before saving."
+                  : " before you can approve this section."}
+              </span>
             </div>
           ) : null}
 
@@ -367,7 +606,7 @@ export default function FolderPage() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <Card>
               <CardContent className="p-5">
-                <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                   <p className="text-[12px] text-ink">Project explorer</p>
                   <Button
                     variant="ghost"
@@ -380,16 +619,58 @@ export default function FolderPage() {
                 </div>
 
                 {isEditing ? (
-                  <Textarea
-                    value={editText}
-                    onChange={(event) => {
-                      setEditText(event.target.value);
-                      setContent(parseFolder(event.target.value));
-                    }}
-                    rows={18}
-                    className="mt-4 font-mono"
-                    placeholder={"src/\n  app/\n    page.tsx"}
-                  />
+                  <div className="mt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface-muted px-2 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <Folder size={14} className="text-brand" />
+                        <span className="font-mono text-[11px] text-ink">
+                          Project root
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<FilePlus size={13} />}
+                          onClick={() => addNode([], "file")}
+                        >
+                          Add file
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={<FolderPlus size={13} />}
+                          onClick={() => addNode([], "folder")}
+                        >
+                          Add folder
+                        </Button>
+                      </div>
+                    </div>
+
+                    <p className="mt-2 text-[10px] leading-relaxed text-ink-muted">
+                      Add to the root here, or use Add file / Add folder on any
+                      folder row to add inside it.
+                    </p>
+
+                    <InlineError message={fieldErrors.root} />
+
+                    {displayed.root.length === 0 ? (
+                      <div className="mt-3 rounded-lg border border-dashed border-line p-6 text-center text-[12px] text-ink-muted">
+                        No files or folders yet. Use Add file or Add folder
+                        above.
+                      </div>
+                    ) : (
+                      <div className="mt-3 space-y-1">
+                        <TreeEditor
+                          nodes={displayed.root}
+                          fieldErrors={fieldErrors}
+                          onRename={renameNode}
+                          onAdd={addNode}
+                          onRemove={removeNode}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="mt-4">
                     <TreeRows nodes={displayed.root} />
@@ -440,7 +721,13 @@ export default function FolderPage() {
                   <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-ink-muted">
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand" />
-                      Rename folders or files if your conventions differ.
+                      Add, rename or remove files and folders to match your
+                      conventions.
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand" />
+                      Use Add file or Add folder on a folder row to add inside
+                      it.
                     </li>
                     <li className="flex gap-2">
                       <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-brand" />
@@ -467,7 +754,7 @@ export default function FolderPage() {
         onCancel={handleCancel}
         regenerating={generating || jobActive}
         saving={saving}
-        canApprove={dirty}
+        canApprove={dirty && canSave}
         editing={isEditing}
       />
     </div>

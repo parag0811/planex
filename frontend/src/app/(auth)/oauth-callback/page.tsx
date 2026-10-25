@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useReducer } from "react";
+import { Suspense, useEffect, useReducer, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch } from "react-redux";
@@ -55,8 +55,12 @@ function OAuthCallbackContent() {
     (_state: string | null, next: string | null) => next,
     null as string | null,
   );
+  const handledRef = useRef(false);
 
   useEffect(() => {
+    if (handledRef.current) return;
+    handledRef.current = true;
+
     const hashParams = new URLSearchParams(
       window.location.hash.replace(/^#/, ""),
     );

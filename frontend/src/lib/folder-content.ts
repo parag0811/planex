@@ -1,25 +1,43 @@
-export interface FolderNode {
-  name: string;
-  type: "folder" | "file";
-  children?: FolderNode[];
-}
+import type { FolderContent, FolderNode } from "./schemas/folder.schema";
 
-export interface FolderContent {
-  root: FolderNode[];
-}
+export type { FolderContent, FolderNode } from "./schemas/folder.schema";
 
 export const EMPTY_FOLDER: FolderContent = { root: [] };
+
+const normalizeType = (
+  value: unknown,
+  children: FolderNode[] | undefined,
+): FolderNode["type"] => {
+  if (value === "folder" || value === "file") return value;
+
+  if (typeof value === "string") {
+    const lower = value.toLowerCase();
+    if (
+      lower.includes("dir") ||
+      lower.includes("folder") ||
+      lower.includes("mod") ||
+      lower.includes("pkg")
+    ) {
+      return "folder";
+    }
+    return "file";
+  }
+
+  // Missing type: keep the historical inference so a node with children is
+  // still editable as a folder.
+  return children && children.length > 0 ? "folder" : "file";
+};
 
 const normalizeNode = (value: unknown): FolderNode | null => {
   if (!value || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
-  const name =
+  const rawName =
     typeof record.name === "string"
       ? record.name
       : typeof record.path === "string"
         ? record.path
         : "";
-  if (!name) return null;
+  const name = rawName || "unnamed";
 
   const children = Array.isArray(record.children)
     ? record.children
@@ -27,16 +45,9 @@ const normalizeNode = (value: unknown): FolderNode | null => {
         .filter((node): node is FolderNode => node !== null)
     : undefined;
 
-  const type =
-    record.type === "folder" || record.type === "file"
-      ? record.type
-      : children && children.length > 0
-        ? "folder"
-        : "file";
-
   return {
     name: name.replace(/\/$/, ""),
-    type,
+    type: normalizeType(record.type, children),
     ...(children && children.length > 0 ? { children } : {}),
   };
 };
@@ -94,40 +105,96 @@ export const serializeFolder = (
     })
     .join("\n");
 
-export const parseFolder = (text: string): FolderContent => {
-  const root: FolderNode[] = [];
-  const stack: Array<{ depth: number; node: FolderNode }> = [];
+export const getFolderChildren = (
+  nodes: FolderNode[],
+  path: number[],
+): FolderNode[] => {
+  if (path.length === 0) return nodes;
 
-  text.split("\n").forEach((raw) => {
-    if (!raw.trim()) return;
+  const [index, ...rest] = path;
+  const node = index === undefined ? undefined : nodes[index];
+  if (!node) return [];
 
-    const indentation = raw.match(/^\s*/)?.[0].length ?? 0;
-    const depth = Math.floor(indentation / 2);
-    const trimmed = raw.trim();
-    const isFolder = trimmed.endsWith("/");
-    const name = trimmed.replace(/\/$/, "");
-    if (!name) return;
+  return getFolderChildren(node.children ?? [], rest);
+};
 
-    const node: FolderNode = {
-      name,
-      type: isFolder ? "folder" : "file",
-      ...(isFolder ? { children: [] } : {}),
+export const uniqueFolderName = (
+  siblings: FolderNode[],
+  base: string,
+): string => {
+  const existing = new Set(
+    siblings.map((node) => node.name.trim().toLowerCase()),
+  );
+  if (!existing.has(base.toLowerCase())) return base;
+
+  let suffix = 2;
+  while (existing.has(`${base}-${suffix}`.toLowerCase())) {
+    suffix += 1;
+  }
+
+  return `${base}-${suffix}`;
+};
+
+export const addFolderNode = (
+  nodes: FolderNode[],
+  parentPath: number[],
+  node: FolderNode,
+): FolderNode[] => {
+  if (parentPath.length === 0) return [...nodes, node];
+
+  const [index, ...rest] = parentPath;
+
+  return nodes.map((item, itemIndex) => {
+    if (itemIndex !== index || item.type !== "folder") return item;
+
+    return {
+      ...item,
+      children: addFolderNode(item.children ?? [], rest, node),
     };
-
-    while (stack.length > 0 && stack[stack.length - 1]!.depth >= depth) {
-      stack.pop();
-    }
-
-    const parent = stack[stack.length - 1];
-    if (parent) {
-      parent.node.children = parent.node.children ?? [];
-      parent.node.children.push(node);
-    } else {
-      root.push(node);
-    }
-
-    if (isFolder) stack.push({ depth, node });
   });
+};
 
-  return { root };
+export const renameFolderNode = (
+  nodes: FolderNode[],
+  path: number[],
+  name: string,
+): FolderNode[] => {
+  if (path.length === 0) return nodes;
+
+  const [index, ...rest] = path;
+
+  return nodes.map((item, itemIndex) => {
+    if (itemIndex !== index) return item;
+
+    if (rest.length === 0) {
+      return { ...item, name };
+    }
+
+    return {
+      ...item,
+      children: renameFolderNode(item.children ?? [], rest, name),
+    };
+  });
+};
+
+export const removeFolderNode = (
+  nodes: FolderNode[],
+  path: number[],
+): FolderNode[] => {
+  if (path.length === 0) return nodes;
+
+  const [index, ...rest] = path;
+
+  if (rest.length === 0) {
+    return nodes.filter((_, itemIndex) => itemIndex !== index);
+  }
+
+  return nodes.map((item, itemIndex) => {
+    if (itemIndex !== index) return item;
+
+    return {
+      ...item,
+      children: removeFolderNode(item.children ?? [], rest),
+    };
+  });
 };

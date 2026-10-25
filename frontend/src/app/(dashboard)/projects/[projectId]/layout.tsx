@@ -5,6 +5,7 @@ import { WorkspaceShell } from "@/src/components/workspace/workspace-shell";
 import type { RootState, AppDispatch } from "@/src/store/store";
 import { usePathname, useParams } from "next/navigation";
 import { useEffect } from "react";
+import { useMounted } from "@/src/hooks/useMounted";
 import {
   fetchProjectById,
   clearProjectErrors,
@@ -31,6 +32,7 @@ export default function ProjectIdLayout({
   const { projectId } = useParams<{ projectId: string }>();
   const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
+  const mounted = useMounted();
 
   const currentProject = useSelector(
     (state: RootState) => state.project.currentProject,
@@ -78,7 +80,7 @@ export default function ProjectIdLayout({
       projectId={projectId || ""}
       jobStatus={jobStatus}
     >
-      {authCheckLoading ? (
+      {!mounted || authCheckLoading ? (
         <WorkspaceLoader label="Loading workspace" />
       ) : !isAuth ? (
         <WorkspaceLoader label="Redirecting to login" />

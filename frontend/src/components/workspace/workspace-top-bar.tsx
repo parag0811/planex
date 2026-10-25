@@ -7,14 +7,13 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown,
   ChevronRight,
-  CircleHelp,
   LogOut,
   Menu,
   User,
 } from "lucide-react";
 import { Brand } from "@/src/components/layout/brand";
 import { Avatar } from "@/src/components/ui/avatar";
-import { Badge } from "@/src/components/ui/badge";
+import { useMounted } from "@/src/hooks/useMounted";
 import { logout } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
@@ -31,10 +30,14 @@ export function WorkspaceTopBar({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const mounted = useMounted();
 
-  const displayName = user?.name || user?.email || "Your account";
-  const avatarSrc =
-    user?.avatarUrl || user?.avatar || user?.image || user?.picture || "";
+  const displayName = mounted
+    ? user?.name || user?.email || "Your account"
+    : "Your account";
+  const avatarSrc = mounted
+    ? user?.avatarUrl || user?.avatar || user?.image || user?.picture || ""
+    : "";
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -78,20 +81,9 @@ export function WorkspaceTopBar({
           className="hidden shrink-0 text-ink-muted sm:block"
         />
         <span className="truncate text-[13px] text-ink">{projectName}</span>
-        <Badge tone="neutral" className="hidden shrink-0 sm:inline-flex">
-          Private project
-        </Badge>
       </div>
 
       <div className="flex items-center gap-6">
-        <Link
-          href="#"
-          aria-label="Help"
-          className="hidden text-ink-muted transition-colors hover:text-ink sm:block"
-        >
-          <CircleHelp size={18} strokeWidth={1.6} />
-        </Link>
-
         <div className="relative" ref={menuRef}>
           <button
             type="button"

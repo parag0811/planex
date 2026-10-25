@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Brand } from "@/src/components/layout/brand";
 import { Button } from "@/src/components/ui/button";
+import { useMounted } from "@/src/hooks/useMounted";
 import { generateIdea } from "@/src/store/slices/jobSlice";
 import { createProject } from "@/src/store/slices/projectSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
@@ -65,9 +66,11 @@ const deriveProjectName = (idea: string) => {
 export default function HomePage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const mounted = useMounted();
   const { isAuth, authCheckLoading } = useSelector(
     (state: RootState) => state.auth,
   );
+  const authed = mounted && isAuth;
 
   const [idea, setIdea] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -145,13 +148,7 @@ export default function HomePage() {
             How it works
           </a>
           <Link
-            href="#"
-            className="hidden text-[13px] text-ink-soft transition-colors hover:text-ink sm:block"
-          >
-            Docs
-          </Link>
-          <Link
-            href={isAuth ? "/projects" : "/login?next=/"}
+            href={authed ? "/projects" : "/login?next=/"}
             className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-surface px-4 text-[13px] text-ink transition-colors hover:bg-surface-muted"
           >
             Go to workspace
@@ -219,7 +216,7 @@ export default function HomePage() {
 
               <Button
                 onClick={() => void handleGenerate()}
-                loading={submitting || authCheckLoading}
+                loading={submitting || !mounted || authCheckLoading}
                 rightIcon={<ArrowRight size={16} />}
                 className="w-full sm:w-auto"
               >
@@ -293,18 +290,6 @@ export default function HomePage() {
             Built for the thinking before the code.
           </p>
           <div className="flex items-center gap-6">
-            <Link
-              href="#"
-              className="text-[11px] text-ink-muted transition-colors hover:text-ink"
-            >
-              Privacy
-            </Link>
-            <Link
-              href="#"
-              className="text-[11px] text-ink-muted transition-colors hover:text-ink"
-            >
-              Terms
-            </Link>
             <span className="font-mono text-[11px] text-ink-muted">
               PLANEX / 01
             </span>

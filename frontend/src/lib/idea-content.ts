@@ -1,44 +1,16 @@
-export type FeaturePriority = "must_have" | "nice_to_have";
+import {
+  STACK_KEYS,
+  type FeaturePriority,
+  type IdeaSectionContent,
+} from "./schemas/idea.schema";
 
-export type StackCategory =
-  | "frontend"
-  | "backend"
-  | "database"
-  | "infrastructure"
-  | "ai"
-  | "frameworks";
-
-export interface KeyFeature {
-  name: string;
-  description: string;
-  priority: FeaturePriority;
-}
-
-export interface IdeaSectionContent {
-  raw_idea: string;
-  overview: string;
-  key_features: KeyFeature[];
-  requirements: string[];
-  suggested_tech_stack: {
-    frontend: string[];
-    backend: string[];
-    database: string[];
-    infrastructure?: string[];
-    ai?: string[];
-    frameworks?: string[];
-  };
-  estimated_complexity: "low" | "medium" | "high";
-  team_size: string;
-}
-
-export const STACK_KEYS: StackCategory[] = [
-  "frontend",
-  "backend",
-  "database",
-  "infrastructure",
-  "ai",
-  "frameworks",
-];
+export { STACK_KEYS };
+export type {
+  FeaturePriority,
+  IdeaFeature as KeyFeature,
+  IdeaSectionContent,
+  StackCategory,
+} from "./schemas/idea.schema";
 
 export const EMPTY_IDEA: IdeaSectionContent = {
   raw_idea: "",
@@ -57,6 +29,9 @@ export const EMPTY_IDEA: IdeaSectionContent = {
   team_size: "",
 };
 
+const asString = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
 const asStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? value
@@ -64,6 +39,30 @@ const asStringArray = (value: unknown): string[] =>
         .map((item) => item.trim())
         .filter(Boolean)
     : [];
+
+/** Mirrors the backend transform: anything containing "must" is a must-have. */
+const normalizePriority = (value: unknown): FeaturePriority =>
+  typeof value === "string" && value.toLowerCase().includes("must")
+    ? "must_have"
+    : "nice_to_have";
+
+/** Mirrors the backend transform: "high"/"low" in the text wins, else medium. */
+const normalizeComplexity = (
+  value: unknown,
+): IdeaSectionContent["estimated_complexity"] => {
+  if (typeof value !== "string") return "medium";
+  const lower = value.toLowerCase();
+  if (lower.includes("high")) return "high";
+  if (lower.includes("low")) return "low";
+  return "medium";
+};
+
+/** Mirrors the backend default and numeric coercion. */
+const normalizeTeamSize = (value: unknown): string => {
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
+  return "1-3 developers";
+};
 
 export const normalizeIdea = (payload: unknown): IdeaSectionContent => {
   const source =
@@ -83,28 +82,16 @@ export const normalizeIdea = (payload: unknown): IdeaSectionContent => {
   const features = Array.isArray(raw.key_features)
     ? raw.key_features
         .map((feature) => ({
-          name:
-            typeof feature?.name === "string" ? feature.name.trim() : "",
-          description:
-            typeof feature?.description === "string"
-              ? feature.description.trim()
-              : "",
-          priority: (feature?.priority === "must_have"
-            ? "must_have"
-            : "nice_to_have") as FeaturePriority,
+          name: asString(feature?.name).trim(),
+          description: asString(feature?.description).trim(),
+          priority: normalizePriority(feature?.priority),
         }))
         .filter((feature) => feature.name || feature.description)
     : [];
 
-  const complexity =
-    raw.estimated_complexity === "low" ||
-    raw.estimated_complexity === "high"
-      ? raw.estimated_complexity
-      : "medium";
-
   return {
-    raw_idea: typeof raw.raw_idea === "string" ? raw.raw_idea : "",
-    overview: typeof raw.overview === "string" ? raw.overview : "",
+    raw_idea: asString(raw.raw_idea),
+    overview: asString(raw.overview),
     key_features: features,
     requirements: asStringArray(raw.requirements),
     suggested_tech_stack: {
@@ -115,7 +102,7 @@ export const normalizeIdea = (payload: unknown): IdeaSectionContent => {
       ai: asStringArray(stackRaw.ai),
       frameworks: asStringArray(stackRaw.frameworks),
     },
-    estimated_complexity: complexity,
-    team_size: typeof raw.team_size === "string" ? raw.team_size : "",
+    estimated_complexity: normalizeComplexity(raw.estimated_complexity),
+    team_size: normalizeTeamSize(raw.team_size),
   };
 };

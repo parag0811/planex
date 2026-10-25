@@ -13,12 +13,6 @@ export default function NotFound() {
       <header className="flex h-[88px] shrink-0 items-center justify-between px-5 sm:px-8 lg:px-16">
         <Brand />
         <div className="flex items-center gap-4 sm:gap-8">
-          <Link
-            href="#"
-            className="hidden text-[13px] text-ink-soft transition-colors hover:text-ink sm:block"
-          >
-            Docs
-          </Link>
           <span className="hidden text-[13px] text-ink-muted sm:block">
             A clearer path starts here.
           </span>
@@ -58,23 +52,11 @@ export default function NotFound() {
         <p className="mt-6 text-[12px] text-brand">
           Your projects and approved work are still saved.
         </p>
-        <p className="mt-6 text-[12px] text-ink-muted">
-          Looking for a little direction?{" "}
-          <Link href="#" className="text-brand hover:underline">
-            Visit the docs
-          </Link>
-        </p>
       </main>
 
       <footer className="flex h-[72px] shrink-0 items-center justify-between px-5 text-[11px] text-ink-muted sm:px-8 lg:px-16">
         <span>Built for the thinking before the code.</span>
         <div className="flex items-center gap-6">
-          <Link href="#" className="transition-colors hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="#" className="transition-colors hover:text-ink">
-            Terms
-          </Link>
           <span className="hidden font-mono sm:block">
             PLANEX / CLARITY BEFORE CODE
           </span>

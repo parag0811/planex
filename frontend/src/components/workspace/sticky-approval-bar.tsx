@@ -44,6 +44,7 @@ export function StickyApprovalBar({
             <Button
               onClick={onApprove}
               loading={saving}
+              disabled={!canApprove}
               leftIcon={<Check size={15} />}
             >
               Approve & Save

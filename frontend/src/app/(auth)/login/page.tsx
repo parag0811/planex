@@ -167,15 +167,6 @@ function LoginForm() {
             />
           </Field>
 
-          <div className="flex justify-end">
-            <Link
-              href="#"
-              className="text-xs text-brand transition-colors hover:text-brand-hover hover:underline"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
           <Button type="submit" className="w-full" loading={loginLoading}>
             Log in
           </Button>

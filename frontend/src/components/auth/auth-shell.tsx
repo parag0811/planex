@@ -108,9 +108,12 @@ function ProductIntroduction({ mode }: { mode: AuthMode }) {
           <CheckCircle2 size={18} className="text-brand" strokeWidth={1.6} />
           <Badge tone="brand">Approved · Saved</Badge>
         </div>
-        <p className="mt-3 text-sm text-ink">Pulse feedback · Product overview</p>
+        <p className="mt-3 text-sm text-ink">
+          A clear, reviewable blueprint
+        </p>
         <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-          A customer feedback hub for SaaS teams, built around ideas and votes.
+          Every stage is drafted, reviewed and approved before it becomes part
+          of the plan.
         </p>
         <p className="mt-2 font-mono text-[10px] text-ink-muted">
           Reviewed by you · Saved to your workspace
@@ -139,12 +142,6 @@ export function AuthShell({ mode, children }: AuthShellProps) {
         <Brand />
 
         <div className="flex items-center gap-4 sm:gap-8">
-          <Link
-            href="#"
-            className="hidden text-[13px] text-ink-soft transition-colors hover:text-ink sm:block"
-          >
-            Docs
-          </Link>
           <span className="hidden text-[13px] text-ink-muted sm:block">
             {copy.navPrompt}
           </span>
@@ -169,18 +166,6 @@ export function AuthShell({ mode, children }: AuthShellProps) {
           Built for the thinking before the code.
         </p>
         <div className="flex items-center gap-6">
-          <Link
-            href="#"
-            className="text-[11px] text-ink-muted transition-colors hover:text-ink"
-          >
-            Privacy
-          </Link>
-          <Link
-            href="#"
-            className="text-[11px] text-ink-muted transition-colors hover:text-ink"
-          >
-            Terms
-          </Link>
           <span className="hidden font-mono text-[11px] text-ink-muted sm:block">
             PLANEX / CLARITY BEFORE CODE
           </span>

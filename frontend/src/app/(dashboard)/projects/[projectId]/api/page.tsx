@@ -407,8 +407,6 @@ export default function ApiPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="neutral">REST · JSON</Badge>
-              <Badge tone="neutral">/api/v1</Badge>
               <Badge tone="neutral">{displayed.auth.description}</Badge>
             </div>
           </div>
@@ -536,7 +534,7 @@ export default function ApiPage() {
                       </div>
                     ) : (
                       <p className="mt-2 font-mono text-[11px] text-ink-soft">
-                        /api/v1{activeRoute.path}
+                        {activeRoute.path}
                       </p>
                     )}
 
@@ -616,10 +614,6 @@ export default function ApiPage() {
                         </pre>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        <Badge tone="neutral">401 Unauthorized</Badge>
-                        <Badge tone="neutral">422 Validation error</Badge>
-                      </div>
                     </div>
                   </CardContent>
                 </Card>

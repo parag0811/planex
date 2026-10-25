@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/src/store/store";
 import { usePathname, useRouter } from "next/navigation";
 import { DashboardShell } from "@/src/components/layout/dashboard-shell";
+import { useMounted } from "@/src/hooks/useMounted";
 
 /** Routes under /projects that are pages, not project ids. */
 const STATIC_PROJECT_ROUTES = new Set(["create-project", "templates"]);
@@ -27,6 +28,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const mounted = useMounted();
   const { authCheckLoading, isAuth } = useSelector(
     (state: RootState) => state.auth,
   );
@@ -50,7 +52,7 @@ export default function DashboardLayout({
 
   return (
     <DashboardShell>
-      {authCheckLoading ? (
+      {!mounted || authCheckLoading ? (
         <ShellLoader label="Restoring session" />
       ) : !isAuth ? (
         <ShellLoader label="Redirecting to login" />

@@ -150,7 +150,6 @@ export const buildOpenApi = (content: ApiContent) => ({
     version: "1.0.0",
     description: content.auth.description,
   },
-  servers: [{ url: "/api/v1" }],
   paths: Object.fromEntries(
     content.rest.map((route) => [
       route.path,
