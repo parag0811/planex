@@ -118,6 +118,14 @@ export const getProjectById = async (
         id: projectId,
       },
       include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
         members: {
           select: {
             id: true,

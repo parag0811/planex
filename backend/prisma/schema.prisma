@@ -8,17 +8,19 @@ datasource db {
 }
 
 model User {
-  id             String            @id @default(uuid())
-  name           String?
-  email          String            @unique
-  password       String?
-  avatarUrl      String?
-  provider       PROVIDER?
-  providerId     String?
-  created_at     DateTime          @default(now())
-  projects_owned Project[]
-  memberships    ProjectMember[]
-  activities     ProjectActivity[]
+  id                    String            @id @default(uuid())
+  name                  String?
+  email                 String            @unique
+  password              String?
+  avatarUrl             String?
+  provider              PROVIDER?
+  providerId            String?
+  recoveryCodeHash      String?
+  recoveryCodeExpiresAt DateTime?
+  created_at            DateTime          @default(now())
+  projects_owned        Project[]
+  memberships           ProjectMember[]
+  activities            ProjectActivity[]
 }
 
 model Project {

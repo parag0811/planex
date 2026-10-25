@@ -326,6 +326,37 @@ Production `DATABASE_URL` values should include TLS and a connect timeout, for e
 postgresql://user:password@host:5432/planex?sslmode=require&connect_timeout=10
 ```
 
+### Keep-alive and database availability
+
+The backend exposes three probes:
+
+- `GET /live` — process-only liveness. Does not touch Postgres or Redis.
+- `GET /health` — readiness. Pings Postgres and Redis with short timeouts.
+- `GET /keepalive` — explicit keep-alive. Pings Postgres and returns `503` if the database is unavailable. It intentionally does not touch Redis, so scheduled keep-alives do not consume Upstash commands.
+
+For production, point the external scheduler (Upstash QStash, cron, or an uptime monitor) at `/keepalive` every 5 minutes. If `KEEPALIVE_SECRET` is set, send it as the `x-keepalive-secret` header.
+
+The backend also runs an in-process database ping while it is awake. Configure it with:
+
+```text
+KEEPALIVE_INTERVAL_MS=240000
+```
+
+Set it to `0` to disable the in-process timer. A free Supabase project can still pause; use a plan that does not auto-pause for production.
+
+### Password recovery without email
+
+Planex does not send email. A signed-in user generates a one-time recovery code from **Profile → Password recovery**. The code is hashed in the database and shown once. The user can then reset their password at `/forgot-password` with their email, recovery code, and a new password.
+
+If an existing user is locked out and has no recovery code, an operator can generate one directly:
+
+```bash
+cd backend
+npx ts-node src/scripts/generateRecoveryCode.ts user@example.com
+```
+
+Give the printed code to the user through your normal support channel, then ask them to reset it immediately at `/forgot-password`.
+
 ---
 
 # 🚀 Roadmap

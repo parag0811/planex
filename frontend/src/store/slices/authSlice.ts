@@ -113,6 +113,67 @@ export const loginUser = createAsyncThunk(
   },
 );
 
+// Reset password with a recovery code (no email delivery).
+export const resetPassword = createAsyncThunk(
+  "auth/resetPassword",
+  async (
+    data: { email: string; recoveryCode: string; password: string },
+    { rejectWithValue, dispatch },
+  ) => {
+    try {
+      const res = await axiosInstance.post("/auth/reset-password", data);
+      const token = res.data.token;
+
+      localStorage.setItem("token", token);
+
+      try {
+        await dispatch(fetchUser()).unwrap();
+      } catch (error: any) {
+        if (error?.status === 401) {
+          localStorage.removeItem("token");
+          return rejectWithValue(
+            error.message || "Your session is invalid. Please log in again.",
+          );
+        }
+      }
+
+      return token;
+    } catch (error: any) {
+      const fieldErrors = error.response?.data?.fieldErrors;
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Could not reset your password.";
+
+      if (fieldErrors) {
+        return rejectWithValue({ fieldErrors, message });
+      }
+
+      return rejectWithValue(message);
+    }
+  },
+);
+
+export const generateRecoveryCode = createAsyncThunk(
+  "auth/generateRecoveryCode",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/auth/recovery-code");
+      return res.data as {
+        code: string;
+        expiresAt: string;
+        message: string;
+      };
+    } catch (error: any) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.message ||
+          "Could not generate a recovery code.",
+      );
+    }
+  },
+);
+
 // Fetch user details
 export const fetchUser = createAsyncThunk(
   "auth/fetchUser",
@@ -256,6 +317,21 @@ const authSlice = createSlice({
         } else {
            state.error = payload as string;
         }
+      })
+
+      // RESET PASSWORD
+      .addCase(resetPassword.pending, (state) => {
+        state.loginLoading = true;
+        state.error = null;
+      })
+      .addCase(resetPassword.fulfilled, (state, action) => {
+        state.loginLoading = false;
+        state.token = action.payload;
+      })
+      .addCase(resetPassword.rejected, (state, action) => {
+        state.loginLoading = false;
+        const payload = action.payload as any;
+        state.error = payload?.message ?? (payload as string);
       })
 
       // FETCH USER

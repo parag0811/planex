@@ -5,6 +5,11 @@ import { User as PrismaUser } from "../../generated/prisma/client";
 import { getSupabaseClient } from "../../utils/supabase";
 import { normalizeEmailAddress } from "../../utils/email";
 import { signAuthToken } from "../../utils/authToken";
+import {
+  RECOVERY_CODE_TTL_MS,
+  createRecoveryCode,
+  normalizeRecoveryCode,
+} from "../../utils/recoveryCode";
 
 interface UserRequest {
   name: string;
@@ -23,6 +28,12 @@ const getFrontendBaseUrl = (req: Request) => {
     process.env.FRONTEND_URL?.trim().replace(/\/$/, "") ||
     "http://localhost:3000"
   );
+};
+
+const invalidRecoveryError = () => {
+  const error = new Error("Invalid email or recovery code.") as AppError;
+  error.status = 400;
+  return error;
 };
 
 export const registerUser = async (
@@ -112,7 +123,15 @@ export const getUser = async (
   req: Request<{}, {}, {}>,
   res: Response<
     UserResponse<
-      Pick<PrismaUser, "id" | "name" | "email" | "avatarUrl" | "created_at">
+      Pick<
+        PrismaUser,
+        | "id"
+        | "name"
+        | "email"
+        | "avatarUrl"
+        | "recoveryCodeExpiresAt"
+        | "created_at"
+      >
     >
   >,
   next: NextFunction,
@@ -134,6 +153,7 @@ export const getUser = async (
         name: true,
         email: true,
         avatarUrl: true,
+        recoveryCodeExpiresAt: true,
         created_at: true,
       },
     });
@@ -196,6 +216,96 @@ export const updateUser = async (
     });
 
     return res.json({ message: "Updated User details.", status: 200 });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const generateRecoveryCode = async (
+  req: Request<{}, {}, {}>,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    if (!req.user) {
+      const error = new Error("User is not authenticated.") as AppError;
+      error.status = 401;
+      throw error;
+    }
+
+    const userId = String(req.user.id);
+    const code = createRecoveryCode();
+    const recoveryCodeHash = await bcrypt.hash(
+      normalizeRecoveryCode(code),
+      10,
+    );
+    const recoveryCodeExpiresAt = new Date(Date.now() + RECOVERY_CODE_TTL_MS);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { recoveryCodeHash, recoveryCodeExpiresAt },
+    });
+
+    return res.status(200).json({
+      code,
+      expiresAt: recoveryCodeExpiresAt.toISOString(),
+      message:
+        "Recovery code generated. Save it now; it will not be shown again.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (
+  req: Request<
+    {},
+    {},
+    { email: string; recoveryCode: string; password: string }
+  >,
+  res: Response<UserResponse>,
+  next: NextFunction,
+) => {
+  try {
+    const email = normalizeEmailAddress(req.body.email);
+    const recoveryCode = normalizeRecoveryCode(req.body.recoveryCode);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (
+      !user?.recoveryCodeHash ||
+      !user.recoveryCodeExpiresAt ||
+      user.recoveryCodeExpiresAt.getTime() < Date.now()
+    ) {
+      throw invalidRecoveryError();
+    }
+
+    const matches = await bcrypt.compare(
+      recoveryCode,
+      user.recoveryCodeHash,
+    );
+
+    if (!matches) {
+      throw invalidRecoveryError();
+    }
+
+    const passwordHash = await bcrypt.hash(req.body.password, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: passwordHash,
+        recoveryCodeHash: null,
+        recoveryCodeExpiresAt: null,
+      },
+    });
+
+    const token = signAuthToken(user.id);
+
+    return res.status(200).json({
+      token,
+      message: "Password updated. You are signed in.",
+    });
   } catch (error) {
     next(error);
   }

@@ -757,7 +757,7 @@ export default function DatabasePage() {
                   fieldErrors[`entities.${entityIndex}.fields`];
 
                 return (
-                  <Card key={`${entity.name}-${entityIndex}`} className="p-4">
+                  <Card key={`entity-${entityIndex}`} className="p-4">
                     {isEditing ? (
                       <div className="space-y-2">
                         <div className="flex items-start gap-2">
@@ -826,7 +826,7 @@ export default function DatabasePage() {
                       {entity.fields.map((field, fieldIndex) =>
                         isEditing ? (
                           <div
-                            key={`${field.name}-${fieldIndex}`}
+                            key={`field-${entityIndex}-${fieldIndex}`}
                             className="space-y-2 py-2"
                           >
                             <div className="flex items-start gap-2">
@@ -938,7 +938,7 @@ export default function DatabasePage() {
                           </div>
                         ) : (
                           <div
-                            key={`${field.name}-${fieldIndex}`}
+                            key={`field-${entityIndex}-${fieldIndex}`}
                             className="grid grid-cols-[minmax(0,1fr)_60px_40px_34px] items-start gap-2 py-1.5"
                           >
                             <div className="min-w-0">

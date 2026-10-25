@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import type { Request } from "express";
 import cors from "cors";
 import passport from "./modules/auth/passport-auth/passport";
 import authRoutes from "./modules/auth/auth.route";
@@ -76,6 +77,41 @@ const getDependencyChecks = async () => {
   };
 };
 
+const keepAliveIntervalMs = (() => {
+  const parsed = Number(process.env.KEEPALIVE_INTERVAL_MS);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  return process.env.NODE_ENV === "production" ? 4 * 60 * 1000 : 0;
+})();
+
+const isKeepAliveAuthorized = (req: Request) => {
+  const secret = process.env.KEEPALIVE_SECRET;
+  if (!secret) return true;
+  return req.get("x-keepalive-secret") === secret;
+};
+
+const startDatabaseKeepAlive = () => {
+  if (keepAliveIntervalMs <= 0) return;
+
+  const timer = setInterval(async () => {
+    try {
+      await withTimeout(prisma.$queryRaw`SELECT 1`, 5000);
+    } catch (error) {
+      console.error(
+        "Database keep-alive failed:",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }, keepAliveIntervalMs);
+
+  // Do not keep the Node process alive only for the timer.
+  timer.unref();
+  console.log(
+    `Database keep-alive enabled every ${Math.round(
+      keepAliveIntervalMs / 1000,
+    )}s`,
+  );
+};
+
 // Process-only liveness probe. Never checks dependencies, so it cannot flap
 // because of a transient Redis/Postgres hiccup.
 app.get(["/live", "/api/live"], (req, res) => {
@@ -106,6 +142,28 @@ app.get(
     });
   },
 );
+
+// Explicit keep-alive endpoint for external schedulers (Upstash QStash, cron,
+// uptime monitors). Unlike /live, this deliberately touches Postgres so a
+// paused/idle database is kept active. Point the scheduler at this URL.
+app.get(["/keepalive", "/api/keepalive"], async (req, res) => {
+  if (!isKeepAliveAuthorized(req)) {
+    return res.status(401).json({ status: "unauthorized" });
+  }
+
+  const databaseOk = await withTimeout(prisma.$queryRaw`SELECT 1`, 5000)
+    .then(() => true)
+    .catch(() => false);
+
+  return res.status(databaseOk ? 200 : 503).json({
+    status: databaseOk ? "ok" : "degraded",
+    message: databaseOk
+      ? "Database keep-alive succeeded"
+      : "Database keep-alive failed",
+    checks: { database: databaseOk },
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -172,4 +230,5 @@ aiWorker
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  startDatabaseKeepAlive();
 });

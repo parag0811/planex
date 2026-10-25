@@ -9,6 +9,10 @@ import { logActivity } from "../project-activity/activity.service";
 import { TYPES } from "../../generated/prisma/enums";
 import { aiQueue } from "../queues/aiQueue";
 import { getJsonCache, setJsonCache } from "../../db/cache";
+import {
+  getSectionFieldErrors,
+  validateSectionContent,
+} from "./section.validation";
 
 interface QueueResponse {
   status: string;
@@ -77,14 +81,24 @@ export const upsertSection = async (
   try {
     const { projectId, type } = req.params;
     const { content } = req.body;
+    const sectionType = String(type).toUpperCase() as TYPES;
+
+    const validation = validateSectionContent(sectionType, content);
+
+    if (!validation.success) {
+      const error = new Error("Section content is invalid.") as AppError;
+      error.status = 422;
+      error.fieldErrors = getSectionFieldErrors(validation.error);
+      throw error;
+    }
 
     const section = await upsertSectionService(
       projectId,
-      type as TYPES,
-      content,
+      sectionType,
+      validation.data,
     );
 
-    const cacheKey = `section:${projectId}:${type}`;
+    const cacheKey = `section:${projectId}:${sectionType}`;
 
     await setJsonCache(cacheKey, section, 86400);
 
@@ -92,7 +106,7 @@ export const upsertSection = async (
       projectId,
       req.user?.id ? String(req.user.id) : null,
       "UPDATED_SECTION",
-      `Updated the ${type} section`,
+      `Updated the ${sectionType} section`,
     );
 
     return res.status(200).json({
@@ -497,11 +511,23 @@ export const acceptIdeaPreview = async (
       throw error;
     }
 
+    const validation = validateSectionContent(
+      TYPES.IDEA,
+      generatedContent,
+    );
+
+    if (!validation.success) {
+      const error = new Error("Section content is invalid.") as AppError;
+      error.status = 422;
+      error.fieldErrors = getSectionFieldErrors(validation.error);
+      throw error;
+    }
+
     // Save to database using upsert
     const section = await upsertSectionService(
       projectId,
       TYPES.IDEA,
-      generatedContent,
+      validation.data,
     );
 
     // Cache the accepted section

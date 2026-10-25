@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/src/components/ui/badge";
 import { Brand } from "@/src/components/layout/brand";
 
-type AuthMode = "login" | "register";
+type AuthMode = "login" | "register" | "forgot";
 
 const COPY: Record<
   AuthMode,
@@ -51,6 +51,21 @@ const COPY: Record<
     description:
       "Turn a rough idea into a clear blueprint. AI drafts it. You review, edit and make it yours.",
     navPrompt: "Already have an account?",
+    navAction: "Log in",
+    navHref: "/login",
+  },
+  forgot: {
+    eyebrow: "RECOVERY. NO EMAIL REQUIRED.",
+    headline: (
+      <>
+        Get back into
+        <br />
+        your workspace.
+      </>
+    ),
+    description:
+      "Use the recovery code saved from your profile to choose a new password. Planex never sends email.",
+    navPrompt: "Remembered your password?",
     navAction: "Log in",
     navHref: "/login",
   },
@@ -138,7 +153,7 @@ export function AuthShell({ mode, children }: AuthShellProps) {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-canvas">
-      <header className="flex h-[72px] shrink-0 items-center justify-between px-5 sm:h-[88px] sm:px-8 lg:px-16">
+      <header className="flex h-16 shrink-0 items-center justify-between px-5 sm:h-20 sm:px-8 lg:px-16">
         <Brand />
 
         <div className="flex items-center gap-4 sm:gap-8">
@@ -154,14 +169,14 @@ export function AuthShell({ mode, children }: AuthShellProps) {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1152px] flex-1 flex-col gap-10 px-5 py-6 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-16 lg:px-0 lg:py-16">
+      <main className="mx-auto flex w-full max-w-[1152px] flex-1 flex-col gap-8 px-5 py-4 sm:px-8 sm:py-6 lg:flex-row lg:items-center lg:justify-between lg:gap-16 lg:px-0 lg:py-10">
         <div className="hidden lg:block">
           <ProductIntroduction mode={mode} />
         </div>
         <div className="w-full lg:w-[432px] lg:shrink-0">{children}</div>
       </main>
 
-      <footer className="flex h-[72px] shrink-0 items-center justify-between px-5 sm:px-8 lg:px-16">
+      <footer className="flex h-16 shrink-0 items-center justify-between px-5 sm:px-8 lg:px-16">
         <p className="text-[11px] text-ink-muted">
           Built for the thinking before the code.
         </p>

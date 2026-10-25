@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { AlertCircle, CheckCircle2, Save } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  KeyRound,
+  Save,
+} from "lucide-react";
 import {
   Avatar,
   Button,
@@ -12,7 +18,11 @@ import {
   Input,
 } from "@/src/components/ui";
 import { cn } from "@/src/lib/cn";
-import { updateUserProfile } from "@/src/store/slices/authSlice";
+import {
+  fetchUser,
+  generateRecoveryCode,
+  updateUserProfile,
+} from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
 
 const formatDate = (value?: string) => {
@@ -40,8 +50,25 @@ export default function ProfilePage() {
   const [statusType, setStatusType] = useState<"success" | "error" | null>(
     null,
   );
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [recoveryExpiresAt, setRecoveryExpiresAt] = useState<string | null>(
+    user?.recoveryCodeExpiresAt ?? null,
+  );
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryCopied, setRecoveryCopied] = useState(false);
 
   const avatarPreview = user?.avatarUrl || user?.avatar || user?.image || "";
+
+  useEffect(() => {
+    setRecoveryExpiresAt(user?.recoveryCodeExpiresAt ?? null);
+  }, [user?.recoveryCodeExpiresAt]);
+
+  useEffect(() => {
+    if (!recoveryCopied) return;
+    const timer = setTimeout(() => setRecoveryCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [recoveryCopied]);
 
   useEffect(() => {
     if (!statusMessage) return;
@@ -89,7 +116,43 @@ export default function ProfilePage() {
     }
   };
 
+  const handleGenerateRecoveryCode = async () => {
+    setRecoveryLoading(true);
+    setRecoveryError(null);
+    setRecoveryCode(null);
+    setRecoveryCopied(false);
+
+    try {
+      const result = await dispatch(generateRecoveryCode()).unwrap();
+      setRecoveryCode(result.code);
+      setRecoveryExpiresAt(result.expiresAt);
+      dispatch(fetchUser());
+    } catch (recoveryFailure) {
+      setRecoveryError(
+        typeof recoveryFailure === "string"
+          ? recoveryFailure
+          : "Could not generate a recovery code.",
+      );
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
+  const copyRecoveryCode = async () => {
+    if (!recoveryCode) return;
+
+    try {
+      await navigator.clipboard.writeText(recoveryCode);
+      setRecoveryCopied(true);
+    } catch {
+      setRecoveryError("Could not copy the recovery code.");
+    }
+  };
+
   const displayMessage = statusMessage || error;
+  const recoveryActive = Boolean(
+    recoveryExpiresAt && new Date(recoveryExpiresAt).getTime() > Date.now(),
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1000px] px-5 py-6 sm:px-8 sm:py-8">
@@ -185,6 +248,74 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-xl">
+              <h2 className="text-[14px] font-semibold text-ink">
+                Password recovery
+              </h2>
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-muted">
+                Planex does not send email. Generate a recovery code now and
+                keep it somewhere safe. You will need it to reset your password
+                if you forget it.
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              onClick={() => void handleGenerateRecoveryCode()}
+              loading={recoveryLoading}
+              leftIcon={<KeyRound size={15} />}
+            >
+              Generate new code
+            </Button>
+          </div>
+
+          <p className="mt-3 text-[11px] text-ink-muted">
+            {recoveryActive
+              ? `A recovery code is active until ${formatDate(
+                  recoveryExpiresAt ?? undefined,
+                )}.`
+              : recoveryExpiresAt
+                ? `Your last recovery code expired on ${formatDate(
+                    recoveryExpiresAt,
+                  )}. Generate a new one.`
+                : "No recovery code yet."}
+          </p>
+
+          {recoveryCode ? (
+            <div className="mt-4 rounded-lg border border-brand/25 bg-brand-soft p-4">
+              <p className="text-[11px] font-semibold text-brand">
+                Your new recovery code — shown once
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <code className="min-w-0 flex-1 rounded-md bg-surface px-3 py-2 font-mono text-[14px] tracking-[0.16em] text-ink">
+                  {recoveryCode}
+                </code>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Copy size={14} />}
+                  onClick={() => void copyRecoveryCode()}
+                >
+                  {recoveryCopied ? "Copied" : "Copy"}
+                </Button>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-brand">
+                Save it now. It will not be shown again. Expires{" "}
+                {formatDate(recoveryExpiresAt ?? undefined)}.
+              </p>
+            </div>
+          ) : null}
+
+          {recoveryError ? (
+            <p className="mt-3 text-[11px] text-danger" role="alert">
+              {recoveryError}
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardContent className="p-6">

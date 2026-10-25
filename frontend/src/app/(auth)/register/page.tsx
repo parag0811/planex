@@ -11,6 +11,7 @@ import { PasswordInput } from "@/src/components/auth/password-input";
 import { Button } from "@/src/components/ui/button";
 import { Field } from "@/src/components/ui/field";
 import { Input } from "@/src/components/ui/input";
+import { useMounted } from "@/src/hooks/useMounted";
 import { useRedirectIfAuthenticated } from "@/src/hooks/useRedirectIfAuthenticated";
 import { clearAuthErrors, registerUser } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
@@ -23,6 +24,7 @@ export default function RegisterPage() {
     (state: RootState) => state.auth,
   );
   const { isCheckingAuth } = useRedirectIfAuthenticated();
+  const mounted = useMounted();
 
   const [form, setForm] = useState({
     name: "",
@@ -89,7 +91,7 @@ export default function RegisterPage() {
     }
   };
 
-  if (isCheckingAuth) {
+  if (!mounted || isCheckingAuth) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-canvas">
         <div
@@ -102,30 +104,30 @@ export default function RegisterPage() {
 
   return (
     <AuthShell mode="register">
-      <div className="rounded-lg border border-line bg-surface p-5 sm:p-8">
-        <div className="space-y-3">
+      <div className="rounded-lg border border-line bg-surface p-5 sm:p-7">
+        <div className="space-y-2">
           <p className="font-mono text-[11px] leading-relaxed text-brand">
             A SOLID PLACE TO START
           </p>
-          <h1 className="text-[32px] leading-[1.21] text-ink">
+          <h1 className="text-[28px] leading-[1.2] text-ink sm:text-[32px]">
             Create your account.
           </h1>
-          <p className="text-[13px] leading-[1.6] text-ink-muted">
+          <p className="text-[12px] leading-[1.55] text-ink-muted sm:text-[13px]">
             A little setup. A clearer path from idea to code.
           </p>
         </div>
 
         {registerError ? (
-          <div className="mt-5">
+          <div className="mt-4">
             <AuthAlert tone="error">{registerError}</AuthAlert>
           </div>
         ) : null}
 
-        <div className="mt-6">
+        <div className="mt-4">
           <OAuthButtons />
         </div>
 
-        <div className="my-5 flex items-center gap-3">
+        <div className="my-4 flex items-center gap-3">
           <span className="h-px flex-1 bg-line" />
           <span className="text-[11px] text-ink-muted">
             or use your email
@@ -133,7 +135,7 @@ export default function RegisterPage() {
           <span className="h-px flex-1 bg-line" />
         </div>
 
-        <form onSubmit={handleRegister} noValidate className="space-y-4">
+        <form onSubmit={handleRegister} noValidate className="space-y-3">
           <Field label="Full name" htmlFor="name" error={fieldErrors.name}>
             <Input
               id="name"
@@ -176,7 +178,7 @@ export default function RegisterPage() {
             />
           </Field>
 
-          <p className="text-[11px] leading-[1.65] text-ink-muted">
+          <p className="text-[10px] leading-[1.6] text-ink-muted">
             By creating an account, you agree to our Terms and Privacy Policy.
           </p>
 
@@ -189,7 +191,7 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-ink-muted">
+        <p className="mt-4 text-center text-xs text-ink-muted">
           Already have an account?{" "}
           <Link
             href="/login"

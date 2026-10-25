@@ -6,6 +6,8 @@ import {
   registerUser,
   getUser,
   updateUser,
+  generateRecoveryCode,
+  resetPassword,
   githubAuthController,
   googleAuthController,
 } from "./auth.controller";
@@ -161,6 +163,34 @@ const loginValidation = [
   body("password").trim().notEmpty().withMessage("Password is required."),
 ];
 
+const resetPasswordValidation = [
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required.")
+    .bail()
+    .isEmail()
+    .withMessage("Enter a valid email.")
+    .customSanitizer(normalizeEmailAddress),
+  body("recoveryCode")
+    .trim()
+    .notEmpty()
+    .withMessage("Recovery code is required.")
+    .bail()
+    .isLength({ min: 8, max: 64 })
+    .withMessage("Recovery code is invalid."),
+  body("password")
+    .trim()
+    .notEmpty()
+    .withMessage("Password is required.")
+    .bail()
+    .isLength({ min: 12 })
+    .withMessage("Password must be at least 12 characters.")
+    .bail()
+    .matches(/\d/)
+    .withMessage("Password must include at least one number."),
+];
+
 router.post(
   "/register",
   registerValidation,
@@ -175,6 +205,16 @@ router.post(
   handleValidationErrors,
   loginUser,
 );
+
+router.post(
+  "/reset-password",
+  authLimiter,
+  resetPasswordValidation,
+  handleValidationErrors,
+  resetPassword,
+);
+
+router.post("/recovery-code", isAuth, authLimiter, generateRecoveryCode);
 
 router.get("/me", isAuth, getUser);
 

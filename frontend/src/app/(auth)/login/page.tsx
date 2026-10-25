@@ -11,6 +11,7 @@ import { PasswordInput } from "@/src/components/auth/password-input";
 import { Button } from "@/src/components/ui/button";
 import { Field } from "@/src/components/ui/field";
 import { Input } from "@/src/components/ui/input";
+import { useMounted } from "@/src/hooks/useMounted";
 import { useRedirectIfAuthenticated } from "@/src/hooks/useRedirectIfAuthenticated";
 import { clearAuthErrors, loginUser } from "@/src/store/slices/authSlice";
 import type { AppDispatch, RootState } from "@/src/store/store";
@@ -35,6 +36,7 @@ function LoginForm() {
     (state: RootState) => state.auth,
   );
   const { isCheckingAuth } = useRedirectIfAuthenticated();
+  const mounted = useMounted();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -73,7 +75,7 @@ function LoginForm() {
     }
   };
 
-  if (isCheckingAuth) return <AuthChecking />;
+  if (!mounted || isCheckingAuth) return <AuthChecking />;
 
   return (
     <AuthShell mode="login">
@@ -166,6 +168,15 @@ function LoginForm() {
               }}
             />
           </Field>
+
+          <div className="flex justify-end">
+            <Link
+              href="/forgot-password"
+              className="text-xs text-brand transition-colors hover:text-brand-hover hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
 
           <Button type="submit" className="w-full" loading={loginLoading}>
             Log in

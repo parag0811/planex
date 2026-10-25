@@ -57,6 +57,16 @@ const getErrorMessage = (error: any, fallback: string) => {
 		}
 	}
 
+	const fieldErrors = responseData?.fieldErrors;
+
+	if (fieldErrors && typeof fieldErrors === "object") {
+		const first = Object.entries(fieldErrors)[0];
+
+		if (first) {
+			return `${first[0]}: ${first[1]}`;
+		}
+	}
+
 	if (typeof responseData?.message === "string") {
 		return responseData.message;
 	}
