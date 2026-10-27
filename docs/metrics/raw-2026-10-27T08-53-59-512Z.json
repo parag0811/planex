@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-10-27T08:52:20.057Z",
+  "node": "v24.21.0",
+  "platform": "Windows_NT 10.0.26300 x64",
+  "redis": {
+    "ping": {
+      "n": 200,
+      "avg": 28.1,
+      "min": 26.7,
+      "p50": 28,
+      "p95": 29.5,
+      "p99": 31,
+      "max": 33
+    },
+    "set": {
+      "n": 200,
+      "avg": 28.2,
+      "min": 26.7,
+      "p50": 28.1,
+      "p95": 29.7,
+      "p99": 31.2,
+      "max": 31.8
+    },
+    "get": {
+      "n": 200,
+      "avg": 28.5,
+      "min": 26.8,
+      "p50": 28,
+      "p95": 31.4,
+      "p99": 36.8,
+      "max": 42.2
+    },
+    "pipelineTotal": 39.3022000000019,
+    "pipelinePerCommand": 0.07860440000000381
+  },
+  "ai": {
+    "cold": {
+      "n": 5,
+      "avg": 10585.4,
+      "min": 7682.4,
+      "p50": 10675.6,
+      "p95": 13839.1,
+      "p99": 13839.1,
+      "max": 13839.1
+    },
+    "warm": {
+      "n": 5,
+      "avg": 29.6,
+      "min": 28.6,
+      "p50": 29.3,
+      "p95": 30.6,
+      "p99": 30.6,
+      "max": 30.6
+    },
+    "hitRate": 50,
+    "speedup": 364.35494880546077,
+    "avgTokens": 2466.8,
+    "failures": [],
+    "failovers": 0,
+    "providers": [
+      "gemini/gemini-3-flash-preview",
+      "gemini/gemini-3-flash-preview",
+      "gemini/gemini-3-flash-preview",
+      "gemini/gemini-3-flash-preview",
+      "gemini/gemini-3-flash-preview"
+    ],
+    "model": "gemini-3-flash-preview"
+  },
+  "queue": {
+    "total": 200,
+    "enqueue": {
+      "n": 200,
+      "avg": 32.5,
+      "min": 25.1,
+      "p50": 28.5,
+      "p95": 32.8,
+      "p99": 262.6,
+      "max": 266.1
+    },
+    "enqueueThroughput": 30.77922312563693,
+    "drainMs": 2258.1987999999983,
+    "drainThroughput": 88.5661616683173,
+    "completed": 200
+  },
+  "http": {
+    "live": {
+      "rps": 10556.73,
+      "p50": 4,
+      "p975": 5,
+      "p99": 6,
+      "total": 116119,
+      "errors": 0
+    },
+    "health": {
+      "rps": 49.4,
+      "p50": 87,
+      "p975": 92,
+      "p99": 733,
+      "total": 247,
+      "errors": 0,
+      "non2xx": 0
+    }
+  },
+  "rateLimit": {
+    "total": 1100,
+    "allowed": 1000,
+    "limited": 100,
+    "other": 0,
+    "firstLimitedAt": 1403.726600000009,
+    "elapsed": 1516.8745000000054,
+    "removed": 1
+  }
+}

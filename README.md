@@ -359,6 +359,44 @@ Give the printed code to the user through your normal support channel, then ask 
 
 ---
 
+# 📊 Performance Benchmarks
+
+Measured against the **live stack** — real Upstash Redis, real Supabase Postgres,
+and real Gemini calls. Nothing is simulated or hard-coded.
+
+Full methodology, per-operation tables and raw JSON:
+[`docs/metrics/RESULTS.md`](docs/metrics/RESULTS.md)
+
+| Metric | Result |
+|---|---|
+| Cold AI generation (real LLM call) | 10,676 ms p50 · 13,839 ms p95 · n=5 |
+| Cached generation (Redis) | **29.3 ms p50** · 30.6 ms p95 · n=5 |
+| **Cache speedup** | **364×** |
+| API response for an AI request | **32.8 ms p95** (returns a job ID) |
+| Redis round-trip (PING) | 28 ms p50 · 29.5 ms p95 · 31 ms p99 |
+| Redis pipelined reads | 12,722 commands/sec |
+| BullMQ enqueue | 30.8 jobs/s · 28.5 ms p50 · 32.8 ms p95 |
+| BullMQ drain (concurrency 3) | 88.6 jobs/s · 200/200 jobs |
+| HTTP throughput, no dependencies | **10,557 req/s** · p99 6 ms · 0 errors |
+| HTTP readiness, Postgres + Redis | 49.4 req/s · 87 ms p50 |
+| Distributed rate limiter | exactly 1,000 allowed / 100 rejected (1,100 burst) |
+| Generation success rate | 5/5 · 2,467 avg tokens per call |
+
+```bash
+cd backend
+npm run bench      # writes docs/metrics/RESULTS.md and raw JSON
+```
+
+The harness measures Redis round-trip latency, cold-vs-cached AI generation,
+BullMQ enqueue/drain throughput, HTTP throughput under load (autocannon), and
+rate-limiter enforcement. It starts the API automatically if it is not running.
+
+> Note on Redis latency: the managed Redis instance is remote, so ~28 ms of every
+> command is network round-trip, not server work. Pipelining drops the per-command
+> cost to 0.08 ms by batching 500 reads into one round-trip.
+
+---
+
 # 🚀 Roadmap
 
 Upcoming features:

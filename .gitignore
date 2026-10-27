@@ -19,7 +19,9 @@ design/**/*.jpeg
 design/figma/_view.html
 
 # Internal planning docs and local tooling (not shipped)
-docs/
+docs/*
+!docs/metrics/
+BENCHMARK_EXPLAINED.md
 implementation_plan.md
 PRODUCTION_BUG_AUDIT.md
 opencode.json

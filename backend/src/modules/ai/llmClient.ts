@@ -5,6 +5,29 @@ interface LlmRequestOptions {
   signal?: AbortSignal;
 }
 
+export interface LlmCallRecord {
+  provider: "gemini" | "groq";
+  model: string;
+  durationMs: number;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+}
+
+/**
+ * Append-only, in-process log of real provider calls.
+ * Used by the benchmark harness (`npm run bench`) and safe to read at any time.
+ */
+export const llmCallLog: LlmCallRecord[] = [];
+
+/** Primary-provider failures that were recovered by falling back to the other provider. */
+export interface LlmFailureRecord {
+  provider: "gemini" | "groq";
+  message: string;
+}
+
+export const llmFailureLog: LlmFailureRecord[] = [];
+
 const getProvider = (): "gemini" | "groq" => {
   if (process.env.AI_PROVIDER) {
     return process.env.AI_PROVIDER.toLowerCase() === "groq" ? "groq" : "gemini";
@@ -41,6 +64,7 @@ const callGemini = async (
   });
 
   try {
+    const startedAt = performance.now();
     const result = await model.generateContent(
       prompt,
       options.signal ? { signal: options.signal } : undefined,
@@ -52,6 +76,17 @@ const callGemini = async (
       console.error(`❌ [EMPTY_RESPONSE] Gemini returned empty content for model ${modelName}.`);
       throw new Error(`[EMPTY_RESPONSE] Gemini returned empty content.`);
     }
+
+    const usage = response.usageMetadata;
+
+    llmCallLog.push({
+      provider: "gemini",
+      model: modelName,
+      durationMs: Math.round(performance.now() - startedAt),
+      promptTokens: usage?.promptTokenCount ?? null,
+      completionTokens: usage?.candidatesTokenCount ?? null,
+      totalTokens: usage?.totalTokenCount ?? null,
+    });
 
     console.log(`✅ Gemini returned ${text.length} chars using model ${modelName}`);
     return text;
@@ -85,6 +120,7 @@ const callGroq = async (
 
   const isDeepSeek = model.toLowerCase().includes("deepseek");
 
+  const startedAt = performance.now();
   const chatCompletion = await groq.chat.completions.create(
     {
       messages: [{ role: "user", content: prompt }],
@@ -105,6 +141,15 @@ const callGroq = async (
 
   // Clean reasoning <think>...</think> tags if using DeepSeek/reasoning models
   text = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  llmCallLog.push({
+    provider: "groq",
+    model,
+    durationMs: Math.round(performance.now() - startedAt),
+    promptTokens: chatCompletion.usage?.prompt_tokens ?? null,
+    completionTokens: chatCompletion.usage?.completion_tokens ?? null,
+    totalTokens: chatCompletion.usage?.total_tokens ?? null,
+  });
 
   console.log(`✅ Groq returned ${text.length} chars using model ${model}`);
   return text;
@@ -132,9 +177,11 @@ export const callLLM = async (
 
     // Graceful fallback if both keys exist
     if (provider === "gemini" && process.env.GROQ_API_KEY) {
+      llmFailureLog.push({ provider, message: errorMsg });
       console.warn("⚠️ Falling back to Groq after Gemini failure...");
       return await callGroq(prompt, options);
     } else if (provider === "groq" && process.env.GEMINI_API_KEY) {
+      llmFailureLog.push({ provider, message: errorMsg });
       console.warn("⚠️ Falling back to Gemini after Groq failure...");
       return await callGemini(prompt, options);
     }
